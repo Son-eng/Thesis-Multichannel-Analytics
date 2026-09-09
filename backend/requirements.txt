@@ -6,8 +6,21 @@
 # không còn thời gian sửa. Ghim cứng thì cài lại luôn ra đúng môi
 # trường đã chạy được lúc bảo vệ.
 #
-# Toàn bộ danh sách này đã kiểm chứng cài được trên Python 3.14.3
-# (phiên bản đang dùng trên máy phát triển).
+# ============================================================
+# YÊU CẦU: Python 3.12
+# ------------------------------------------------------------
+# Máy phát triển có sẵn 3.12 / 3.13 / 3.14. Chọn 3.12 (không phải
+# bản mới nhất) một cách có chủ đích:
+#   - pandas 2.2 là nhánh có nhiều tài liệu và câu hỏi/đáp nhất.
+#     Sinh viên tự tra cứu khi debug sẽ tìm được đúng thứ mình gặp;
+#     pandas 3.0 quá mới nên gần như không có tài liệu ngoài docs gốc.
+#   - Ít rủi ro gói phụ thiếu bản build sẵn cho phiên bản Python mới.
+#
+# Tạo môi trường:
+#   py -3.12 -m venv .venv
+#   .venv\Scripts\activate
+#   pip install -r requirements.txt
+# ============================================================
 
 # --- Web framework ---
 fastapi==0.141.1
@@ -19,16 +32,20 @@ sqlalchemy==2.0.52
 alembic==1.19.2
 
 # psycopg 3, KHÔNG phải psycopg2-binary.
-# Lý do bắt buộc: psycopg2-binary chưa có bản build sẵn cho Python 3.14
-# nên pip sẽ cố biên dịch từ mã nguồn và lỗi (thiếu trình biên dịch C).
-# psycopg 3 có sẵn bản build cho 3.14.
+# Trên Python 3.12 thì psycopg2-binary vẫn cài được, nhưng vẫn chọn
+# psycopg 3 vì: đây là bản đang được phát triển tiếp (psycopg2 chỉ còn
+# vá lỗi), hỗ trợ Python mới tốt hơn nếu sau này cần nâng phiên bản.
 # HỆ QUẢ QUAN TRỌNG: chuỗi kết nối phải viết là
 #     postgresql+psycopg://...
 # Nếu chỉ viết postgresql:// thì SQLAlchemy mặc định tìm psycopg2 -> lỗi.
 psycopg[binary]==3.3.5
 
 # --- Xử lý dữ liệu ---
-pandas==3.0.5
+# pandas 2.2 (không phải 3.x). Khác biệt quan trọng cần biết:
+# pandas 3.x đổi kiểu chuỗi mặc định và GIỮ NaN qua .astype(str),
+# còn pandas 2.x biến NaN thành chuỗi "nan". Bẫy này có thật với
+# 6 dòng SKU rỗng của Shopee - xem SPEC §5.1 CẢNH BÁO 2.
+pandas==2.2.3
 
 # --- Cấu hình ---
 pydantic-settings==2.15.0     # đọc .env vào object có kiểu rõ ràng
