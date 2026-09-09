@@ -1,0 +1,48 @@
+# ============================================================
+# Dữ liệu thật có PII — TUYỆT ĐỐI KHÔNG commit (SPEC §15.1)
+# ------------------------------------------------------------
+# 2 file CSV gốc chứa họ tên, SĐT, email, địa chỉ đến cấp
+# phường/xã của khách hàng thật, và tài khoản KOL.
+# Bài nộp cuối kỳ gồm thư mục Source/ gửi qua email cho khoa
+# -> nếu lỡ commit thì PII bị phát tán và KHÔNG thu hồi được
+# (file vẫn nằm trong git history dù sau đó có xóa).
+# ============================================================
+data/samples/Shopee*.csv
+data/samples/TikTok*.csv
+
+# Bản đã ẩn danh thì ngược lại: BẮT BUỘC commit để chạy test.
+# Dòng phủ định phải đặt SAU các dòng chặn ở trên mới có tác dụng.
+!data/samples/*_anonymized.csv
+
+# ------------------------------------------------------------
+# Bí mật cấu hình
+# ------------------------------------------------------------
+.env
+*.env
+!.env.example
+
+# ------------------------------------------------------------
+# Python
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ------------------------------------------------------------
+# Node / frontend
+# ------------------------------------------------------------
+node_modules/
+dist/
+.vite/
+
+# ------------------------------------------------------------
+# IDE và hệ điều hành
+# ------------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

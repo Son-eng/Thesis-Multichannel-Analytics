@@ -1,0 +1,37 @@
+# Phiên bản được GHIM CHÍNH XÁC (==), không dùng >= hay ~=.
+#
+# Lý do: bài nộp khóa luận gồm thư mục Source/ và người chấm có thể
+# cài lại trên máy khác, ở thời điểm khác. Nếu để >= thì vài tháng nữa
+# pip kéo về phiên bản mới hơn, API đổi, code không chạy - mà lúc đó
+# không còn thời gian sửa. Ghim cứng thì cài lại luôn ra đúng môi
+# trường đã chạy được lúc bảo vệ.
+#
+# Toàn bộ danh sách này đã kiểm chứng cài được trên Python 3.14.3
+# (phiên bản đang dùng trên máy phát triển).
+
+# --- Web framework ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32      # cần cho upload file qua form (SPEC §12)
+
+# --- Cơ sở dữ liệu ---
+sqlalchemy==2.0.52
+alembic==1.19.2
+
+# psycopg 3, KHÔNG phải psycopg2-binary.
+# Lý do bắt buộc: psycopg2-binary chưa có bản build sẵn cho Python 3.14
+# nên pip sẽ cố biên dịch từ mã nguồn và lỗi (thiếu trình biên dịch C).
+# psycopg 3 có sẵn bản build cho 3.14.
+# HỆ QUẢ QUAN TRỌNG: chuỗi kết nối phải viết là
+#     postgresql+psycopg://...
+# Nếu chỉ viết postgresql:// thì SQLAlchemy mặc định tìm psycopg2 -> lỗi.
+psycopg[binary]==3.3.5
+
+# --- Xử lý dữ liệu ---
+pandas==3.0.5
+
+# --- Cấu hình ---
+pydantic-settings==2.15.0     # đọc .env vào object có kiểu rõ ràng
+
+# --- Kiểm thử ---
+pytest==9.1.1

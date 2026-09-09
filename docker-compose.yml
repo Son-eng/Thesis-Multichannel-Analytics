@@ -1,0 +1,59 @@
+# Hạ tầng cho môi trường phát triển: chỉ chạy PostgreSQL.
+#
+# Vì sao KHÔNG đóng gói cả backend/frontend vào Docker:
+#   - Demo và bảo vệ khóa luận chạy trên máy cá nhân, không deploy server.
+#   - Chạy app trực tiếp bằng Python/Node thì sửa code là thấy ngay,
+#     không phải build lại image -> vòng lặp làm việc nhanh hơn nhiều.
+#   - Ít thành phần hơn thì dễ giải thích trước hội đồng hơn.
+# Chỉ Postgres nằm trong Docker vì đó là thứ khó cài tay trên Windows nhất.
+
+services:
+  postgres:
+    # Ghim phiên bản cụ thể, KHÔNG dùng tag "latest".
+    # Lý do: "latest" thay đổi theo thời gian -> vài tháng nữa mở lại
+    # project có thể gặp Postgres phiên bản khác và lỗi không rõ nguyên nhân.
+    # Khóa luận cần chạy lại được đúng như lúc bảo vệ.
+    image: postgres:16.4-alpine
+    container_name: thesis_postgres
+
+    environment:
+      POSTGRES_USER: thesis
+      POSTGRES_PASSWORD: thesis_dev_password
+      POSTGRES_DB: thesis_analytics
+      # Bắt Postgres so sánh chuỗi theo chuẩn UTF-8.
+      # Cần vì dữ liệu có tiếng Việt có dấu (tên tỉnh, tên sản phẩm,
+      # trạng thái đơn hàng) - nếu sai encoding thì ORDER BY và so sánh
+      # chuỗi cho kết quả sai.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+
+    ports:
+      # Cổng 5434 ở máy host, ánh xạ vào 5432 bên trong container.
+      #
+      # Vì sao không dùng 5432 hay 5433: máy phát triển này ĐÃ có 2
+      # PostgreSQL khác đang chạy (đã kiểm tra thực tế, không phải phỏng đoán):
+      #   - 5432: bản PostgreSQL cài trực tiếp trên Windows
+      #   - 5433: container "sme_postgres_db" của một dự án khác
+      # Cả hai đều không liên quan đề tài này và KHÔNG được đụng vào.
+      #
+      # Nếu chạy trên máy khác mà 5434 cũng bận: đổi số ở vế trái
+      # (vd "5435:5432") rồi sửa cổng tương ứng trong backend/.env
+      - "5434:5432"
+
+    volumes:
+      # Volume có tên -> dữ liệu còn nguyên sau khi "docker compose down".
+      # Muốn xóa sạch để nạp lại từ đầu: docker compose down -v
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      # Cần healthcheck vì Postgres mất vài giây mới sẵn sàng nhận kết nối.
+      # Không có nó, chạy migration ngay sau "docker compose up" sẽ lỗi
+      # "connection refused" một cách ngẫu nhiên, rất khó tìm nguyên nhân.
+      test: ["CMD-SHELL", "pg_isready -U thesis -d thesis_analytics"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
