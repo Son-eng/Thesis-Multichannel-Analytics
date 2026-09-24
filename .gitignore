@@ -15,6 +15,22 @@ data/samples/TikTok*.csv
 !data/samples/*_anonymized.csv
 
 # ------------------------------------------------------------
+# Thư mục nạp dữ liệu tự động (SPEC §2.4)
+# ------------------------------------------------------------
+# inbox/processed/failed chứa file gốc có PII thật — cùng loại rủi ro
+# như data/samples/. Chặn toàn bộ nội dung, chỉ giữ .gitkeep để git
+# lưu được cấu trúc thư mục (git không theo dõi thư mục rỗng).
+data/inbox/**
+data/processed/**
+data/failed/**
+!data/inbox/**/
+!data/processed/**/
+!data/failed/**/
+!data/inbox/**/.gitkeep
+!data/processed/**/.gitkeep
+!data/failed/**/.gitkeep
+
+# ------------------------------------------------------------
 # Bí mật cấu hình
 # ------------------------------------------------------------
 .env
