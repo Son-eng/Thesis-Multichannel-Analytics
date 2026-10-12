@@ -7,12 +7,15 @@ dùng, không cần biết chuỗi kết nối nằm đâu hay bể kết nối 
 Luồng chạy: config.py đọc .env -> file này lấy DATABASE_URL tạo engine ->
 engine giữ sẵn bể kết nối -> SessionLocal sinh phiên từ engine đó ->
 lay_phien_db() cấp phiên cho nơi cần và đảm bảo đóng lại.
+
+Ngoài ra file này có `Base` — lớp cha chung của mọi model trong app/models/.
+Alembic đọc `Base.metadata` để biết CSDL phải có những bảng nào.
 """
 
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
@@ -52,6 +55,18 @@ SessionLocal = sessionmaker(
     # lỗi thì rollback toàn bộ, không để lại trong DB một file nhập nửa chừng.
     autocommit=False,
 )
+
+
+class Base(DeclarativeBase):
+    """Lớp cha chung của mọi model (bảng) trong app/models/.
+
+    Mỗi lớp con khai báo một bảng; SQLAlchemy gom tất cả vào `Base.metadata`
+    — bản mô tả toàn bộ schema mà Alembic so với CSDL thật để sinh migration.
+    Cần đúng MỘT Base cho cả ứng dụng: 2 Base là 2 metadata riêng, Alembic
+    chỉ thấy một nửa số bảng.
+
+    Để trống có chủ đích: chưa cần cấu hình chung nào cho mọi bảng.
+    """
 
 
 def lay_phien_db() -> Iterator[Session]:
