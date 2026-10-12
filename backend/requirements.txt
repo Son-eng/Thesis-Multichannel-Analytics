@@ -47,6 +47,15 @@ psycopg[binary]==3.3.5
 # 6 dòng SKU rỗng của Shopee - xem SPEC §5.1 CẢNH BÁO 2.
 pandas==2.2.3
 
+# numpy là thư viện pandas dựa vào, trước đây KHÔNG ghi ở đây nên pip tự
+# kéo bản mới nhất lúc cài. Ghim đúng bản đang chạy trong .venv (sinh viên
+# chốt 12/10/2026) vì:
+#   - pandas 2.2.3 ra đời trước numpy 2.5; với bản này pandas đã sinh
+#     DeprecationWarning (gặp ở bước 3, xem TRACKLOG). Cài lại vài tháng
+#     sau, pip có thể kéo numpy mới hơn nữa và cảnh báo thành lỗi thật.
+#   - Toàn bộ test đã chạy và pass với đúng bản này.
+numpy==2.5.3
+
 # --- Cấu hình ---
 pydantic-settings==2.15.0     # đọc .env vào object có kiểu rõ ràng
 
