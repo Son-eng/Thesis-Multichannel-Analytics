@@ -295,6 +295,23 @@ def tra_ma_san_pham(cot_sku, bang_san_pham):
     return ma_san_pham
 
 
+def xac_dinh_affiliate(cot_nguon_doanh_thu, nguon_tu_ban):
+    """Tính cờ is_affiliate từ cột `Nguồn Doanh Thu` của file (SPEC §21.4).
+
+    Nhận: Series `Nguồn Doanh Thu`; giá trị nghĩa là "shop tự bán" của sàn đó
+    ("ADS" với Shopee, "Inhouse" với TikTok).
+    Trả: Series bool — True khi ô CÓ giá trị và khác giá trị tự bán (các nhãn
+    AFF_*); ô rỗng / chỉ có khoảng trắng → False.
+    Cần hàm này vì ô rỗng phải ra False cho khớp đường API: ở đó cờ chỉ True khi
+    đơn CÓ trong báo cáo affiliate của sàn, không có thông tin = shop tự bán
+    (sinh viên chốt 12/10/2026). So "≠ ADS" trơn thì ô rỗng ra True.
+    """
+    nguon_da_strip = cot_nguon_doanh_thu.str.strip()
+    co_gia_tri = nguon_da_strip.notna() & (nguon_da_strip != "")
+    khac_tu_ban = nguon_da_strip != nguon_tu_ban
+    return co_gia_tri & khac_tu_ban
+
+
 def tinh_nmv_sau_thue(cot_nmv):
     """Tính NMV sau thuế: round(nmv / 1.08) (SPEC §7.5).
 

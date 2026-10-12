@@ -305,6 +305,26 @@ def test_khung_gio_tiktok_tu_tinh_khop_cot_lark(tiktok):
     assert (tiktok["hour_bucket"] == bang["Khung Giờ Ra Đơn"]).all()
 
 
+@pytest.mark.parametrize("san, duong_dan_mau, nguon_tu_ban", [
+    ("shopee", FILE_SHOPEE, "ADS"),
+    ("tiktok", FILE_TIKTOK, "Inhouse"),
+])
+def test_nguon_doanh_thu_rong_khong_phai_affiliate(tmp_path, san, duong_dan_mau, nguon_tu_ban):
+    # Dữ liệu mẫu không có ô rỗng → tự tạo file 3 dòng từ file mẫu, sửa đúng cột này.
+    bang_mau = pd.read_csv(duong_dan_mau, dtype=str, keep_default_na=False,
+                           encoding="utf-8-sig", nrows=3)
+    bang_mau["Nguồn Doanh Thu"] = ["", "AFF_Video", nguon_tu_ban]
+    duong_dan = tmp_path / "nguon_rong.csv"
+    bang_mau.to_csv(duong_dan, index=False, encoding="utf-8-sig")
+
+    if san == "shopee":
+        bang_chuan, _ = shopee_parser.chuan_hoa_file_shopee(duong_dan, "Shop C")
+    else:
+        bang_chuan, _ = tiktok_parser.chuan_hoa_file_tiktok(duong_dan)
+    # Ô rỗng → False, khớp đường API: chỉ True khi đơn có trong báo cáo affiliate.
+    assert bang_chuan["is_affiliate"].tolist() == [False, True, False]
+
+
 def test_is_affiliate(shopee, tiktok):
     assert shopee["is_affiliate"].sum() == 771
     assert (~shopee["is_affiliate"]).sum() == 1003

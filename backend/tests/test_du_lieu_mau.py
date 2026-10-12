@@ -9,6 +9,7 @@ File được đọc bằng dtype=str và để pandas tự đổi ô rỗng th�
 dữ liệu mà các hàm trong cleaners.py / status_mapper.py chờ nhận.
 """
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -17,7 +18,10 @@ import pytest
 from app.etl import cleaners, shopee_parser
 from app.etl.status_mapper import gom_nhom_trang_thai_file
 
-THU_MUC_MAU = Path(__file__).resolve().parents[2] / "data" / "samples"
+THU_MUC_GOC = Path(__file__).resolve().parents[2]
+THU_MUC_MAU = THU_MUC_GOC / "data" / "samples"
+# Tên thật chỉ có trên máy sinh viên (.gitignore chặn *.local.json) — khóa luận mục 1.3.2.
+DUONG_DAN_TEN_THAT = THU_MUC_GOC / "scripts" / "ten_that.local.json"
 
 # Chép lại từ SPEC §5.1, §5.2 — CỐ Ý không import từ scripts/anonymize_samples.py:
 # nếu danh sách trong script bị sửa sai thì test này vẫn bắt được.
@@ -42,7 +46,7 @@ COT_DUOC_THAY_TEN = {
 
 # (file gốc có PII, file ẩn danh, danh sách PII) của từng sàn.
 FILE_TUNG_SAN = {
-    "shopee": ("Shopee Tracking_Order BOS (1).csv", "shopee_orders_anonymized.csv", COT_PII_SHOPEE),
+    "shopee": ("Shopee Tracking_Order.csv", "shopee_orders_anonymized.csv", COT_PII_SHOPEE),
     "tiktok": ("TikTok Tracking_Order.csv", "tiktok_orders_anonymized.csv", COT_PII_TIKTOK),
 }
 
@@ -95,16 +99,27 @@ def test_khong_con_cot_pii(shopee, tiktok):
 
 
 @pytest.mark.parametrize("san", ["shopee", "tiktok"])
-def test_khong_cot_nao_con_ten_thuong_hieu(san):
+def test_khong_cot_nao_con_ten_that(san):
     # Khóa luận mục 1.3.2 cam kết không nêu tên doanh nghiệp; repo nộp cho khoa.
+    # Tên thật không được viết trong repo, nên đọc từ file cục bộ. Máy hội đồng
+    # không có file đó thì bỏ qua; test_ten_gian_hang_tiktok_da_thay vẫn chạy.
+    if not DUONG_DAN_TEN_THAT.exists():
+        pytest.skip(f"Không có {DUONG_DAN_TEN_THAT.name} (bình thường trên máy khác)")
+    with open(DUONG_DAN_TEN_THAT, encoding="utf-8") as file_json:
+        ten_that = json.load(file_json)
+    danh_sach_ten_that = [ten_that["ten_thuong_hieu"]] + list(ten_that["ten_gia_gian_hang_tiktok"])
+
     # Kiểm MỌI cột, không chỉ 5 cột đã thay — tên lọt ở cột khác cũng phải bắt.
     _, ten_file_an_danh, _ = FILE_TUNG_SAN[san]
     bang = doc_nguyen_van(ten_file_an_danh)
-
+    # Chỉ ghi tên cột, không ghi tên thật: test fail thì thông báo lỗi in ra
+    # danh sách này, và log đó có thể được dán vào TRACKLOG.
     cot_con_ten = []
     for ten_cot in bang.columns:
-        if bang[ten_cot].str.contains("Doanh nghiệp A", case=False, regex=False).any():
-            cot_con_ten.append(ten_cot)
+        for ten in danh_sach_ten_that:
+            if bang[ten_cot].str.contains(ten, case=False, regex=False).any():
+                cot_con_ten.append(ten_cot)
+                break
     assert cot_con_ten == []
 
 

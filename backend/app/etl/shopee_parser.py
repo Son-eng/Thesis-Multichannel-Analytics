@@ -43,8 +43,8 @@ COT_CAN_DOC = [
 # Giá trị cuối của chuỗi dự phòng sku (§5.1), khi cả 2 cột SKU đều rỗng.
 SKU_KHONG_XAC_DINH = "UNKNOWN"
 
-# Nguồn doanh thu "shop tự bán" của Shopee. Mọi giá trị khác (AFF_*) là
-# affiliate (§21.4).
+# Nguồn doanh thu "shop tự bán" của Shopee. Giá trị khác (AFF_*) là affiliate;
+# ô rỗng KHÔNG phải affiliate (§21.4).
 NGUON_TU_BAN_SHOPEE = "ADS"
 
 
@@ -150,7 +150,7 @@ def tao_bang_chuan(bang_goc, sku, ten_shop):
     # Đường file có đủ `Người bán trợ giá` nên NMV là số chính xác, không tạm
     # tính. Chỉ đường API mới có trường hợp chưa có escrow (§7.5).
     bang_chuan["nmv_is_provisional"] = False
-    bang_chuan["is_affiliate"] = bang_goc["Nguồn Doanh Thu"] != NGUON_TU_BAN_SHOPEE
+    bang_chuan["is_affiliate"] = cleaners.xac_dinh_affiliate(bang_goc["Nguồn Doanh Thu"], NGUON_TU_BAN_SHOPEE)
     bang_chuan["province"] = bang_goc["Tỉnh/Thành phố"].apply(
         cleaners.normalize_province, args=(bang_tinh,)
     )

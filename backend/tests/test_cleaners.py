@@ -187,6 +187,14 @@ def test_ma_san_pham_tra_dung_va_sku_la_thanh_null_co_log(caplog):
     assert caplog.text.count("X99") == 1
 
 
+# ---------- Cờ affiliate (SPEC §21.4) ----------
+
+def test_affiliate_o_rong_la_false():
+    # Ô rỗng = không có thông tin = shop tự bán, khớp đường API (chốt 12/10).
+    nguon = pd.Series(["AFF_Video", "ADS", np.nan, "", "  "])
+    assert cleaners.xac_dinh_affiliate(nguon, "ADS").tolist() == [True, False, False, False, False]
+
+
 # ---------- NMV sau thuế (SPEC §7.5, §17.8) ----------
 
 def test_nmv_sau_thue_lam_tron_khong_cat():

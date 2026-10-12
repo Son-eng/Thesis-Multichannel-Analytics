@@ -50,8 +50,8 @@ SKU_KHONG_XAC_DINH = "UNKNOWN"
 # Giá trị `Cancelation/Return Type` của đơn hoàn hàng (§5.2).
 LOAI_HOAN_HANG = "Return/Refund"
 
-# Nguồn doanh thu "shop tự bán" của TikTok. Mọi giá trị khác (AFF_*) là
-# affiliate (§21.4).
+# Nguồn doanh thu "shop tự bán" của TikTok. Giá trị khác (AFF_*) là affiliate;
+# ô rỗng KHÔNG phải affiliate (§21.4).
 NGUON_TU_BAN_TIKTOK = "Inhouse"
 
 
@@ -141,7 +141,7 @@ def tao_bang_chuan(bang_goc, sku):
     bang_chuan["nmv_after_tax"] = cleaners.tinh_nmv_sau_thue(nmv)
     # MỨC ĐƠN: giá trị lặp lại trên mọi dòng của cùng đơn — CẤM SUM theo dòng (§7.4).
     bang_chuan["order_amount"] = cleaners.doi_chuoi_tien_sang_so(bang_goc["Order Amount"])
-    bang_chuan["is_affiliate"] = bang_goc["Nguồn Doanh Thu"] != NGUON_TU_BAN_TIKTOK
+    bang_chuan["is_affiliate"] = cleaners.xac_dinh_affiliate(bang_goc["Nguồn Doanh Thu"], NGUON_TU_BAN_TIKTOK)
     bang_chuan["province"] = bang_goc["Province"].apply(
         cleaners.normalize_province, args=(bang_tinh,)
     )

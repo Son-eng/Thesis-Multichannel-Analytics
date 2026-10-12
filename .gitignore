@@ -31,6 +31,14 @@ data/failed/**
 !data/failed/**/.gitkeep
 
 # ------------------------------------------------------------
+# Tên thật của doanh nghiệp / gian hàng (khóa luận mục 1.3.2)
+# ------------------------------------------------------------
+# Script ẩn danh cần biết tên thật mới thay được bằng tên giả, nhưng
+# repo nộp cho khoa không được chứa tên đó. Tên thật để trong file
+# *.local.json chỉ có trên máy sinh viên (scripts/ten_that.local.json).
+*.local.json
+
+# ------------------------------------------------------------
 # Bí mật cấu hình
 # ------------------------------------------------------------
 .env
