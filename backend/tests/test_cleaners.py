@@ -175,6 +175,18 @@ def test_tinh_rong_ve_khac():
     assert cleaners.normalize_province(np.nan, BANG_TINH_MAU) == "Khác"
 
 
+# ---------- Mã sản phẩm (SPEC §5.4) ----------
+
+def test_ma_san_pham_tra_dung_va_sku_la_thanh_null_co_log(caplog):
+    bang_mau = {"M3 pro": "M3 Plus", "M15": "M15"}
+    ket_qua = cleaners.tra_ma_san_pham(pd.Series(["M3 pro", "M15", "X99", "X99"]), bang_mau)
+
+    assert ket_qua.iloc[:2].tolist() == ["M3 Plus", "M15"]
+    assert ket_qua.iloc[2:].isna().all()
+    # SKU lạ lặp 2 dòng nhưng chỉ log 1 lần.
+    assert caplog.text.count("X99") == 1
+
+
 # ---------- NMV sau thuế (SPEC §7.5, §17.8) ----------
 
 def test_nmv_sau_thue_lam_tron_khong_cat():

@@ -275,6 +275,26 @@ def normalize_province(tinh_goc, bang_tinh):
     return TINH_KHONG_XAC_DINH
 
 
+def tra_ma_san_pham(cot_sku, bang_san_pham):
+    """Tra mã sản phẩm chuẩn `product_code` từ `sku` (SPEC §5.4).
+
+    Nhận: cot_sku — Series SKU đã làm sạch; bang_san_pham — dict {sku: mã}
+    của MỘT sàn (phần "shopee" hoặc "tiktok" trong product_map.json).
+    Trả: Series product_code. SKU không có trong bảng → NaN (thành NULL trong
+    CSDL), mỗi SKU lạ ghi một dòng log cảnh báo.
+    Cần hàm này vì mọi báo cáo GROUP BY product_code, không GROUP BY sku: TikTok
+    có 33 SKU nhưng chỉ 13 sản phẩm. SKU lạ không làm hỏng cả lượt nạp (§5.4).
+    """
+    ma_san_pham = cot_sku.map(bang_san_pham)
+
+    # Log theo từng SKU lạ chứ không theo từng dòng: 1 SKU mới bán 500 dòng
+    # thì 500 dòng log giống nhau chỉ che mất thông tin.
+    sku_khong_tra_duoc = cot_sku[ma_san_pham.isna()].unique()
+    for sku in sku_khong_tra_duoc:
+        logger.warning("SKU '%s' không có trong product_map.json, product_code = NULL", sku)
+    return ma_san_pham
+
+
 def tinh_nmv_sau_thue(cot_nmv):
     """Tính NMV sau thuế: round(nmv / 1.08) (SPEC §7.5).
 
