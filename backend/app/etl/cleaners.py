@@ -10,13 +10,20 @@ trên cả cột một lượt; `normalize_province` nhận một chuỗi vì n�
 và ghi log cho từng giá trị lạ.
 """
 
+import json
 import logging
 import re
 import unicodedata
+from pathlib import Path
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# Thư mục chứa province_map.json, product_map.json. Tính theo vị trí file này,
+# không dùng đường dẫn tương đối — cùng lý do với DUONG_DAN_FILE_ENV trong
+# config.py: thư mục làm việc lúc chạy không cố định.
+THU_MUC_BANG_ANH_XA = Path(__file__).resolve().parent / "mappings"
 
 # Việt Nam dùng cố định UTC+7, không có giờ mùa hè (từ 1975 tới nay) nên cộng
 # thẳng 7 giờ là đúng tuyệt đối, không cần thư viện múi giờ.
@@ -50,6 +57,21 @@ HAU_TO_TINH = [" City", " city"]
 
 # Giá trị gán cho tỉnh không tra được (SPEC §5.3 bước 5).
 TINH_KHONG_XAC_DINH = "Khác"
+
+
+def doc_file_anh_xa(ten_file):
+    """Đọc một bảng ánh xạ JSON trong thư mục mappings/.
+
+    Nhận: tên file, ví dụ "province_map.json".
+    Trả: dict đọc từ file.
+    Cần hàm này vì cả 4 module chuẩn hóa (2 parser CSV, 2 transform API) đều
+    cần bảng tỉnh và bảng sản phẩm; đọc ở một chỗ thì không ai trỏ nhầm file.
+    """
+    duong_dan = THU_MUC_BANG_ANH_XA / ten_file
+    # Ghi rõ utf-8: trên Windows, open() mặc định dùng bảng mã cp1252 và sẽ
+    # đọc hỏng tên tỉnh có dấu.
+    with open(duong_dan, encoding="utf-8") as file_json:
+        return json.load(file_json)
 
 
 def doi_chuoi_tien_sang_so(cot_tien):
