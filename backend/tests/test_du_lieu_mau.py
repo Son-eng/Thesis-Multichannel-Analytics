@@ -33,6 +33,28 @@ COT_PII_TIKTOK = [
     "Creator Username", "Checked Marked by",
 ]
 
+# Các cột chữ được phép khác file gốc vì đã thay tên thương hiệu / tên gian hàng.
+# Cũng chép tay, không import từ script — cùng lý do với danh sách PII.
+COT_DUOC_THAY_TEN = {
+    "shopee": ["Tên sản phẩm", "Tên phân loại hàng"],
+    "tiktok": ["Product Name", "Variation", "Shop"],
+}
+
+# (file gốc có PII, file ẩn danh, danh sách PII) của từng sàn.
+FILE_TUNG_SAN = {
+    "shopee": ("Shopee Tracking_Order BOS (1).csv", "shopee_orders_anonymized.csv", COT_PII_SHOPEE),
+    "tiktok": ("TikTok Tracking_Order.csv", "tiktok_orders_anonymized.csv", COT_PII_TIKTOK),
+}
+
+
+def doc_nguyen_van(ten_file):
+    """Đọc CSV giữ đúng từng ô như trong file (ô rỗng là "", không phải NaN).
+
+    Cần riêng cho phép so với file gốc: đọc mặc định thì "NA", "null" cũng
+    thành NaN, so sánh sẽ bỏ sót khác biệt.
+    """
+    return pd.read_csv(THU_MUC_MAU / ten_file, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+
 
 @pytest.fixture(scope="module")
 def shopee():
@@ -70,6 +92,42 @@ def test_so_dong_va_so_cot(shopee, tiktok):
 def test_khong_con_cot_pii(shopee, tiktok):
     assert [cot for cot in COT_PII_SHOPEE if cot in shopee.columns] == []
     assert [cot for cot in COT_PII_TIKTOK if cot in tiktok.columns] == []
+
+
+@pytest.mark.parametrize("san", ["shopee", "tiktok"])
+def test_khong_cot_nao_con_ten_thuong_hieu(san):
+    # Khóa luận mục 1.3.2 cam kết không nêu tên doanh nghiệp; repo nộp cho khoa.
+    # Kiểm MỌI cột, không chỉ 5 cột đã thay — tên lọt ở cột khác cũng phải bắt.
+    _, ten_file_an_danh, _ = FILE_TUNG_SAN[san]
+    bang = doc_nguyen_van(ten_file_an_danh)
+
+    cot_con_ten = []
+    for ten_cot in bang.columns:
+        if bang[ten_cot].str.contains("Doanh nghiệp A", case=False, regex=False).any():
+            cot_con_ten.append(ten_cot)
+    assert cot_con_ten == []
+
+
+def test_ten_gian_hang_tiktok_da_thay(tiktok):
+    assert tiktok["Shop"].value_counts().to_dict() == {"Shop A": 5377, "Shop B": 2163}
+
+
+@pytest.mark.parametrize("san", ["shopee", "tiktok"])
+def test_cot_khong_thay_ten_giong_het_file_goc(san):
+    # Cần file gốc có PII — chỉ có trên máy sinh viên. Máy hội đồng không có
+    # file gốc thì bỏ qua (khác với file ẩn danh: thiếu thì báo lỗi).
+    ten_file_goc, ten_file_an_danh, danh_sach_pii = FILE_TUNG_SAN[san]
+    if not (THU_MUC_MAU / ten_file_goc).exists():
+        pytest.skip(f"Không có file gốc {ten_file_goc} (bình thường trên máy khác)")
+
+    goc_bo_pii = doc_nguyen_van(ten_file_goc).drop(columns=danh_sach_pii)
+    an_danh = doc_nguyen_van(ten_file_an_danh)
+    assert list(an_danh.columns) == list(goc_bo_pii.columns)
+
+    # Thay tên chỉ được đụng vào đúng các cột trong danh sách.
+    goc_khong_tinh_cot_thay = goc_bo_pii.drop(columns=COT_DUOC_THAY_TEN[san])
+    an_danh_khong_tinh_cot_thay = an_danh.drop(columns=COT_DUOC_THAY_TEN[san])
+    assert an_danh_khong_tinh_cot_thay.equals(goc_khong_tinh_cot_thay)
 
 
 def test_du_lieu_ban_con_nguyen(shopee, tiktok):

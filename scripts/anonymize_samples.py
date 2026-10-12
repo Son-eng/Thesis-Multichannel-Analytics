@@ -7,6 +7,10 @@ gốc bỏ đi các cột cá nhân, mọi thứ khác GIỮ Y NGUYÊN từng k�
 bẩn. Làm sạch luôn ở đây thì test của parser sẽ pass giả, vì không còn gì bẩn
 để parser phải xử lý.
 
+Ngoại lệ duy nhất: tên thương hiệu và tên gian hàng được thay bằng tên giả,
+vì khóa luận (mục 1.3.2) cam kết không nêu tên doanh nghiệp, và repo sẽ nộp
+cho khoa. Chỉ thay trong 5 cột chữ có chứa các tên đó; mã SKU giữ nguyên.
+
 Cách chạy (từ gốc project):
     backend\\.venv\\Scripts\\python scripts\\anonymize_samples.py
 """
@@ -58,6 +62,24 @@ CAU_HINH_TUNG_SAN = {
     "tiktok": ("TikTok Tracking_Order.csv", "tiktok_orders_anonymized.csv", COT_PII_TIKTOK),
 }
 
+# Tên thương hiệu nằm lẫn trong tên sản phẩm, ví dụ "Máy Massage Bàn Chân
+# <thương hiệu> M15". Chỉ thay trong các cột chữ này; mã SKU (vd "M15") giữ
+# nguyên vì là khóa chống trùng và là đầu vào của bảng product_map.json.
+TEN_THUONG_HIEU = "Doanh nghiệp A"
+TEN_THUONG_HIEU_GIA = "BRAND"
+COT_CO_TEN_THUONG_HIEU = {
+    "shopee": ["Tên sản phẩm", "Tên phân loại hàng"],
+    "tiktok": ["Product Name", "Variation"],
+}
+
+# Chỉ file TikTok có cột tên gian hàng. File Shopee không có cột này; tên giả
+# "Shop C" của gian hàng Shopee do nơi gọi shopee_parser truyền vào lúc nạp.
+COT_TEN_SHOP_TIKTOK = "Shop"
+BANG_TEN_SHOP_GIA = {
+    "Shop A": "Shop A",
+    "Shop B": "Shop B",
+}
+
 
 def doc_csv_nguyen_van(duong_dan):
     """Đọc file CSV, giữ mọi ô đúng y nguyên chuỗi gốc.
@@ -106,6 +128,51 @@ def tim_cot_pii_bi_trung_ten(bang, danh_sach_pii):
     return cot_trung
 
 
+def tim_ten_shop_chua_co_ten_gia(cot_shop):
+    """Tìm tên gian hàng có trong file nhưng chưa có trong bảng tên giả.
+
+    Nhận: Series cột `Shop` của file TikTok.
+    Trả: list tên gian hàng chưa có tên giả — rỗng nghĩa là đủ.
+    Cần hàm này vì file xuất lần sau có thể có thêm gian hàng mới. Bỏ qua im
+    lặng thì tên gian hàng thật nằm nguyên trong bản ẩn danh.
+    """
+    ten_chua_co = []
+    for ten_shop in cot_shop.unique():
+        if ten_shop not in BANG_TEN_SHOP_GIA:
+            ten_chua_co.append(ten_shop)
+    return ten_chua_co
+
+
+def thay_ten_thuong_hieu(cot_chu):
+    """Thay tên thương hiệu bằng tên giả trong một cột chữ.
+
+    Nhận: Series chuỗi, ví dụ cột `Tên sản phẩm`.
+    Trả: Series đã thay mọi chỗ có tên thương hiệu (không phân biệt hoa/thường)
+    bằng "BRAND"; phần còn lại của chuỗi giữ nguyên.
+    Cần hàm này vì khóa luận cam kết không nêu tên doanh nghiệp (mục 1.3.2).
+    """
+    # case=False: dữ liệu thật có 2 cách viết — toàn chữ hoa, và chỉ hoa chữ
+    # cái đầu (87 lần trong `Tên sản phẩm` của Shopee).
+    # regex=False: so đúng chuỗi chữ, không hiểu như biểu thức chính quy.
+    return cot_chu.str.replace(TEN_THUONG_HIEU, TEN_THUONG_HIEU_GIA, case=False, regex=False)
+
+
+def tim_cot_con_ten_thuong_hieu(bang):
+    """Tìm các cột vẫn còn tên thương hiệu sau khi đã thay.
+
+    Nhận: DataFrame đã ẩn danh.
+    Trả: list tên cột còn chứa tên thương hiệu — rỗng nghĩa là sạch.
+    Cần hàm này vì tên thương hiệu có thể xuất hiện ở một cột ngoài 5 cột đã
+    biết (file xuất lần sau thêm cột). Kiểm lại toàn bộ thì không lọt.
+    """
+    cot_con_ten = []
+    for ten_cot in bang.columns:
+        co_ten = bang[ten_cot].str.contains(TEN_THUONG_HIEU, case=False, regex=False)
+        if co_ten.any():
+            cot_con_ten.append(ten_cot)
+    return cot_con_ten
+
+
 def ghi_csv_an_danh(bang, duong_dan):
     """Ghi DataFrame ra file CSV cùng định dạng với file gốc.
 
@@ -121,7 +188,7 @@ def ghi_csv_an_danh(bang, duong_dan):
 
 
 def an_danh_mot_san(ten_san):
-    """Ẩn danh file của một sàn: đọc, kiểm cột cá nhân, xóa, ghi.
+    """Ẩn danh file của một sàn: đọc, kiểm cột cá nhân, xóa, thay tên, ghi.
 
     Nhận: "shopee" hoặc "tiktok".
     Trả: True nếu đã ghi file ẩn danh, False nếu phải dừng vì lỗi.
@@ -143,6 +210,24 @@ def an_danh_mot_san(ten_san):
 
     # drop giữ nguyên thứ tự các cột còn lại.
     bang_an_danh = bang_goc.drop(columns=danh_sach_pii)
+
+    for ten_cot in COT_CO_TEN_THUONG_HIEU[ten_san]:
+        bang_an_danh[ten_cot] = thay_ten_thuong_hieu(bang_an_danh[ten_cot])
+
+    if ten_san == "tiktok":
+        ten_shop_chua_co = tim_ten_shop_chua_co_ten_gia(bang_an_danh[COT_TEN_SHOP_TIKTOK])
+        if ten_shop_chua_co:
+            print(f"DỪNG [{ten_san}]: gian hàng {ten_shop_chua_co} chưa có tên giả "
+                  "trong BANG_TEN_SHOP_GIA; KHÔNG ghi file ẩn danh.")
+            return False
+        # Thay cả ô bằng tên giả, không thay chuỗi con: tên gian hàng là cả ô.
+        bang_an_danh[COT_TEN_SHOP_TIKTOK] = bang_an_danh[COT_TEN_SHOP_TIKTOK].map(BANG_TEN_SHOP_GIA)
+
+    cot_con_ten = tim_cot_con_ten_thuong_hieu(bang_an_danh)
+    if cot_con_ten:
+        print(f"DỪNG [{ten_san}]: cột {cot_con_ten} vẫn còn tên thương hiệu; KHÔNG ghi file ẩn danh.")
+        return False
+
     ghi_csv_an_danh(bang_an_danh, THU_MUC_MAU / ten_file_an_danh)
 
     print(f"[{ten_san}] {ten_file_goc} -> {ten_file_an_danh}: "
