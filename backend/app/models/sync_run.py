@@ -10,6 +10,11 @@ from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+# Import lớp User để khóa ngoại triggered_by trỏ thẳng vào User.id. Nhờ vậy,
+# nạp model SyncRun là bảng users cũng có trong metadata. Viết dạng chuỗi
+# "users.id" thì nơi nào dùng SyncRun mà quên import user.py sẽ lỗi
+# NoReferencedTableError lúc ghi (đã gặp ở bước 7).
+from app.models.user import User
 
 
 class SyncRun(Base):
@@ -50,7 +55,7 @@ class SyncRun(Base):
     rows_product_unmapped: Mapped[int] = mapped_column(server_default=text("0"))
 
     # NULL khi do lịch tự chạy.
-    triggered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    triggered_by: Mapped[int | None] = mapped_column(ForeignKey(User.id))
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     status: Mapped[str] = mapped_column(String(10), server_default=text("'running'"))
