@@ -16,6 +16,7 @@ của lần nạp dở), rồi ghi RIÊNG một dòng sync_runs 'failed' kèm th
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import func
@@ -68,10 +69,11 @@ def tao_dong_sync_run(san, duong_dan, ten_shop, nguon):
     )
 
 
-def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi):
+def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau):
     """Ghi một dòng sync_runs status='failed' trong giao dịch RIÊNG.
 
-    Nhận: thông tin lần nạp như tao_dong_sync_run; loi — exception đã xảy ra.
+    Nhận: thông tin lần nạp như tao_dong_sync_run; loi — exception đã xảy ra;
+    thoi_diem_bat_dau — datetime có múi giờ, lấy lúc vào nap_file().
     Trả: id của dòng sync_runs vừa ghi.
     Cần hàm này vì giao dịch chính đã rollback — dòng sync_runs 'running' tạo
     lúc đầu cũng mất theo. Phải mở giao dịch mới thì lịch sử đồng bộ mới thấy
@@ -79,6 +81,11 @@ def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi):
     """
     with SessionLocal() as phien:
         dong_sync = tao_dong_sync_run(san, duong_dan, ten_shop, nguon)
+        # Phải gán tay: để mặc định now() thì started_at là giờ của giao dịch
+        # RIÊNG này, tức lúc đã hỏng xong, không phải lúc lần nạp bắt đầu.
+        # Cột kiểu timestamp không múi giờ; PostgreSQL tự đổi giá trị có múi
+        # giờ về múi giờ phiên — cùng quy ước với now() của dòng thành công.
+        dong_sync.started_at = thoi_diem_bat_dau
         dong_sync.status = "failed"
         dong_sync.error_message = f"{type(loi).__name__}: {loi}"
         # clock_timestamp() là giờ thực lúc chạy câu lệnh; now() là giờ BẮT
@@ -99,6 +106,9 @@ def nap_file(san, duong_dan, ten_shop, nguon):
     nơi gọi biết (lệnh chạy tay thoát mã 1; thư mục quét chuyển file sang failed/).
     Cần hàm này để mọi đường nạp file dùng chung một quy trình có giao dịch.
     """
+    # Ghi nhận ở phía Python vì nếu lỗi thì giao dịch chính rollback, mất luôn
+    # started_at mà CSDL đã cấp. astimezone() gắn múi giờ máy để CSDL đổi đúng.
+    thoi_diem_bat_dau = datetime.now().astimezone()
     try:
         # `with` đảm bảo phiên luôn đóng; thoát khối bằng exception mà chưa
         # commit thì SQLAlchemy tự rollback giao dịch.
@@ -136,7 +146,7 @@ def nap_file(san, duong_dan, ten_shop, nguon):
     except Exception as loi:
         # Bắt mọi loại lỗi (đọc file, parser, CSDL) vì lỗi nào cũng phải để
         # lại dấu vết trong sync_runs. Không nuốt lỗi: raise lại ngay sau đó.
-        ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi)
+        ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau)
         raise
 
 

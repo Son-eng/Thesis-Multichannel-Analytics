@@ -9,6 +9,7 @@ SQL trên bảng thật — khác test_parsers.py (tính bằng pandas trên Dat
 khớp cả hai thì chắc chắn bước ghi không làm sai lệch số tiền nào.
 """
 
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -174,6 +175,7 @@ def test_dong_hong_giua_chung_rollback_toan_bo(nap, ket_noi_test, monkeypatch):
     monkeypatch.setattr(shopee_parser, "chuan_hoa_file_shopee", parser_tra_dong_hong)
 
     so_dong_truoc = gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee")
+    moc_truoc_khi_nap = datetime.now().astimezone()
     with pytest.raises(IntegrityError, match="sku"):
         nap("shopee", FILE_SHOPEE, "Shop C")
 
@@ -184,6 +186,12 @@ def test_dong_hong_giua_chung_rollback_toan_bo(nap, ket_noi_test, monkeypatch):
     assert dong_sync[0]["status"] == "failed"
     assert "sku" in dong_sync[0]["error_message"]
     assert dong_sync[0]["finished_at"] is not None
+    # started_at phải là lúc lần nạp bắt đầu thật. Bản cũ để now() mặc định:
+    # trong test, now() là giờ bắt đầu giao dịch test — trước cả mốc này.
+    # Đổi mốc sang cùng quy ước với cột (timestamp theo múi giờ phiên) bằng
+    # chính CSDL, không tự giả định múi giờ phiên là gì.
+    moc_theo_quy_uoc_cot = gia_tri(ket_noi_test, "SELECT CAST(:moc AS timestamp)", moc=moc_truoc_khi_nap)
+    assert moc_theo_quy_uoc_cot <= dong_sync[0]["started_at"] <= dong_sync[0]["finished_at"]
 
 
 def test_sai_cot_khong_ghi_gi(nap, ket_noi_test, monkeypatch):
