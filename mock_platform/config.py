@@ -9,6 +9,7 @@ chữ ký, token, data_builder không cần .env, nên import module nào cũng 
 """
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,6 +45,11 @@ class CauHinhMock(BaseSettings):
     # mà không phải chờ 4 giờ / 7 ngày.
     MOCK_SHOPEE_ACCESS_TTL_SECONDS: int = Field(default=tokens.SHOPEE_HAN_ACCESS_GIAY, gt=0)
     MOCK_TIKTOK_ACCESS_TTL_SECONDS: int = Field(default=tokens.TIKTOK_HAN_ACCESS_GIAY, gt=0)
+
+    # Escrow Shopee (§19.2): "all" = trả cho mọi đơn (mặc định, để số liệu đường
+    # API khớp §17.2); "completed_only" = đơn khác COMPLETED bị báo lỗi, để
+    # kiểm nhánh NMV tạm tính của backend (§7.5).
+    MOCK_ESCROW_MODE: Literal["all", "completed_only"] = "all"
 
 
 def doc_cau_hinh(duong_dan_env=DUONG_DAN_FILE_ENV):

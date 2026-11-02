@@ -61,3 +61,12 @@ pydantic-settings==2.15.0     # đọc .env vào object có kiểu rõ ràng
 
 # --- Kiểm thử ---
 pytest==9.1.1
+
+# Thư viện HTTP mà TestClient của FastAPI dùng để gọi app ngay trong test,
+# đi qua đủ tầng HTTP (query, header, mã HTTP) mà không cần bật server.
+# Thêm ngày 03/11/2026 (bước 8 C-c, cho test của mock_platform; backend dùng
+# từ bước 11–14 để test router).
+# Dùng httpx2 chứ KHÔNG dùng httpx: starlette 1.6.0 (đi kèm fastapi 0.141.1)
+# tìm httpx2 trước, và khi chỉ có httpx thì báo "Using `httpx` with
+# `starlette.testclient` is deprecated; install `httpx2` instead".
+httpx2==2.16.0
