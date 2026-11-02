@@ -23,6 +23,7 @@ import secrets
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+import gay_loi
 import signature
 import tokens
 
@@ -55,20 +56,27 @@ LOI_ESCROW_KHONG_CO = "mock_escrow_not_available"
 class LoiShopee(Exception):
     """Yêu cầu bị từ chối. Được đổi thành phản hồi Shopee có `error` khác rỗng."""
 
-    def __init__(self, ma_loi, thong_diep):
+    def __init__(self, ma_loi, thong_diep, ma_http=200):
         super().__init__(f"{ma_loi}: {thong_diep}")
         self.ma_loi = ma_loi
         self.thong_diep = thong_diep
+        self.ma_http = ma_http
 
 
 async def xu_ly_loi_shopee(request, loi):
     """Đổi LoiShopee thành phản hồi lỗi theo khuôn mục 7 tài liệu.
 
-    Trả HTTP 200: tài liệu chỉ mô tả lỗi qua trường `error`, không nói mã
-    HTTP — GIẢ ĐỊNH của bản giả lập (§16 mục 8). Connector phải đọc `error`.
+    Mã HTTP — GIẢ ĐỊNH của bản giả lập (§16 mục 8): 429 cho quá tải
+    (`error_rate_limit`, theo tài liệu bàn giao Pipeline), 200 cho mọi lỗi
+    khác. Connector phải kiểm cả mã HTTP lẫn trường `error` (§20.1).
     """
+    # Đọc cạn body trước khi trả lời: lỗi có thể xảy ra trước khi route kịp
+    # đọc body (quá tải, sai chữ ký ở route POST). Trả lời khi body còn nằm
+    # trên đường truyền thì uvicorn đóng kết nối và client nhận
+    # "connection reset" thay vì phản hồi lỗi (gặp khi chạy goi_thu.py).
+    await request.body()
     return JSONResponse(
-        status_code=200,
+        status_code=loi.ma_http,
         content={"request_id": secrets.token_hex(16), "error": loi.ma_loi, "message": loi.thong_diep},
     )
 
@@ -121,9 +129,14 @@ def kiem_tham_so_chung(request, duong_dan, la_shop_api):
     nếu cần access_token + shop_id, False với Public API (làm mới token).
     Trả: (shop_id dạng chuỗi — "" với Public API, bay_gio epoch giây).
     Ký trên đúng chuỗi client gửi lên, không đổi kiểu trước khi ký.
+    Mọi route Shopee gọi hàm này ĐẦU TIÊN, nên lỗi quá tải có chủ đích đặt ở
+    đây là chặn được trước mọi bước khác (§19.3 mục 5).
     """
     trang_thai = request.app.state
     cau_hinh = trang_thai.cau_hinh
+
+    if gay_loi.nen_gay_loi(trang_thai):
+        raise LoiShopee("error_rate_limit", "Vượt giới hạn tần suất (lỗi có chủ đích của bản giả lập)", ma_http=429)
 
     partner_id = lay_tham_so(request, "partner_id")
     timestamp = lay_tham_so(request, "timestamp")

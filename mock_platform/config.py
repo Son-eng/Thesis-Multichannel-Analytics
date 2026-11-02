@@ -51,6 +51,11 @@ class CauHinhMock(BaseSettings):
     # kiểm nhánh NMV tạm tính của backend (§7.5).
     MOCK_ESCROW_MODE: Literal["all", "completed_only"] = "all"
 
+    # Gây lỗi quá tải có chủ đích (§19.3 mục 5): tỷ lệ yêu cầu bị trả lỗi,
+    # 0 = tắt. Seed cố định chuỗi lỗi để test tái lập được; bỏ trống = ngẫu nhiên.
+    MOCK_FAULT_RATE: float = Field(default=0.0, ge=0, le=1)
+    MOCK_FAULT_SEED: int | None = None
+
 
 def doc_cau_hinh(duong_dan_env=DUONG_DAN_FILE_ENV):
     """Đọc và kiểm cấu hình. Thiếu biến hoặc sai kiểu → lỗi ngay lúc khởi động.

@@ -18,6 +18,7 @@ from fastapi import FastAPI
 
 import config
 import data_builder
+import gay_loi
 import shopee_routes
 import tiktok_routes
 import tokens
@@ -35,6 +36,7 @@ def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tikto
     ung_dung = FastAPI(title="Máy chủ giả lập API sàn (bản demo khóa luận)")
     ung_dung.state.cau_hinh = cau_hinh
     ung_dung.state.dong_ho = dong_ho
+    ung_dung.state.bo_sinh_ngau_nhien = gay_loi.tao_bo_sinh_ngau_nhien(cau_hinh.MOCK_FAULT_SEED)
     bay_gio = int(dong_ho())
     ung_dung.state.du_lieu_shopee = du_lieu_shopee or data_builder.dung_du_lieu_shopee()
     du_lieu_tiktok = du_lieu_tiktok or data_builder.dung_du_lieu_tiktok()

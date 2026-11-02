@@ -22,6 +22,7 @@ import secrets
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+import gay_loi
 import signature
 import tokens
 
@@ -39,6 +40,8 @@ MA_TOKEN_SAI = 9990003
 MA_TOKEN_HET_HAN = 9990004
 MA_THAM_SO_SAI = 9990005
 MA_REFRESH_SAI = 9990006
+# Mã THẬT (tài liệu bàn giao Pipeline): quá tải — dùng cho MOCK_FAULT_RATE.
+MA_QUA_TAI = 36009002
 
 PAGE_SIZE_TOI_THIEU = 1
 PAGE_SIZE_TOI_DA = 100
@@ -56,7 +59,9 @@ class LoiTikTok(Exception):
 
 
 async def xu_ly_loi_tiktok(request, loi):
-    """Đổi LoiTikTok thành phản hồi lỗi. HTTP 200 như Shopee (§16 mục 8): lỗi báo qua `code`."""
+    """Đổi LoiTikTok thành phản hồi lỗi. Luôn HTTP 200, kể cả quá tải 36009002 (§16 mục 9): lỗi báo qua `code`."""
+    # Đọc cạn body trước khi trả lời — cùng lý do với xu_ly_loi_shopee.
+    await request.body()
     return JSONResponse(
         status_code=200,
         content={"code": loi.ma_loi, "message": loi.thong_diep, "request_id": secrets.token_hex(16)},
@@ -66,6 +71,17 @@ async def xu_ly_loi_tiktok(request, loi):
 def tra_loi_thanh_cong(du_lieu):
     """Bọc dữ liệu vào khuôn phản hồi thành công của tài liệu."""
     return {"code": 0, "message": "Success", "request_id": secrets.token_hex(16), "data": du_lieu}
+
+
+def kiem_qua_tai(request):
+    """Lỗi quá tải có chủ đích (§19.3 mục 5): HTTP 200 + code 36009002 (§16 mục 9).
+
+    Gọi ĐẦU TIÊN ở mọi route TikTok, trước mọi bước kiểm khác, để yêu cầu bị
+    gây lỗi không chạm vào trạng thái (không tiêu refresh_token).
+    36009002 là mã thật (tài liệu bàn giao), connector sẽ thử lại khi gặp (§20.1).
+    """
+    if gay_loi.nen_gay_loi(request.app.state):
+        raise LoiTikTok(MA_QUA_TAI, "Too many requests (lỗi có chủ đích của bản giả lập)")
 
 
 def lay_tham_so(request, ten):
@@ -85,6 +101,7 @@ async def kiem_yeu_cau_open_api(request):
     đường dẫn) và body đúng từng byte đã nhận — không parse rồi serialize lại
     (bẫy §20.1).
     """
+    kiem_qua_tai(request)
     trang_thai = request.app.state
     cau_hinh = trang_thai.cau_hinh
 
@@ -231,6 +248,7 @@ def refresh_token(request: Request):
     backend tự tính hạn từ 7 ngày (§19.3 mục 3).
     refresh_token cũ KHÔNG bị vô hiệu (tài liệu không nói, §19.3 mục 3).
     """
+    kiem_qua_tai(request)
     trang_thai = request.app.state
     cau_hinh = trang_thai.cau_hinh
     app_key = lay_tham_so(request, "app_key")
