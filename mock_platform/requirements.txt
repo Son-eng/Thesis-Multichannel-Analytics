@@ -14,5 +14,8 @@
 pandas==2.2.3
 numpy==2.5.3
 
+# --- Cấu hình (config.py) ---
+pydantic-settings==2.15.0
+
 # --- Kiểm thử ---
 pytest==9.1.1
