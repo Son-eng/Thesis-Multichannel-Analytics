@@ -10,14 +10,9 @@ từng thành phần (chữ ký, timestamp, token, tham số) để xem máy ch�
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-import config
-import data_builder
-import main
 import signature
 
 GIO_VN = timezone(timedelta(hours=7))
@@ -31,30 +26,15 @@ DUONG_DAN_ESCROW = "/api/v2/payment/get_escrow_detail_batch"
 DUONG_DAN_REFRESH = "/api/v2/auth/access_token/get"
 
 
-@pytest.fixture(scope="module")
-def du_lieu_shopee():
-    return data_builder.dung_du_lieu_shopee()
-
-
-@pytest.fixture(scope="module")
-def cau_hinh():
-    return config.doc_cau_hinh(Path(config.__file__).parent / ".env.example")
-
-
 @pytest.fixture
 def dong_ho():
     return {"bay_gio": T0}
 
 
-def tao_client(cau_hinh, dong_ho, du_lieu_shopee):
-    ung_dung = main.tao_ung_dung(cau_hinh, dong_ho=lambda: dong_ho["bay_gio"], du_lieu_shopee=du_lieu_shopee)
-    return TestClient(ung_dung)
-
-
 @pytest.fixture
-def client(cau_hinh, dong_ho, du_lieu_shopee):
+def client(tao_client, cau_hinh, dong_ho):
     """App mới cho mỗi test: bảng token sạch, không bị test trước làm mới mất."""
-    return tao_client(cau_hinh, dong_ho, du_lieu_shopee)
+    return tao_client(cau_hinh, dong_ho)
 
 
 class KhachShopee:
@@ -249,9 +229,9 @@ def test_token_het_han_sau_4_gio(khach, dong_ho):
     assert ma_loi(khach.get(DUONG_DAN_DETAIL, {"order_sn_list": "X"})) == "error_auth"
 
 
-def test_han_token_rut_ngan_qua_cau_hinh(cau_hinh, dong_ho, du_lieu_shopee):
+def test_han_token_rut_ngan_qua_cau_hinh(tao_client, cau_hinh, dong_ho):
     cau_hinh_ngan = cau_hinh.model_copy(update={"MOCK_SHOPEE_ACCESS_TTL_SECONDS": 5})
-    khach = KhachShopee(tao_client(cau_hinh_ngan, dong_ho, du_lieu_shopee), cau_hinh_ngan, dong_ho)
+    khach = KhachShopee(tao_client(cau_hinh_ngan, dong_ho), cau_hinh_ngan, dong_ho)
     dong_ho["bay_gio"] = T0 + 5
     assert ma_loi(khach.get(DUONG_DAN_DETAIL, {"order_sn_list": "X"})) == "error_auth"
 
@@ -274,9 +254,9 @@ def test_escrow_che_do_all_tra_moi_don(khach, du_lieu_shopee):
     assert set(mat_hang) == {"item_id", "model_id", "seller_discount"}
 
 
-def test_escrow_completed_only_bao_loi_don_chua_hoan_tat(cau_hinh, dong_ho, du_lieu_shopee):
+def test_escrow_completed_only_bao_loi_don_chua_hoan_tat(tao_client, cau_hinh, dong_ho, du_lieu_shopee):
     cau_hinh_xau = cau_hinh.model_copy(update={"MOCK_ESCROW_MODE": "completed_only"})
-    khach = KhachShopee(tao_client(cau_hinh_xau, dong_ho, du_lieu_shopee), cau_hinh_xau, dong_ho)
+    khach = KhachShopee(tao_client(cau_hinh_xau, dong_ho), cau_hinh_xau, dong_ho)
     don = du_lieu_shopee["don_hang"]
     hoan_tat = next(ma for ma in don if don[ma]["order_status"] == "COMPLETED")
     da_huy = next(ma for ma in don if don[ma]["order_status"] == "CANCELLED")

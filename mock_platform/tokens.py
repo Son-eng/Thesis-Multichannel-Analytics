@@ -78,6 +78,16 @@ class KhoToken:
         """Kiểm access_token có hiệu lực cho shop này lúc bay_gio. Hỏng → TokenKhongHopLe."""
         self._kiem(self._access, access_token, shop, bay_gio)
 
+    def shop_cua_refresh_token(self, refresh_token):
+        """Shop mà refresh_token này thuộc về, hoặc None nếu không có trong sổ.
+
+        Cần vì yêu cầu làm mới của TikTok chỉ gửi refresh_token, không gửi shop
+        (theo SDK EcomPHP, §19.2); Shopee thì gửi kèm shop_id nên không cần.
+        """
+        if refresh_token not in self._refresh:
+            return None
+        return self._refresh[refresh_token][0]
+
     def lam_moi(self, refresh_token, shop, bay_gio):
         """Đổi refresh_token lấy cặp token mới.
 
