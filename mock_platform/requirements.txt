@@ -1,0 +1,18 @@
+# Gói mà máy chủ giả lập dùng — CHÉP NGUYÊN bản đã ghim trong
+# backend/requirements.txt, KHÔNG thêm gói nào mới (SPEC §13, chốt 02/11/2026).
+#
+# Vì sao có file riêng mà vẫn "không thêm gói mới": mock dùng chung .venv
+# của backend, nên cài từ file này hay file của backend đều ra cùng một môi
+# trường. File này chỉ để đọc là biết mock cần những gì, không phải đi dò
+# import. Đổi phiên bản thì sửa ở backend/requirements.txt trước, rồi chép
+# sang đây cho khớp.
+#
+# Mới liệt kê gói mà code hiện có của mock thật sự dùng; lượt sau thêm
+# endpoint thì thêm fastapi / uvicorn (cũng chép từ backend).
+
+# --- Xử lý dữ liệu (data_builder.py) ---
+pandas==2.2.3
+numpy==2.5.3
+
+# --- Kiểm thử ---
+pytest==9.1.1
