@@ -84,6 +84,7 @@ def test_chia_cua_so_bien():
 
 # ---------- Kéo đủ theo từng shop ----------
 
+@pytest.mark.cham
 @pytest.mark.parametrize("ten_shop", ["Shop A", "Shop B"])
 def test_keo_du_don_dong_va_dong_hoan_theo_shop(bat_may_chu_gia_lap, ten_shop):
     may_chu = bat_may_chu_gia_lap()
@@ -131,6 +132,7 @@ def test_ranh_gioi_cua_so_ge_lt(bat_may_chu_gia_lap):
 
 # ---------- Token ----------
 
+@pytest.mark.cham
 def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_TIKTOK_ACCESS_TTL_SECONDS=2)
     with tao_client(may_chu, "Shop A") as client:
@@ -187,6 +189,7 @@ def test_sai_app_secret_bao_sai_chu_ky_khong_lam_moi(bat_may_chu_gia_lap):
 
 # ---------- Quá tải ----------
 
+@pytest.mark.cham
 def test_qua_tai_30_phan_tram_van_keo_du(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_FAULT_RATE=0.3, MOCK_FAULT_SEED=11)
     with tao_client(may_chu, "Shop B", so_lan_gui_toi_da=10) as client:
@@ -205,6 +208,7 @@ def test_qua_tai_mai_thi_bao_het_lan_thu(bat_may_chu_gia_lap):
 
 # ---------- Nối với token_store và CSDL thật ----------
 
+@pytest.mark.cham
 @pytest.mark.db
 def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi_test, tao_phien_test, monkeypatch):
     """Cách nối của sync_job (§20.1): khi_can_lam_moi → token_store.lam_moi_va_ghi(…, client.goi_lam_moi_token)."""

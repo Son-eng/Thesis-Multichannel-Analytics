@@ -37,6 +37,7 @@ SO_DON_MOI_TRANG = 100
 CUA_SO_GIAY = 15 * 24 * 60 * 60
 TRANG_THAI_DA_QUYET_TOAN = "COMPLETED"
 
+# ĐỔI KHI DÙNG SÀN THẬT.
 # Mã "token sai / hết hạn" → làm mới một lần rồi gọi lại. Đây là MÃ QUY ƯỚC
 # của máy chủ giả lập (§19.2, §16 mục 7): tài liệu TikTok đã lưu không có mã
 # thật. Chạy với sàn thật thì phải thay tập này bằng mã thật (SDK EcomPHP gom

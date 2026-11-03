@@ -81,6 +81,7 @@ def test_nap_shopee(nap, ket_noi_test):
     assert bo_dem == (6, 0, 19, 0, 0)
 
 
+@pytest.mark.cham
 def test_nap_tiktok(nap, ket_noi_test):
     ket_qua = nap("tiktok", FILE_TIKTOK)
 
@@ -112,6 +113,7 @@ def test_nap_tiktok(nap, ket_noi_test):
     ("shopee", FILE_SHOPEE, "Shop C", 1774, Decimal("1908961059")),
     ("tiktok", FILE_TIKTOK, None, 7540, Decimal("7538502584")),
 ])
+@pytest.mark.cham
 def test_nap_lai_cung_file_khong_doi_gi(nap, ket_noi_test, san, duong_dan, ten_shop, so_dong, doanh_thu):
     bang = f"orders_{san}"
     nap(san, duong_dan, ten_shop)

@@ -133,6 +133,7 @@ def test_escrow_completed_only_tra_ve_don_khong_co_escrow(bat_may_chu_gia_lap):
 
 # ---------- Token ----------
 
+@pytest.mark.cham
 def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_SHOPEE_ACCESS_TTL_SECONDS=2)
     with tao_client(may_chu) as client:
@@ -205,6 +206,7 @@ def test_qua_tai_mai_thi_bao_het_lan_thu(bat_may_chu_gia_lap):
 
 # ---------- Nối với token_store và CSDL thật ----------
 
+@pytest.mark.cham
 @pytest.mark.db
 def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi_test, tao_phien_test, monkeypatch):
     """Cách sync_job (bước 11) sẽ nối: khi_can_lam_moi → token_store.lam_moi_va_ghi(…, client.goi_lam_moi_token)."""
