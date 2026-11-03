@@ -17,6 +17,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+from may_chu_gia_lap import THU_MUC_MOCK, MayChuGiaLap, nap_module_mock
 
 
 @pytest.fixture(scope="session")
@@ -64,3 +65,35 @@ def phien_test(tao_phien_test):
     phien: Session = tao_phien_test()
     yield phien
     phien.close()
+
+
+# ---------------- Máy chủ giả lập trên socket thật (bước 9, chỉ dẫn 009) ----------------
+
+@pytest.fixture(scope="session")
+def bat_may_chu_gia_lap():
+    """Hàm bật một máy chủ giả lập mới trên socket thật; mọi máy chủ đã bật tắt khi hết phiên test.
+
+    bat_may_chu_gia_lap(**ghi_de) — ghi_de là biến cấu hình của mock
+    (MOCK_FAULT_RATE, MOCK_ESCROW_MODE, MOCK_*_TTL_SECONDS…) đè lên
+    mock_platform/.env.example (toàn khóa giả, trùng giá trị backend/.env).
+    Mỗi lần gọi là một máy chủ mới với bảng token sạch. Dữ liệu CSV chỉ dựng
+    một lần cho cả phiên (mất vài giây mỗi lần dựng).
+    """
+    config_mock, data_builder, main_mock = nap_module_mock()
+    cau_hinh_mau = config_mock.doc_cau_hinh(THU_MUC_MOCK / ".env.example")
+    du_lieu_shopee = data_builder.dung_du_lieu_shopee()
+    du_lieu_tiktok = data_builder.dung_du_lieu_tiktok()
+    cac_may_chu = []
+
+    def bat(**ghi_de):
+        ung_dung = main_mock.tao_ung_dung(
+            cau_hinh_mau.model_copy(update=ghi_de),
+            du_lieu_shopee=du_lieu_shopee, du_lieu_tiktok=du_lieu_tiktok,
+        )
+        may_chu = MayChuGiaLap(ung_dung).bat()
+        cac_may_chu.append(may_chu)
+        return may_chu
+
+    yield bat
+    for may_chu in cac_may_chu:
+        may_chu.tat()

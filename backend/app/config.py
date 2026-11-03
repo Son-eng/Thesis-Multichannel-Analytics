@@ -10,6 +10,7 @@ trình dừng ngay lúc khởi động với thông báo rõ ràng, thay vì ch�
 lúc rồi chết giữa chừng ở chỗ không liên quan.
 """
 
+from datetime import date
 from pathlib import Path
 
 from pydantic import Field, field_validator
@@ -65,6 +66,46 @@ class Settings(BaseSettings):
 
     # Bật log chi tiết khi phát triển. Khi demo/nộp bài nên để false.
     DEBUG: bool = False
+
+    # ---------------- Đường API (SPEC §18, §20.4) ----------------
+    # Địa chỉ "sàn". Mặc định là máy chủ giả lập ở cổng 8001; đổi sang sàn
+    # thật chỉ cần sửa 3 biến này và khóa bên dưới (§18.1).
+    # TikTok có 2 máy chủ: open-api (đơn, Finance) và auth (làm mới token).
+    # Với máy chủ giả lập, cả hai chung một cổng (§16 mục 9).
+    SHOPEE_BASE_URL: str = "http://127.0.0.1:8001"
+    TIKTOK_BASE_URL: str = "http://127.0.0.1:8001"
+    TIKTOK_AUTH_BASE_URL: str = "http://127.0.0.1:8001"
+
+    # Khóa ứng dụng — tên biến TRÙNG với mock_platform/.env (quy ước §20.4).
+    # Bắt buộc, không có mặc định: thiếu khóa thì dừng ngay lúc khởi động.
+    SHOPEE_PARTNER_ID: int
+    SHOPEE_PARTNER_KEY: str
+    SHOPEE_SHOP_ID: int
+    TIKTOK_APP_KEY: str
+    TIKTOK_APP_SECRET: str
+
+    # Gian hàng và token ban đầu — chỉ dùng để NẠP SẴN bảng platform_tokens khi
+    # bảng chưa có dòng của shop đó (services/token_store.py). Sau lần nạp đầu,
+    # token sống trong CSDL; sửa các biến này không ghi đè token đang dùng.
+    SHOPEE_SHOP_NAME: str = "Shop C"
+    SHOPEE_ACCESS_TOKEN: str
+    SHOPEE_REFRESH_TOKEN: str
+    TIKTOK_SHOP_A_NAME: str = "Shop A"
+    TIKTOK_SHOP_A_CIPHER: str
+    TIKTOK_SHOP_A_ACCESS_TOKEN: str
+    TIKTOK_SHOP_A_REFRESH_TOKEN: str
+    TIKTOK_SHOP_B_NAME: str = "Shop B"
+    TIKTOK_SHOP_B_CIPHER: str
+    TIKTOK_SHOP_B_ACCESS_TOKEN: str
+    TIKTOK_SHOP_B_REFRESH_TOKEN: str
+
+    # ---------------- Tác vụ đồng bộ (§20.3, §20.4) ----------------
+    SYNC_INTERVAL_MINUTES: int = Field(default=10, gt=0)
+    SYNC_LOOKBACK_DAYS: int = Field(default=3, gt=0)
+    # Mốc bắt đầu của lượt khởi tạo (backfill), định dạng YYYY-MM-DD.
+    SYNC_BACKFILL_FROM: date = date(2026, 1, 1)
+    # Còn ≤ N ngày đến refresh_expires_at thì token_status = "expiring" (§12.1.3.2).
+    TOKEN_EXPIRING_DAYS: int = Field(default=7, gt=0)
 
     @field_validator("DATABASE_URL")
     @classmethod
