@@ -95,9 +95,18 @@ def test_hoan_hang_theo_returned_qty():
 
 
 def test_chua_co_nguon_affiliate_thi_false():
-    """get_conversion_report là bước 16 (tùy chọn) → chưa có thông tin = shop tự bán (§21.4)."""
+    """Không có phần "affiliate" trong kết quả kéo = không có thông tin = shop tự bán (§21.4)."""
     bang, _ = chuan_hoa([don()], [escrow()])
     assert not bang["is_affiliate"].any()
+
+
+def test_is_affiliate_theo_don_co_trong_bao_cao():
+    """Cờ theo ĐƠN: mọi dòng của đơn có trong báo cáo affiliate đều True; đơn khác False."""
+    hai_mat_hang = [mat_hang(item_id=1, model_id=10), mat_hang(item_sku="M15", model_sku="M15", item_id=2, model_id=20)]
+    cac_don = [don("A1", cac_mat_hang=hai_mat_hang), don("A2")]
+    bang, _ = shopee_api_transform.chuan_hoa_api_shopee(
+        {"don_hang": cac_don, "escrow": [], "affiliate": [{"order_sn": "A1"}, {"order_sn": "A1"}]}, "Shop C")
+    assert bang.groupby("order_id")["is_affiliate"].agg(list).to_dict() == {"A1": [True, True], "A2": [False]}
 
 
 def test_luot_keo_rong():

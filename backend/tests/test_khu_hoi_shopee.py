@@ -38,8 +38,7 @@ NGOAI_LE = {
     "order_status": "§21.5, §6.4: 19 dòng trạng thái rỗng → file 'unknown', API sinh COMPLETED",
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status",
     "data_source": "theo định nghĩa: 'file' / 'api'",
-    # Tạm thời — gỡ ở lượt 10c, khi có get_conversion_report (chỉ dẫn 013).
-    "is_affiliate": "nguồn API (get_conversion_report) làm ở lượt 10c; chưa có → False (§21.4)",
+    # is_affiliate KHÔNG còn là ngoại lệ (bước 16, chỉ dẫn 014): khớp đủ 771 dòng.
 }
 
 DOANH_THU_TONG = Decimal("1908961059")                                  # §17.2
@@ -130,10 +129,14 @@ def test_ngoai_le_order_status_raw_gom_nhom_ra_cung_nhom(gop):
     assert (nhom_tu_ma_api == gop["order_status_api"]).all()
 
 
-def test_ngoai_le_data_source_va_is_affiliate(gop):
+def test_ngoai_le_data_source(gop):
     assert set(gop["data_source_file"]) == {"file"} and set(gop["data_source_api"]) == {"api"}
-    assert not gop["is_affiliate_api"].any()
-    assert gop["is_affiliate_file"].sum() == 771        # §17.8 — sẽ khớp ở lượt 10c
+
+
+def test_is_affiliate_khop_du_771_dong_khong_phai_ngoai_le(gop):
+    assert (gop["is_affiliate_file"] == gop["is_affiliate_api"]).all()
+    assert gop["is_affiliate_api"].sum() == 771                           # §17.8
+    assert gop.loc[gop["is_affiliate_api"], "order_id"].nunique() == 764
 
 
 def test_bo_dem_khop_tru_trang_thai_rong(dap_an, duong_api):

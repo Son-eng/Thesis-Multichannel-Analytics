@@ -31,6 +31,11 @@ router = APIRouter()
 DUONG_DAN_ORDERS_SEARCH = "/order/202309/orders/search"
 DUONG_DAN_FINANCE = "/finance/202501/orders/{order_id}/statement_transactions"
 DUONG_DAN_REFRESH = "/api/v2/token/refresh"
+DUONG_DAN_AFFILIATE = "/affiliate_seller/202410/orders/search"
+
+# Tài liệu affiliate_seller/orders/search: "chỉ hỗ trợ tối đa 3 tháng dữ liệu cho
+# mỗi yêu cầu". "3 tháng" không nói rõ số ngày → GIẢ ĐỊNH 93 ngày (§16 mục 10).
+KHOANG_AFFILIATE_TOI_DA_GIAY = 93 * 24 * 60 * 60
 
 # Mã quy ước của bản giả lập (§19.2). Dải 9990xxx để không trùng mã thật đã
 # biết (36009002, 36009003) và nhìn là biết của bản giả lập.
@@ -214,6 +219,60 @@ async def orders_search(request: Request):
     con_nua = vi_tri + so_moi_trang < len(cac_don)
     return tra_loi_thanh_cong({
         "orders": trang,
+        "next_page_token": str(vi_tri + so_moi_trang) if con_nua else "",
+        "total_count": len(cac_don),
+    })
+
+
+@router.post(DUONG_DAN_AFFILIATE)
+async def affiliate_orders_search(request: Request):
+    """Các đơn affiliate của một shop theo ngày tạo, phân trang page_token (tài liệu `Search Seller Affiliate Orders.md`).
+
+    Dùng để đánh `is_affiliate` (§21.4): cặp (đơn, sku_id) CÓ trong `skus[]` → True.
+    Theo tài liệu: query `page_size` 1–100 (bắt buộc), `page_token`, `shop_cipher`;
+    body `create_time_ge` (lấy mốc) / `create_time_lt` (không lấy mốc), mỗi yêu
+    cầu tối đa 3 tháng; thiếu cả hai → mặc định 3 tháng gần nhất; chỉ có `_ge`
+    thì `_lt` = bây giờ; chỉ có `_lt` thì `_ge` = sớm nhất.
+    Trả `data.orders[]` {id, create_time, skus[]: {sku_id}}, `next_page_token`,
+    `total_count`. Chỉ sinh các trường §21.4 dùng tới (không sinh
+    `creator_username` — tên tài khoản KOL thật là PII, §5.2). `next_page_token`
+    trang cuối là `""` (giả định, §16 mục 9). Mọi trạng thái đơn đều có mặt nếu
+    nguồn doanh thu là AFF_* (giả định, §16 mục 10).
+    """
+    shop, than_chuoi = await kiem_yeu_cau_open_api(request)
+    than = doc_body_json(than_chuoi)
+
+    try:
+        so_moi_trang = int(lay_tham_so(request, "page_size"))
+    except ValueError:
+        raise LoiTikTok(MA_THAM_SO_SAI, "page_size phải là số nguyên") from None
+    if not PAGE_SIZE_TOI_THIEU <= so_moi_trang <= PAGE_SIZE_TOI_DA:
+        raise LoiTikTok(MA_THAM_SO_SAI, "page_size phải trong khoảng 1–100")
+    page_token = request.query_params.get("page_token", "")
+    if page_token != "" and not page_token.isdigit():
+        raise LoiTikTok(MA_THAM_SO_SAI, "page_token không hợp lệ")
+    vi_tri = int(page_token or 0)
+
+    bay_gio = int(request.app.state.dong_ho())
+    tu_moc, den_moc = doc_moc_thoi_gian(than, "create_time_ge"), doc_moc_thoi_gian(than, "create_time_lt")
+    if tu_moc is None and den_moc is None:
+        tu_moc = bay_gio - KHOANG_AFFILIATE_TOI_DA_GIAY       # mặc định: 3 tháng gần nhất
+    tu_thuc = 0 if tu_moc is None else tu_moc
+    den_thuc = bay_gio if den_moc is None else den_moc
+    if den_thuc - tu_thuc > KHOANG_AFFILIATE_TOI_DA_GIAY:
+        raise LoiTikTok(MA_THAM_SO_SAI, "Mỗi yêu cầu chỉ hỗ trợ tối đa 3 tháng dữ liệu")
+
+    cac_don = sorted(
+        (muc["create_time"], ma, muc["skus"]) for ma, muc in shop["affiliate"].items()
+        if tu_thuc <= muc["create_time"] < den_thuc
+    )
+    trang = cac_don[vi_tri:vi_tri + so_moi_trang]
+    con_nua = vi_tri + so_moi_trang < len(cac_don)
+    return tra_loi_thanh_cong({
+        "orders": [
+            {"id": ma, "create_time": thoi_diem_tao, "skus": [{"sku_id": sku_id} for sku_id in cac_sku]}
+            for thoi_diem_tao, ma, cac_sku in trang
+        ],
         "next_page_token": str(vi_tri + so_moi_trang) if con_nua else "",
         "total_count": len(cac_don),
     })

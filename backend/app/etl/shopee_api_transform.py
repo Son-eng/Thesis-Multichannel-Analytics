@@ -125,10 +125,12 @@ def chuan_hoa_api_shopee(ket_qua_keo, ten_shop):
     bang_chuan["nmv"] = nmv
     bang_chuan["nmv_after_tax"] = cleaners.tinh_nmv_sau_thue(nmv)
     bang_chuan["nmv_is_provisional"] = la_tam_tinh
-    # Nguồn đường API là báo cáo affiliate (get_conversion_report, §21.4) —
-    # endpoint TÙY CHỌN, làm ở bước 16. Chưa có thì không có thông tin =
-    # shop tự bán → False (cùng quy tắc "ô rỗng → False" của §21.4).
-    bang_chuan["is_affiliate"] = False
+    # §21.4: đơn CÓ trong báo cáo affiliate (get_conversion_report) → True. Cờ
+    # theo ĐƠN (mọi dòng của đơn cùng giá trị — đã kiểm trên dữ liệu mẫu).
+    # Không có phần "affiliate" trong kết quả kéo (hoặc rỗng) = không có thông
+    # tin = shop tự bán → False (cùng quy tắc "ô rỗng → False").
+    ma_don_affiliate = {muc["order_sn"] for muc in ket_qua_keo.get("affiliate", [])}
+    bang_chuan["is_affiliate"] = bang["order_sn"].isin(ma_don_affiliate)
     bang_chuan["province"] = bang["state"].apply(cleaners.normalize_province, args=(bang_tinh,))
     bang_chuan["province_raw"] = bang["state"]
     bang_chuan["hour_bucket"] = cleaners.tinh_khung_gio(thoi_diem_tao)

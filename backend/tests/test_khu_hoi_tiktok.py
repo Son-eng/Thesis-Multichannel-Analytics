@@ -40,8 +40,7 @@ SHOP = [
 NGOAI_LE = {
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status (đã duyệt 04/11)",
     "data_source": "theo định nghĩa: 'file' / 'api' (đã duyệt 04/11)",
-    # Tạm thời — gỡ ở lượt 10c, khi có affiliate_seller/orders/search (chỉ dẫn 013).
-    "is_affiliate": "nguồn API (affiliate_seller/orders/search) làm ở lượt 10c; chưa có → False (§21.4)",
+    # is_affiliate KHÔNG còn là ngoại lệ (bước 16, chỉ dẫn 014): khớp đủ 4.297 dòng.
     # CHỜ DUYỆT (phát hiện ở 10b):
     "returned_quantity": "file điền Sku Quantity of return cả cho đơn hủy; API không có nguồn → 0 (§3.2, §21.2)",
     "variation": "219 dòng file giữ dấu cách cuối chuỗi, API đã strip (chờ sinh viên chốt)",
@@ -156,10 +155,14 @@ def test_ngoai_le_order_status_raw_gom_nhom_ra_cung_nhom(gop):
     assert (gop["order_status_file"] == gop["order_status_api"]).all()   # TikTok không có ngoại lệ trạng thái
 
 
-def test_ngoai_le_data_source_va_is_affiliate(gop):
+def test_ngoai_le_data_source(gop):
     assert set(gop["data_source_file"]) == {"file"} and set(gop["data_source_api"]) == {"api"}
-    assert not gop["is_affiliate_api"].any()
-    assert gop["is_affiliate_file"].sum() == 4297                        # §17.8 — sẽ khớp ở lượt 10c
+
+
+def test_is_affiliate_khop_du_4297_dong_khong_phai_ngoai_le(gop):
+    assert (gop["is_affiliate_file"] == gop["is_affiliate_api"]).all()
+    assert gop["is_affiliate_api"].sum() == 4297                          # §17.8
+    assert gop.loc[gop["is_affiliate_api"], "order_id"].nunique() == 4294
 
 
 def test_ngoai_le_returned_quantity(gop):

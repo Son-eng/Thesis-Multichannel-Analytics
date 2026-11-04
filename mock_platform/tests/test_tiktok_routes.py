@@ -351,3 +351,73 @@ def test_ma_quy_uoc_khong_trung_ma_that():
     assert not {36009002, 36009003} & set(cac_ma)
     assert all(str(ma).startswith("9990") for ma in cac_ma)
     assert Counter(len(str(ma)) for ma in cac_ma) == {7: 6}
+
+
+# ---------- affiliate_seller/orders/search ----------
+
+DUONG_DAN_AFFILIATE = "/affiliate_seller/202410/orders/search"
+
+
+def keo_het_affiliate(khach, than, page_size=100):
+    cac_don, page_token = [], ""
+    while True:
+        phan_hoi = khach.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": str(page_size), "page_token": page_token}, than)
+        assert phan_hoi["code"] == 0, phan_hoi
+        cac_don += phan_hoi["data"]["orders"]
+        page_token = phan_hoi["data"]["next_page_token"]
+        if page_token == "":
+            return cac_don
+
+
+@pytest.mark.parametrize("ten_shop, so_dong", [("Shop A", 2763), ("Shop B", 1534)])
+def test_affiliate_keo_du_theo_shop(request, du_lieu_tiktok, ten_shop, so_dong):
+    khach = request.getfixturevalue("khach_a" if ten_shop == "Shop A" else "khach_b")
+    # 3 tháng/yêu cầu (tài liệu) → chia cửa sổ 90 ngày [ge, lt) nối tiếp như connector sẽ làm.
+    cac_don, ge = [], DAU_NAM
+    while ge < T0:
+        lt = min(ge + 90 * 86400, T0)
+        cac_don += keo_het_affiliate(khach, {"create_time_ge": ge, "create_time_lt": lt})
+        ge = lt
+    ma_don = [d["id"] for d in cac_don]
+    assert len(ma_don) == len(set(ma_don))
+    cap = {(d["id"], s["sku_id"]) for d in cac_don for s in d["skus"]}
+    mong_doi = {(ma, sku_id) for ma, muc in du_lieu_tiktok[ten_shop]["affiliate"].items() for sku_id in muc["skus"]}
+    assert len(cap) == so_dong and cap == mong_doi
+
+
+def test_affiliate_vuot_3_thang_bi_tu_choi(khach_a):
+    qua = {"create_time_ge": DAU_NAM, "create_time_lt": DAU_NAM + 94 * 86400}
+    assert khach_a.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": "10"}, qua)["code"] == tiktok_routes.MA_THAM_SO_SAI
+    dung = {"create_time_ge": DAU_NAM, "create_time_lt": DAU_NAM + 93 * 86400}
+    assert khach_a.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": "10"}, dung)["code"] == 0
+
+
+def test_affiliate_ranh_gioi_ge_lt(khach_a, du_lieu_tiktok):
+    ma_x, muc = next((m, v) for m, v in du_lieu_tiktok["Shop A"]["affiliate"].items()
+                     if v["create_time"] > DAU_NAM + 30 * 86400)
+    moc = muc["create_time"]
+
+    def ma(than):
+        return [d["id"] for d in keo_het_affiliate(khach_a, than)]
+    assert ma_x in ma({"create_time_ge": moc, "create_time_lt": moc + 1})
+    assert ma_x not in ma({"create_time_ge": moc - 100, "create_time_lt": moc})        # _lt không lấy mốc
+
+
+def test_affiliate_mac_dinh_ba_thang_gan_nhat_va_khong_lo_pii(khach_a, dong_ho):
+    dong_ho["bay_gio"] = DAU_NAM + 30 * 86400
+    cac_don = keo_het_affiliate(khach_a, {})
+    assert cac_don
+    assert all(dong_ho["bay_gio"] - 93 * 86400 <= d["create_time"] < dong_ho["bay_gio"] for d in cac_don)
+    assert "creator_username" not in json.dumps(cac_don)
+
+
+@pytest.mark.parametrize("page_size", ["101", "0", "muoi"])
+def test_affiliate_page_size_ngoai_khoang(khach_a, page_size):
+    assert khach_a.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": page_size}, {})["code"] == tiktok_routes.MA_THAM_SO_SAI
+
+
+def test_affiliate_van_kiem_chu_ky_va_token(khach_a):
+    ket_qua = khach_a.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": "10"}, {}, sua_sau_khi_ky={"sign": "0" * 64})
+    assert ket_qua["code"] == tiktok_routes.MA_SAI_CHU_KY
+    khach_a.access_token = "bia"
+    assert khach_a.goi("POST", DUONG_DAN_AFFILIATE, {"page_size": "10"}, {})["code"] == tiktok_routes.MA_TOKEN_SAI

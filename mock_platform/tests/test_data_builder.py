@@ -277,3 +277,38 @@ def test_tiktok_finance_chi_co_cho_don_completed(tiktok):
         for ma_don, giao_dich in shop["finance"].items():
             sku_trong_don = {li["sku_id"] for li in shop["don_hang"][ma_don]["line_items"]}
             assert sorted(gd["sku_id"] for gd in giao_dich) == sorted(sku_trong_don)
+
+
+# ---------- Affiliate (§21.4) ----------
+
+def test_shopee_affiliate_dung_771_dong_764_don(shopee, csv_shopee):
+    aff = csv_shopee["Nguồn Doanh Thu"].fillna("").str.strip()
+    la_aff = (aff != "") & (aff != "ADS")
+    dong_aff = csv_shopee[la_aff]
+    assert len(dong_aff) == 771                                      # §17.8
+    assert set(shopee["affiliate"]) == set(dong_aff["Mã đơn hàng"])
+    assert len(shopee["affiliate"]) == 764
+    # Cờ đồng nhất theo đơn: không đơn nào vừa có dòng affiliate vừa có dòng tự bán.
+    assert csv_shopee.assign(aff=la_aff).groupby("Mã đơn hàng")["aff"].nunique().max() == 1
+    # Mốc thời gian là create_time của chính đơn.
+    assert all(shopee["don_hang"][ma]["create_time"] == tg for ma, tg in shopee["affiliate"].items())
+
+
+def test_tiktok_affiliate_dung_4297_dong_theo_tung_shop(tiktok, csv_tiktok):
+    aff = csv_tiktok["Nguồn Doanh Thu"].fillna("").str.strip()
+    dong_aff = csv_tiktok[(aff != "") & (aff != "Inhouse")]
+    mong_doi = {(dong["Order ID"], dong["SKU ID"]) for _, dong in dong_aff.iterrows()}
+    thuc_te = {(ma, sku_id) for shop in tiktok.values() for ma, muc in shop["affiliate"].items() for sku_id in muc["skus"]}
+    assert len(mong_doi) == len(thuc_te) == 4297
+    assert thuc_te == mong_doi
+    so_dong_theo_shop = {ten: sum(len(m["skus"]) for m in shop["affiliate"].values()) for ten, shop in tiktok.items()}
+    assert so_dong_theo_shop == {"Shop A": 2763, "Shop B": 1534}
+    # Đơn chỉ nằm ở shop của nó.
+    for shop in tiktok.values():
+        assert set(shop["affiliate"]) <= set(shop["don_hang"])
+
+
+def test_nguon_tu_ban_va_o_rong_khong_phai_affiliate():
+    assert not data_builder.la_dong_affiliate({"Nguồn Doanh Thu": ""}, "ADS")
+    assert not data_builder.la_dong_affiliate({"Nguồn Doanh Thu": "ADS"}, "ADS")
+    assert data_builder.la_dong_affiliate({"Nguồn Doanh Thu": "AFF_Video"}, "ADS")

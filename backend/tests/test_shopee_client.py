@@ -225,3 +225,37 @@ def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi
         "SELECT access_token, refresh_token FROM platform_tokens WHERE platform = 'shopee'")).mappings().one()
     assert dong["access_token"] == client.access_token != settings.SHOPEE_ACCESS_TOKEN
     assert dong["refresh_token"] != settings.SHOPEE_REFRESH_TOKEN
+
+
+# ---------- Báo cáo affiliate (bước 16) ----------
+
+@pytest.mark.cham
+def test_keo_don_kem_bao_cao_affiliate_du_764_don(bat_may_chu_gia_lap):
+    may_chu = bat_may_chu_gia_lap()
+    with tao_client(may_chu) as client:
+        ket_qua = client.keo_don(TU_LUC, DEN_LUC, truong_thoi_gian="create_time")
+    ma_affiliate = [muc["order_sn"] for muc in ket_qua["affiliate"]]
+    assert len(ma_affiliate) == len(set(ma_affiliate)) == 764
+    assert set(ma_affiliate) == set(may_chu.ung_dung.state.du_lieu_shopee["affiliate"])
+    # Mỗi đơn affiliate thuộc đúng tập đơn vừa kéo.
+    assert set(ma_affiliate) <= {don["order_sn"] for don in ket_qua["don_hang"]}
+
+
+def test_lay_don_affiliate_ranh_gioi_cua_so(bat_may_chu_gia_lap):
+    """§20.2: đơn affiliate nằm ĐÚNG mốc nối giữa 2 cửa sổ — đúng 1 lần (Shopee: cửa sổ sau = to + 1)."""
+    may_chu = bat_may_chu_gia_lap()
+    affiliate = may_chu.ung_dung.state.du_lieu_shopee["affiliate"]
+    ma_x, moc = next((ma, tg) for ma, tg in sorted(affiliate.items(), key=lambda m: m[1]) if tg > TU_LUC + 20 * 86400)
+    tu_luc, den_luc = moc - MUOI_LAM_NGAY, moc + MUOI_LAM_NGAY
+    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc
+    with tao_client(may_chu) as client:
+        cac_ma = [muc["order_sn"] for muc in client.lay_don_affiliate(tu_luc, den_luc)]
+    assert cac_ma.count(ma_x) == 1 and len(cac_ma) == len(set(cac_ma))
+    assert set(cac_ma) == {ma for ma, tg in affiliate.items() if tu_luc <= tg <= den_luc}
+
+
+def test_keo_don_khong_co_don_thi_khong_goi_bao_cao_affiliate(bat_may_chu_gia_lap):
+    may_chu = bat_may_chu_gia_lap()
+    with tao_client(may_chu) as client:
+        ket_qua = client.keo_don(TU_LUC - 400 * 86400, TU_LUC - 399 * 86400, truong_thoi_gian="create_time")
+    assert ket_qua == {"don_hang": [], "escrow": [], "affiliate": []}

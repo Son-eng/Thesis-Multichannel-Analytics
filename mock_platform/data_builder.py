@@ -75,6 +75,13 @@ TRANG_THAI_TIKTOK = {
 TRANG_THAI_DA_QUYET_TOAN = "COMPLETED"
 LOAI_HOAN_HANG = "Return/Refund"
 
+# Cột nguồn doanh thu và giá trị "shop tự bán" của mỗi sàn (§21.4): giá trị khác
+# và KHÔNG rỗng (các nhãn AFF_*) là đơn affiliate. Tự viết lại, không import
+# từ backend (backend dùng cleaners.xac_dinh_affiliate cho đường file).
+COT_NGUON_DOANH_THU = "Nguồn Doanh Thu"
+NGUON_TU_BAN_SHOPEE = "ADS"
+NGUON_TU_BAN_TIKTOK = "Inhouse"
+
 COT_THOI_GIAN_TIKTOK = ["Paid Time", "RTS Time", "Shipped Time", "Delivered Time", "Cancelled Time"]
 
 
@@ -129,6 +136,17 @@ def sinh_id_on_dinh(*cac_phan):
     chuoi = "|".join(cac_phan)
     ma_bam = hashlib.sha256(chuoi.encode("utf-8")).hexdigest()
     return int(ma_bam[:15], 16)
+
+
+def la_dong_affiliate(dong, nguon_tu_ban):
+    """Dòng CSV có phải đơn affiliate không (§21.4).
+
+    True khi `Nguồn Doanh Thu` CÓ giá trị và khác giá trị tự bán; ô rỗng →
+    False (chốt 12/10/2026: không có thông tin = shop tự bán). `doc_csv` đã
+    strip nên ô chỉ có khoảng trắng đã là "".
+    """
+    nguon = dong[COT_NGUON_DOANH_THU]
+    return nguon != "" and nguon != nguon_tu_ban
 
 
 def chia_deu(tong, so_phan):
@@ -230,15 +248,21 @@ def dung_du_lieu_shopee(duong_dan=FILE_SHOPEE):
         shop_name — "Shop C"
         don_hang  — {order_sn: đơn khuôn get_order_detail}, theo thứ tự CSV
         escrow    — {order_sn: {order_sn, order_income: {items: [{item_id, model_id, seller_discount}]}}}
+        affiliate — {order_sn: create_time} của các đơn affiliate (§21.4), cho
+                    get_conversion_report. Cờ đồng nhất theo đơn: 0 đơn trong
+                    dữ liệu mẫu có dòng affiliate lẫn dòng tự bán.
     Escrow sinh cho MỌI đơn; công tắc MOCK_ESCROW_MODE (§19.2) lọc ở tầng route.
     """
     don_hang = {}
     escrow = {}
+    affiliate = {}
     for dong in doc_csv(duong_dan):
         ma_don = dong["Mã đơn hàng"]
         if ma_don not in don_hang:
             don_hang[ma_don] = tao_don_shopee(dong)
             escrow[ma_don] = {"order_sn": ma_don, "order_income": {"items": []}}
+        if la_dong_affiliate(dong, NGUON_TU_BAN_SHOPEE):
+            affiliate[ma_don] = don_hang[ma_don]["create_time"]
 
         mat_hang = tao_mat_hang_shopee(dong)
         don_hang[ma_don]["item_list"].append(mat_hang)
@@ -249,7 +273,7 @@ def dung_du_lieu_shopee(duong_dan=FILE_SHOPEE):
             # giá = số người mua trả, đúng 22/22 dòng SL > 1 (§17.8).
             "seller_discount": so_nguyen(dong["Người bán trợ giá"]),
         })
-    return {"shop_name": SHOP_SHOPEE, "don_hang": don_hang, "escrow": escrow}
+    return {"shop_name": SHOP_SHOPEE, "don_hang": don_hang, "escrow": escrow, "affiliate": affiliate}
 
 
 # ---------------------------------------------------------------- TikTok
@@ -354,11 +378,14 @@ def dung_du_lieu_tiktok(duong_dan=FILE_TIKTOK):
 
     Nhận: đường dẫn CSV TikTok ẩn danh (mặc định file mẫu).
     Trả: {tên shop: {shop_cipher, don_hang: {id: đơn khuôn orders[]},
-                     finance: {id: [sku_transactions…]}}}
+                     finance: {id: [sku_transactions…]},
+                     affiliate: {id: {create_time, skus: [sku_id…]}}}}
     Finance chỉ có cho đơn COMPLETED (chỉ đơn đã quyết toán mới có, §20.2).
+    Affiliate theo từng (đơn, sku_id) vì affiliate_seller/orders/search trả
+    skus[] (§21.4); mọi trạng thái đơn đều có mặt nếu `Nguồn Doanh Thu` là AFF_*.
     """
     cac_shop = {
-        ten_shop: {"shop_cipher": shop_cipher, "don_hang": {}, "finance": {}}
+        ten_shop: {"shop_cipher": shop_cipher, "don_hang": {}, "finance": {}, "affiliate": {}}
         for ten_shop, shop_cipher in SHOP_CIPHER_TIKTOK.items()
     }
     for dong in doc_csv(duong_dan):
@@ -371,6 +398,10 @@ def dung_du_lieu_tiktok(duong_dan=FILE_TIKTOK):
             shop["don_hang"][ma_don] = tao_don_tiktok(dong)
         don = shop["don_hang"][ma_don]
         don["line_items"].extend(tach_line_item(dong))
+
+        if la_dong_affiliate(dong, NGUON_TU_BAN_TIKTOK):
+            muc_affiliate = shop["affiliate"].setdefault(ma_don, {"create_time": don["create_time"], "skus": []})
+            muc_affiliate["skus"].append(dong["SKU ID"])
 
         if don["status"] == TRANG_THAI_DA_QUYET_TOAN:
             shop["finance"].setdefault(ma_don, []).append(tao_giao_dich_sku(dong))

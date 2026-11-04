@@ -9,7 +9,8 @@ Thứ tự gọi trong một lượt (§20.2):
     lay_ma_don()     get_order_list, chia cửa sổ ≤ 15 ngày, đi hết cursor
     lay_chi_tiet()   get_order_detail, lô 50
     lay_escrow()     get_escrow_detail_batch, lô 50
-`keo_don()` gọi lần lượt cả ba.
+    lay_don_affiliate()  get_conversion_report, theo khoảng ngày tạo của các đơn vừa kéo
+`keo_don()` gọi lần lượt cả bốn.
 
 Thuật toán ký (tài liệu tóm tắt Shopee mục 5):
     Shop API:   HMAC-SHA256(partner_key, partner_id + path + timestamp + access_token + shop_id)
@@ -28,6 +29,7 @@ DUONG_DAN_ORDER_LIST = "/api/v2/order/get_order_list"
 DUONG_DAN_ORDER_DETAIL = "/api/v2/order/get_order_detail"
 DUONG_DAN_ESCROW_BATCH = "/api/v2/payment/get_escrow_detail_batch"
 DUONG_DAN_LAM_MOI_TOKEN = "/api/v2/auth/access_token/get"
+DUONG_DAN_CONVERSION = "/api/v2/ams/get_conversion_report"
 
 # Giới hạn của sàn (§19.2).
 CUA_SO_TOI_DA_GIAY = 15 * 24 * 60 * 60
@@ -210,10 +212,43 @@ class ShopeeClient:
             cac_phan_tu += self.goi("POST", DUONG_DAN_ESCROW_BATCH, than={"order_sn_list": lo})["response"]
         return cac_phan_tu
 
-    def keo_don(self, tu_luc, den_luc, truong_thoi_gian="update_time"):
-        """Một lượt kéo theo §20.2: danh sách mã → chi tiết → escrow.
+    def lay_don_affiliate(self, tu_luc, den_luc):
+        """Các phần tử thô `{order_sn}` của báo cáo affiliate có ngày đặt trong [tu_luc, den_luc] (§21.4).
 
-        Trả: {"don_hang": [đơn thô], "escrow": [phần tử escrow thô]}.
+        Chia cửa sổ ≤ 15 ngày như get_order_list (tài liệu không nói độ dài
+        tối đa của một yêu cầu; chia nhỏ là lựa chọn an toàn), cùng quy tắc
+        cửa sổ lấy cả hai đầu. Phân trang bằng page_no từ 1 (giả định, §16 mục 10).
+        Không khử trùng: báo cáo thật có thể có nhiều dòng cho một đơn
+        (tài liệu bàn giao: 1.295 đơn / 1.303 dòng) — tầng chuẩn hóa dùng tập.
+        """
+        cac_phan_tu = []
+        for time_from, time_to in chia_cua_so(tu_luc, den_luc):
+            so_trang = 1
+            while True:
+                du_lieu = self.goi("GET", DUONG_DAN_CONVERSION, {
+                    "place_order_time_start": time_from, "place_order_time_end": time_to,
+                    "page_no": so_trang, "page_size": SO_DON_MOI_TRANG,
+                })["response"]
+                cac_phan_tu += du_lieu["list"]
+                if not du_lieu["has_more"]:
+                    break
+                so_trang += 1
+        return cac_phan_tu
+
+    def keo_don(self, tu_luc, den_luc, truong_thoi_gian="update_time"):
+        """Một lượt kéo theo §20.2: danh sách mã → chi tiết → escrow → (bước 4) báo cáo affiliate.
+
+        Báo cáo affiliate kéo theo KHOẢNG NGÀY TẠO của các đơn vừa kéo (nhỏ
+        nhất → lớn nhất `create_time`): kéo theo ngày tạo vì báo cáo lọc theo
+        ngày đặt, còn cửa sổ của lượt này có thể là `update_time` (§20.3).
+        Trả: {"don_hang": [đơn thô], "escrow": [phần tử escrow thô],
+              "affiliate": [phần tử thô {order_sn}]}.
         """
         cac_ma = self.lay_ma_don(tu_luc, den_luc, truong_thoi_gian)
-        return {"don_hang": self.lay_chi_tiet(cac_ma), "escrow": self.lay_escrow(cac_ma)}
+        cac_don = self.lay_chi_tiet(cac_ma)
+        if cac_don:
+            ngay_tao = [don["create_time"] for don in cac_don]
+            cac_affiliate = self.lay_don_affiliate(min(ngay_tao), max(ngay_tao))
+        else:
+            cac_affiliate = []
+        return {"don_hang": cac_don, "escrow": self.lay_escrow(cac_ma), "affiliate": cac_affiliate}

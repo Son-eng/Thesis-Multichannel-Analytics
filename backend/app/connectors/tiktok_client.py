@@ -7,7 +7,8 @@ token với ShopeeClient (§20.1).
 Thứ tự gọi trong một lượt, cho MỘT shop (§20.2):
     lay_don()      orders/search, chia cửa sổ [ge, lt), đi hết page_token
     lay_finance()  statement_transactions — chỉ gọi cho đơn COMPLETED
-`keo_don()` gọi lần lượt cả hai.
+    lay_don_affiliate()  affiliate_seller/orders/search, theo khoảng ngày tạo của các đơn vừa kéo
+`keo_don()` gọi lần lượt cả ba.
 
 Thuật toán ký (`Pipeline/Tiktok/Authorization/Sign your API request.md`):
     HMAC-SHA256(app_secret, app_secret + path + {key}{value}… + body + app_secret)
@@ -29,6 +30,7 @@ from app.connectors import http_retry
 DUONG_DAN_ORDERS_SEARCH = "/order/202309/orders/search"
 DUONG_DAN_FINANCE = "/finance/202501/orders/{order_id}/statement_transactions"
 DUONG_DAN_LAM_MOI_TOKEN = "/api/v2/token/refresh"
+DUONG_DAN_AFFILIATE = "/affiliate_seller/202410/orders/search"
 
 SO_DON_MOI_TRANG = 100
 # Tài liệu orders/search không giới hạn độ dài khoảng thời gian. Vẫn chia
@@ -197,17 +199,46 @@ class TikTokClient:
         """`data` thô của statement_transactions cho một đơn (order_id, sku_transactions, total_count)."""
         return self.goi("GET", DUONG_DAN_FINANCE.format(order_id=ma_don))["data"]
 
+    def lay_don_affiliate(self, tu_luc, den_luc):
+        """Các đơn thô `{id, create_time, skus[]}` của affiliate_seller/orders/search có ngày tạo trong [tu_luc, den_luc) (§21.4).
+
+        Chia cửa sổ [ge, lt) như orders/search (cửa sổ sau bắt đầu đúng tại
+        lt); 15 ngày/cửa sổ luôn nằm trong giới hạn "tối đa 3 tháng mỗi yêu
+        cầu" của tài liệu. Body serialize một lần như lay_don.
+        """
+        cac_don = []
+        for ge, lt in chia_cua_so(tu_luc, den_luc):
+            than = json.dumps({"create_time_ge": ge, "create_time_lt": lt}, separators=(",", ":"))
+            page_token = ""
+            while True:
+                du_lieu = self.goi("POST", DUONG_DAN_AFFILIATE, {
+                    "page_size": str(SO_DON_MOI_TRANG), "page_token": page_token,
+                }, than)["data"]
+                cac_don += du_lieu["orders"]
+                page_token = du_lieu["next_page_token"]
+                if page_token == "":
+                    break
+        return cac_don
+
     def keo_don(self, tu_luc, den_luc, truong_thoi_gian="update_time"):
-        """Một lượt kéo theo §20.2: đơn → Finance cho từng đơn COMPLETED.
+        """Một lượt kéo theo §20.2: đơn → Finance cho từng đơn COMPLETED → (bước 3) đơn affiliate.
 
         Chỉ gọi Finance cho đơn COMPLETED vì dữ liệu Finance chỉ có sau quyết
         toán (§20.2) — đây là quy tắc GỌI API, không phải quy tắc nghiệp vụ;
         đánh `is_returned` từ Finance là việc của bước 10.
-        Trả: {"don_hang": [đơn thô], "finance": {order_id: data thô}}.
+        Đơn affiliate kéo theo KHOẢNG NGÀY TẠO của các đơn vừa kéo (nhỏ nhất →
+        lớn nhất `create_time`; `_lt` không lấy mốc nên cộng 1 giây).
+        Trả: {"don_hang": [đơn thô], "finance": {order_id: data thô},
+              "affiliate": [đơn affiliate thô]}.
         """
         cac_don = self.lay_don(tu_luc, den_luc, truong_thoi_gian)
         finance = {
             don["id"]: self.lay_finance(don["id"])
             for don in cac_don if don["status"] == TRANG_THAI_DA_QUYET_TOAN
         }
-        return {"don_hang": cac_don, "finance": finance}
+        if cac_don:
+            ngay_tao = [don["create_time"] for don in cac_don]
+            cac_affiliate = self.lay_don_affiliate(min(ngay_tao), max(ngay_tao) + 1)
+        else:
+            cac_affiliate = []
+        return {"don_hang": cac_don, "finance": finance, "affiliate": cac_affiliate}

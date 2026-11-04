@@ -93,10 +93,21 @@ def test_sku_lam_sach_tinh_thoi_gian_trang_thai():
     assert dong["data_source"] == "api"
 
 
-def test_returned_quantity_va_is_affiliate_chua_co_nguon_api():
+def test_returned_quantity_khong_co_nguon_api_va_chua_co_affiliate_thi_false():
     bang, _ = chuan_hoa([don()], {"O1": {"sku_transactions": [giao_dich("111", "-1000000")]}})
     assert bang.iloc[0]["returned_quantity"] == 0       # §21.2 không ánh xạ
-    assert not bang.iloc[0]["is_affiliate"]             # lượt 10c
+    assert not bang.iloc[0]["is_affiliate"]             # không có phần "affiliate" = không có thông tin
+
+
+def test_is_affiliate_theo_tung_sku_co_trong_skus():
+    """Cờ theo (đơn, sku_id): đơn có 2 SKU mà chỉ 1 SKU nằm trong skus[] → chỉ SKU đó True."""
+    hai = [line_item(sku_id="111", seller_sku="BU01"), line_item(sku_id="222", seller_sku="M15")]
+    bang, _ = tiktok_api_transform.chuan_hoa_api_tiktok({
+        "don_hang": [don("O1", cac_line_item=hai), don("O2")], "finance": {},
+        "affiliate": [{"id": "O1", "create_time": 1, "skus": [{"sku_id": "222"}]}],
+    }, "Shop A")
+    ket_qua = {(dong["order_id"], dong["sku"]): dong["is_affiliate"] for _, dong in bang.iterrows()}
+    assert ket_qua == {("O1", "BU01"): False, ("O1", "M15"): True, ("O2", "BU01"): False}
 
 
 def test_bo_dem():

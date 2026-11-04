@@ -95,6 +95,11 @@ def tap_sku_hoan(finance):
     return tap
 
 
+def tap_sku_affiliate(cac_don_affiliate):
+    """{(order_id, sku_id)} có trong skus[] của affiliate_seller/orders/search (§21.4)."""
+    return {(don["id"], sku["sku_id"]) for don in cac_don_affiliate for sku in don["skus"]}
+
+
 def chuan_hoa_api_tiktok(ket_qua_keo, ten_shop):
     """Chuẩn hóa kết quả một lượt kéo API TikTok của một shop thành dữ liệu sẵn sàng nạp CSDL.
 
@@ -146,9 +151,12 @@ def chuan_hoa_api_tiktok(ket_qua_keo, ten_shop):
     bang_chuan["nmv_after_tax"] = cleaners.tinh_nmv_sau_thue(nmv)
     # MỨC ĐƠN (§7.4): payment.total_amount lặp lại trên mọi dòng của đơn — CẤM SUM theo dòng.
     bang_chuan["order_amount"] = cleaners.doi_chuoi_tien_sang_so(bang["total_amount"])
-    # Nguồn đường API là affiliate_seller/orders/search — làm ở lượt 10c
-    # (chỉ dẫn 013). Chưa có thì không có thông tin = shop tự bán (§21.4).
-    bang_chuan["is_affiliate"] = False
+    # §21.4: cặp (đơn, sku_id) CÓ trong skus[] của affiliate_seller/orders/search
+    # → True. Theo SKU vì sàn trả skus[]. Không có phần "affiliate" (hoặc rỗng)
+    # = không có thông tin = shop tự bán → False.
+    sku_affiliate = tap_sku_affiliate(ket_qua_keo.get("affiliate", []))
+    bang_chuan["is_affiliate"] = pd.Series(
+        [khoa in sku_affiliate for khoa in zip(bang["order_id"], bang["sku_id"])], index=bang.index, dtype=bool)
     bang_chuan["province"] = bang["province"].apply(cleaners.normalize_province, args=(bang_tinh,))
     bang_chuan["province_raw"] = bang["province"]
     bang_chuan["hour_bucket"] = cleaners.tinh_khung_gio(thoi_diem_tao)

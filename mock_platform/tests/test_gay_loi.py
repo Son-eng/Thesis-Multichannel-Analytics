@@ -22,11 +22,13 @@ ENDPOINT_SHOPEE = [
     ("GET", "/api/v2/order/get_order_detail"),
     ("POST", "/api/v2/payment/get_escrow_detail_batch"),
     ("POST", "/api/v2/auth/access_token/get"),
+    ("GET", "/api/v2/ams/get_conversion_report"),
 ]
 ENDPOINT_TIKTOK = [
     ("POST", "/order/202309/orders/search"),
     ("GET", "/finance/202501/orders/123/statement_transactions"),
     ("GET", "/api/v2/token/refresh"),
+    ("POST", "/affiliate_seller/202410/orders/search"),
 ]
 
 

@@ -232,3 +232,57 @@ def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi
     assert dong["access_token"] == client.access_token != settings.TIKTOK_SHOP_A_ACCESS_TOKEN
     assert dong["refresh_expires_at"] is None                    # refresh TikTok sống tới 2123 (§12.1.3.2)
     assert timedelta(days=7) <= dong["con_lai"] < timedelta(days=7, minutes=1)
+
+
+# ---------- Đơn affiliate (bước 16) ----------
+
+def cap_don_sku_affiliate(cac_don_affiliate):
+    return {(don["id"], sku["sku_id"]) for don in cac_don_affiliate for sku in don["skus"]}
+
+
+@pytest.mark.cham
+@pytest.mark.parametrize("ten_shop, so_dong", [("Shop A", 2763), ("Shop B", 1534)])
+def test_keo_don_kem_don_affiliate_theo_shop(bat_may_chu_gia_lap, ten_shop, so_dong):
+    may_chu = bat_may_chu_gia_lap()
+    with tao_client(may_chu, ten_shop) as client:
+        ket_qua = client.keo_don(TU_LUC, DEN_LUC, truong_thoi_gian="create_time")
+    shop = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[SHOP[ten_shop][0]]
+    mong_doi = {(ma, sku_id) for ma, muc in shop["affiliate"].items() for sku_id in muc["skus"]}
+    assert cap_don_sku_affiliate(ket_qua["affiliate"]) == mong_doi and len(mong_doi) == so_dong
+    ma_don = [don["id"] for don in ket_qua["affiliate"]]
+    assert len(ma_don) == len(set(ma_don))                      # không trùng giữa các cửa sổ
+
+
+def test_lay_don_affiliate_ranh_gioi_cua_so_ge_lt(bat_may_chu_gia_lap):
+    """§20.2: đơn affiliate nằm ĐÚNG mốc lt nối giữa 2 cửa sổ — đúng 1 lần (TikTok: cửa sổ sau bắt đầu tại lt)."""
+    may_chu = bat_may_chu_gia_lap()
+    affiliate = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[SHOP["Shop A"][0]]["affiliate"]
+    ma_x, moc = next((ma, muc["create_time"]) for ma, muc in affiliate.items() if muc["create_time"] > TU_LUC + 30 * 86400)
+    tu_luc, den_luc = moc - MUOI_LAM_NGAY, moc + MUOI_LAM_NGAY
+    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc
+    with tao_client(may_chu, "Shop A") as client:
+        ma_don = [don["id"] for don in client.lay_don_affiliate(tu_luc, den_luc)]
+    assert ma_don.count(ma_x) == 1 and len(ma_don) == len(set(ma_don))
+    assert set(ma_don) == {ma for ma, muc in affiliate.items() if tu_luc <= muc["create_time"] < den_luc}
+
+
+def test_keo_don_khong_co_don_thi_khong_goi_don_affiliate(bat_may_chu_gia_lap):
+    with tao_client(bat_may_chu_gia_lap(), "Shop A") as client:
+        ket_qua = client.keo_don(TU_LUC - 400 * 86400, TU_LUC - 399 * 86400, truong_thoi_gian="create_time")
+    assert ket_qua == {"don_hang": [], "finance": {}, "affiliate": []}
+
+
+def test_keo_don_don_affiliate_nam_dung_create_time_lon_nhat_van_co_mat(bat_may_chu_gia_lap):
+    """Mép trên: `_lt` không lấy mốc nên cửa sổ affiliate phải kết thúc ở max(create_time) + 1.
+
+    Quên +1 thì cửa sổ [min, max) loại đúng đơn có create_time lớn nhất; khi cả
+    lượt chỉ có đơn ở mốc đó, cửa sổ rỗng và cờ affiliate bị mất.
+    """
+    may_chu = bat_may_chu_gia_lap()
+    affiliate = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[SHOP["Shop A"][0]]["affiliate"]
+    ma_x, muc = next((ma, muc) for ma, muc in affiliate.items() if muc["create_time"] > TU_LUC + 30 * 86400)
+    moc = muc["create_time"]
+    with tao_client(may_chu, "Shop A") as client:
+        ket_qua = client.keo_don(moc, moc + 1, truong_thoi_gian="create_time")     # chỉ các đơn tạo đúng giây `moc`
+    assert ma_x in {don["id"] for don in ket_qua["don_hang"]}
+    assert ma_x in {don["id"] for don in ket_qua["affiliate"]}

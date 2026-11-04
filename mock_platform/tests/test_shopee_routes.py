@@ -323,3 +323,55 @@ def test_lam_moi_la_public_api_ky_khong_co_token(khach, cau_hinh):
 def test_lam_moi_thieu_shop_id(khach, cau_hinh):
     than = {"refresh_token": cau_hinh.SHOPEE_REFRESH_TOKEN, "partner_id": cau_hinh.SHOPEE_PARTNER_ID}
     assert ma_loi(khach.post(DUONG_DAN_REFRESH, than, la_shop_api=False)) == "error_param"
+
+
+# ---------- get_conversion_report (affiliate) ----------
+
+DUONG_DAN_CONVERSION = "/api/v2/ams/get_conversion_report"
+
+
+def lay_het_affiliate(khach, tu_luc, den_luc, page_size=100):
+    cac_ma, so_trang = [], 1
+    while True:
+        phan_hoi = khach.get(DUONG_DAN_CONVERSION, {
+            "place_order_time_start": tu_luc, "place_order_time_end": den_luc,
+            "page_no": so_trang, "page_size": page_size})
+        assert ma_loi(phan_hoi) == "", phan_hoi
+        cac_ma += [muc["order_sn"] for muc in phan_hoi["response"]["list"]]
+        if not phan_hoi["response"]["has_more"]:
+            return cac_ma
+        so_trang += 1
+
+
+def test_conversion_report_keo_du_764_don_affiliate(khach, du_lieu_shopee):
+    tu_luc = int(datetime(2026, 7, 1, tzinfo=GIO_VN).timestamp())
+    cac_ma = lay_het_affiliate(khach, tu_luc, tu_luc + 100 * 86400)
+    assert len(cac_ma) == len(set(cac_ma)) == 764
+    assert set(cac_ma) == set(du_lieu_shopee["affiliate"])
+    assert lay_het_affiliate(khach, tu_luc, tu_luc + 100 * 86400, page_size=7) == cac_ma     # phân trang ổn định
+
+
+def test_conversion_report_loc_theo_khoang_thoi_gian_hai_dau(khach, du_lieu_shopee):
+    ma_x, moc = next((ma, tg) for ma, tg in sorted(du_lieu_shopee["affiliate"].items(), key=lambda m: m[1])
+                     if tg > T0 - 40 * 86400)
+    assert ma_x in lay_het_affiliate(khach, moc, moc)                       # [start, end] lấy cả hai đầu
+    assert ma_x not in lay_het_affiliate(khach, moc - 5 * 86400, moc - 1)
+    assert ma_x not in lay_het_affiliate(khach, moc + 1, moc + 5 * 86400)
+
+
+@pytest.mark.parametrize("tham_so", [
+    {},                                                                      # thiếu cặp mốc thời gian (tài liệu bàn giao)
+    {"place_order_time_start": 100},
+    {"place_order_time_start": 200, "place_order_time_end": 100},            # start > end
+    {"place_order_time_start": 1, "place_order_time_end": 2, "page_no": 0, "page_size": 10},
+    {"place_order_time_start": 1, "place_order_time_end": 2, "page_no": 1, "page_size": 101},
+    {"place_order_time_start": 1, "place_order_time_end": 2, "page_no": 1, "page_size": 0},
+])
+def test_conversion_report_sai_tham_so(khach, tham_so):
+    assert ma_loi(khach.get(DUONG_DAN_CONVERSION, tham_so)) == "error_param"
+
+
+def test_conversion_report_van_kiem_chu_ky_va_token(khach):
+    tham_so = {"place_order_time_start": 1, "place_order_time_end": 2, "page_no": 1, "page_size": 10}
+    assert ma_loi(khach.get(DUONG_DAN_CONVERSION, tham_so, sign="sai")) == "error_sign"
+    assert ma_loi(khach.get(DUONG_DAN_CONVERSION, tham_so, access_token="bia")) == "error_auth"

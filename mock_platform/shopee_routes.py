@@ -33,6 +33,7 @@ DUONG_DAN_ORDER_LIST = "/api/v2/order/get_order_list"
 DUONG_DAN_ORDER_DETAIL = "/api/v2/order/get_order_detail"
 DUONG_DAN_ESCROW_BATCH = "/api/v2/payment/get_escrow_detail_batch"
 DUONG_DAN_REFRESH = "/api/v2/auth/access_token/get"
+DUONG_DAN_CONVERSION = "/api/v2/ams/get_conversion_report"
 
 # Giới hạn tham số theo tài liệu (§19.2).
 CUA_SO_TOI_DA_GIAY = 15 * 24 * 60 * 60
@@ -277,6 +278,43 @@ async def get_escrow_detail_batch(request: Request):
 
     canh_bao = f"Không có escrow cho {len(ma_don_loi)} đơn: {', '.join(ma_don_loi)}" if ma_don_loi else None
     return tra_loi_thanh_cong(ket_qua, canh_bao)
+
+
+@router.get(DUONG_DAN_CONVERSION)
+def get_conversion_report(request: Request):
+    """Báo cáo affiliate (AMS): các đơn affiliate đặt trong [start, end], phân trang page_no.
+
+    Dùng để đánh `is_affiliate` (§21.4): đơn CÓ trong báo cáo → True.
+    Tên tham số thời gian (`place_order_time_start`, `place_order_time_end`) và
+    lỗi `error_param` khi thiếu cặp mốc thời gian lấy từ tài liệu bàn giao
+    (`TICKET_AMS_GOLIVE.md`). Mọi chi tiết còn lại là GIẢ ĐỊNH của bản giả lập
+    (§16 mục 10): khuôn `response.list[].order_sn` + `has_more` theo §19.2,
+    `page_no` bắt đầu từ 1, `page_size` 1–100, khoảng thời gian lấy cả hai đầu.
+    KHÔNG tái hiện giới hạn "chỉ 3 tháng gần nhất" của sàn thật (§16 mục 10).
+    """
+    kiem_tham_so_chung(request, DUONG_DAN_CONVERSION, la_shop_api=True)
+
+    tu_luc = lay_so_nguyen(request, "place_order_time_start")
+    den_luc = lay_so_nguyen(request, "place_order_time_end")
+    if tu_luc > den_luc:
+        raise LoiShopee("error_param", "place_order_time_start lớn hơn place_order_time_end")
+    so_trang = lay_so_nguyen(request, "page_no")
+    if so_trang < 1:
+        raise LoiShopee("error_param", "page_no bắt đầu từ 1")
+    so_moi_trang = lay_so_nguyen(request, "page_size")
+    if not PAGE_SIZE_TOI_THIEU <= so_moi_trang <= PAGE_SIZE_TOI_DA:
+        raise LoiShopee("error_param", "page_size phải trong khoảng 1–100")
+
+    cac_don = sorted(
+        (thoi_diem_dat, ma) for ma, thoi_diem_dat in request.app.state.du_lieu_shopee["affiliate"].items()
+        if tu_luc <= thoi_diem_dat <= den_luc
+    )
+    vi_tri = (so_trang - 1) * so_moi_trang
+    trang = cac_don[vi_tri:vi_tri + so_moi_trang]
+    return tra_loi_thanh_cong({
+        "list": [{"order_sn": ma} for _, ma in trang],
+        "has_more": vi_tri + so_moi_trang < len(cac_don),
+    })
 
 
 @router.post(DUONG_DAN_REFRESH)
