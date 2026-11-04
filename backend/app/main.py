@@ -6,7 +6,8 @@ Chạy (từ backend/, đã có .env và Docker PostgreSQL):
 Lúc khởi động (lifespan):
   1. dọn các lượt đồng bộ 'running' còn sót (máy chủ tắt giữa lượt);
   2. nạp sẵn token ban đầu từ .env vào platform_tokens (shop nào chưa có);
-  3. bật lịch đồng bộ nền (SYNC_SCHEDULER_ENABLED).
+  3. bật lịch đồng bộ nền (SYNC_SCHEDULER_ENABLED);
+  4. bật quét thư mục data/inbox (WATCHER_ENABLED, §2.4).
 Lúc tắt: đặt cờ dừng, đợi vòng lặp lịch kết thúc.
 """
 
@@ -16,10 +17,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import sync as api_sync
+from app.api import upload as api_upload
+from app.etl import nap_file as bo_nap
 from app.config import settings
 from app.database import SessionLocal
 from app.services import token_store
-from app.sync import scheduler, sync_job
+from app.sync import folder_watcher, scheduler, sync_job
 
 
 def lay_danh_sach_shop():
@@ -28,7 +31,8 @@ def lay_danh_sach_shop():
         return sync_job.liet_ke_shop(phien)
 
 
-def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None):
+def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
+                 chay_watcher=None, thu_muc_data=None, ham_nap=None):
     """Tạo app FastAPI.
 
     Nhận:
@@ -37,9 +41,14 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None):
             động vào CSDL thật khi mở TestClient.
         ham_chay_nen — hàm chạy các lượt của nút "Đồng bộ ngay"; test truyền
             hàm giả (mặc định: thread thật, api/sync.py).
+        chay_watcher — bật quét thư mục; None thì theo WATCHER_ENABLED.
+        thu_muc_data — thư mục `data/` (mặc định ở gốc project); test truyền thư mục tạm.
+        ham_nap — hàm nạp file của watcher (mặc định nap_file.nap_file).
     Trả: app FastAPI.
     """
     bat_lich = settings.SYNC_SCHEDULER_ENABLED if chay_lich is None else chay_lich
+    bat_watcher = settings.WATCHER_ENABLED if chay_watcher is None else chay_watcher
+    trang_thai_quet = folder_watcher.TrangThaiQuet()
 
     @asynccontextmanager
     async def lifespan(ung_dung):
@@ -52,14 +61,22 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None):
         if bat_lich:
             tac_vu = asyncio.create_task(scheduler.chay_lich(
                 dung, lay_danh_sach_shop, sync_job.dong_bo_mot_shop, settings.SYNC_INTERVAL_MINUTES))
+        tac_vu_quet = None
+        if bat_watcher:
+            tac_vu_quet = asyncio.create_task(folder_watcher.chay_quet(
+                dung, thu_muc_data or folder_watcher.thu_muc_goc_mac_dinh(), settings.WATCHER_INTERVAL_SECONDS,
+                ham_nap or bo_nap.nap_file, trang_thai_quet))
         yield
         dung.set()
-        if tac_vu is not None:
-            await tac_vu
+        for tac in (tac_vu, tac_vu_quet):
+            if tac is not None:
+                await tac
 
     ung_dung = FastAPI(title="Hệ thống phân tích dữ liệu bán hàng đa kênh", lifespan=lifespan)
     ung_dung.state.ham_chay_nen = ham_chay_nen or api_sync.chay_nen_mac_dinh
+    ung_dung.state.trang_thai_quet = trang_thai_quet
     ung_dung.include_router(api_sync.router)
+    ung_dung.include_router(api_upload.router)
     return ung_dung
 
 

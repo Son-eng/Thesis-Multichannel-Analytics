@@ -110,6 +110,8 @@ class Settings(BaseSettings):
     SYNC_SCHEDULER_ENABLED: bool = True
     # Quét thư mục nạp file tự động mỗi N giây (§2.4: 30 giây, đặt trong .env, không hard-code).
     WATCHER_INTERVAL_SECONDS: int = Field(default=30, gt=0)
+    # Bật quét thư mục khi chạy `uvicorn app.main:app`; test tắt bằng tham số của tao_ung_dung().
+    WATCHER_ENABLED: bool = True
 
     @field_validator("DATABASE_URL")
     @classmethod

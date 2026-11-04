@@ -19,6 +19,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 from sqlalchemy import func
 
 from app.database import SessionLocal
@@ -29,6 +30,29 @@ from app.models.sync_run import SyncRun
 # Tên gian hàng Shopee mặc định khi nạp file (SPEC §5.1): file Shopee không
 # có cột shop nên phải được truyền vào.
 SHOP_SHOPEE_MAC_DINH = "Shop C"
+
+
+class ThieuCotBatBuoc(ValueError):
+    """File thiếu cột bắt buộc; `cac_cot` là danh sách tên cột thiếu (SPEC §12.1.3.5, mã 422)."""
+
+    def __init__(self, cac_cot):
+        self.cac_cot = list(cac_cot)
+        super().__init__(f"File thiếu cột bắt buộc: {self.cac_cot}")
+
+
+def kiem_cot_bat_buoc(san, duong_dan):
+    """Đọc DÒNG TIÊU ĐỀ của file và báo cột nào của sàn bị thiếu, trước khi đọc dữ liệu.
+
+    Nhận: sàn, đường dẫn file.
+    Trả: không trả gì; thiếu cột thì ném ThieuCotBatBuoc (đủ tên cột thiếu, theo thứ tự chuẩn).
+    Cần hàm này vì `usecols` của pandas chỉ báo lỗi chung chung, còn endpoint nạp file
+    phải trả đúng danh sách cột thiếu để người dùng biết file nào đã xuất sai.
+    """
+    cot_can_doc = shopee_parser.COT_CAN_DOC if san == "shopee" else tiktok_parser.COT_CAN_DOC
+    cot_co = set(pd.read_csv(duong_dan, nrows=0, dtype=str, encoding="utf-8-sig").columns)
+    cot_thieu = [cot for cot in cot_can_doc if cot not in cot_co]
+    if cot_thieu:
+        raise ThieuCotBatBuoc(cot_thieu)
 
 
 def chay_parser(san, duong_dan, ten_shop):
@@ -119,6 +143,7 @@ def nap_file(san, duong_dan, ten_shop, nguon):
             # cấp id và started_at.
             phien.flush()
 
+            kiem_cot_bat_buoc(san, duong_dan)
             bang_chuan, bo_dem = chay_parser(san, duong_dan, ten_shop)
             so_dong_moi, so_dong_cap_nhat = upsert_don_hang(
                 phien, san, bang_chuan, Path(duong_dan).name
