@@ -246,11 +246,17 @@ def test_sku_shopee_khong_co_chuoi_gia_va_co_du_phong(shopee):
 
 
 def test_chuoi_du_phong_sku_du_3_nhanh():
-    sku_san_pham = shopee_parser.lam_sach_o_sku(pd.Series(["M15 ", np.nan, "  ", np.nan]))
-    sku_phan_loai = shopee_parser.lam_sach_o_sku(pd.Series(["M5_2C", "M21 live", "M24", np.nan]))
-    sku = shopee_parser.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
+    sku_san_pham = cleaners.lam_sach_o_sku(pd.Series(["M15 ", np.nan, "  ", np.nan]))
+    sku_phan_loai = cleaners.lam_sach_o_sku(pd.Series(["M5_2C", "M21 live", "M24", np.nan]))
+    sku = cleaners.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
     # Ô chỉ có khoảng trắng cũng coi là rỗng → chuyển sang cột dự phòng.
     assert sku.tolist() == ["M15", "M21 live", "M24", "UNKNOWN"]
+
+
+def test_variation_shopee_khong_con_o_chi_co_khoang_trang(shopee):
+    """File ghi " " cho ô không có phân loại; parser strip thành "" để khớp đường API (chỉ dẫn 013)."""
+    assert not shopee["variation"].str.fullmatch(r"\s+").fillna(False).any()
+    assert (shopee["variation"] == "").sum() == 685
 
 
 def test_sku_tiktok_rong_thanh_unknown():

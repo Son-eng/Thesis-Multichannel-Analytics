@@ -40,9 +40,6 @@ COT_CAN_DOC = [
     "Khung Giờ Ra Đơn",
 ]
 
-# Giá trị cuối của chuỗi dự phòng sku (§5.1), khi cả 2 cột SKU đều rỗng.
-SKU_KHONG_XAC_DINH = "UNKNOWN"
-
 # Nguồn doanh thu "shop tự bán" của Shopee. Giá trị khác (AFF_*) là affiliate;
 # ô rỗng KHÔNG phải affiliate (§21.4).
 NGUON_TU_BAN_SHOPEE = "ADS"
@@ -60,36 +57,6 @@ def doc_csv_shopee(duong_dan):
     # có kiểm lỗi (§17.7c). Ô rỗng vẫn thành NaN — đúng kiểu cleaners chờ nhận.
     # Thiếu cột nào trong COT_CAN_DOC thì pandas báo ValueError ngay.
     return pd.read_csv(duong_dan, usecols=COT_CAN_DOC, dtype=str, encoding="utf-8-sig")
-
-
-def lam_sach_o_sku(cot_sku):
-    """Bỏ khoảng trắng hai đầu SKU, coi ô chỉ có khoảng trắng là rỗng.
-
-    Nhận: Series SKU thô (cột `SKU sản phẩm` hoặc `SKU phân loại hàng`).
-    Trả: Series SKU đã strip. Ô rỗng / chỉ có khoảng trắng → NaN.
-    Cần hàm này vì chuỗi dự phòng chỉ chuyển sang cột kế khi ô rỗng thật. Ô
-    "   " sau strip thành "" — không phải NaN nên sẽ lọt qua làm một SKU rỗng.
-    API Shopee cũng trả "" khi chưa đặt SKU, nên 2 đường phải xử lý giống nhau.
-    """
-    sku_da_strip = cot_sku.str.strip()
-    # mask(điều kiện) thay ô thỏa điều kiện bằng NaN; NaN vẫn giữ là NaN.
-    return sku_da_strip.mask(sku_da_strip == "")
-
-
-def dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai):
-    """Dựng cột sku theo chuỗi dự phòng của SPEC §5.1.
-
-    Nhận: 2 Series đã qua lam_sach_o_sku — `SKU sản phẩm`, `SKU phân loại hàng`.
-    Trả: Series sku không còn NaN: lấy `SKU sản phẩm`; rỗng thì lấy
-    `SKU phân loại hàng`; cả hai rỗng thì "UNKNOWN".
-    Cần hàm này vì sku là khóa chống trùng và NOT NULL (§4.1). Dữ liệu thật có
-    6 dòng `SKU sản phẩm` rỗng, cột dự phòng cho ra `M21 live`.
-    """
-    # Đây là CHỖ DUY NHẤT điền giá trị cho sku rỗng (§5.1 CẢNH BÁO 2). Trước
-    # đây NaN phải còn là NaN: ép .astype(str) sớm thì pandas 2.2 biến NaN
-    # thành chuỗi "nan", fillna không còn gì để điền và sinh 1 SKU giả (§17.7b).
-    sku_sau_du_phong = sku_san_pham.fillna(sku_phan_loai)
-    return sku_sau_du_phong.fillna(SKU_KHONG_XAC_DINH)
 
 
 def tinh_nmv_shopee(gia_goc, so_luong, nguoi_ban_tro_gia):
@@ -141,7 +108,9 @@ def tao_bang_chuan(bang_goc, sku, ten_shop):
     # Shopee: số lượng hoàn > 0 khớp đúng 56/56 dòng hoàn (§3.2), dùng được.
     bang_chuan["is_returned"] = so_luong_hoan > 0
     bang_chuan["product_name"] = bang_goc["Tên sản phẩm"]
-    bang_chuan["variation"] = bang_goc["Tên phân loại hàng"]
+    # File xuất ghi MỘT DẤU CÁCH cho ô "không có phân loại"; API ghi "". Strip
+    # để 2 đường cùng giá trị "" — test khứ hồi phát hiện 685 dòng lệch (chỉ dẫn 013).
+    bang_chuan["variation"] = bang_goc["Tên phân loại hàng"].str.strip()
     bang_chuan["quantity"] = so_luong
     bang_chuan["returned_quantity"] = so_luong_hoan
     bang_chuan["unit_price"] = gia_goc
@@ -177,9 +146,9 @@ def chuan_hoa_file_shopee(duong_dan, ten_shop):
     """
     bang_goc = doc_csv_shopee(duong_dan)
 
-    sku_san_pham = lam_sach_o_sku(bang_goc["SKU sản phẩm"])
-    sku_phan_loai = lam_sach_o_sku(bang_goc["SKU phân loại hàng"])
-    sku = dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
+    sku_san_pham = cleaners.lam_sach_o_sku(bang_goc["SKU sản phẩm"])
+    sku_phan_loai = cleaners.lam_sach_o_sku(bang_goc["SKU phân loại hàng"])
+    sku = cleaners.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
 
     bang_chuan = tao_bang_chuan(bang_goc, sku, ten_shop)
 

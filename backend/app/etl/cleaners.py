@@ -58,6 +58,9 @@ HAU_TO_TINH = [" City", " city"]
 # Giá trị gán cho tỉnh không tra được (SPEC §5.3 bước 5).
 TINH_KHONG_XAC_DINH = "Khác"
 
+# Giá trị cuối của chuỗi dự phòng sku Shopee (§5.1, §21.1), khi cả 2 cột SKU đều rỗng.
+SKU_KHONG_XAC_DINH = "UNKNOWN"
+
 
 def doc_file_anh_xa(ten_file):
     """Đọc một bảng ánh xạ JSON trong thư mục mappings/.
@@ -273,6 +276,39 @@ def normalize_province(tinh_goc, bang_tinh):
     logger.warning("Không tra được tỉnh '%s' (khóa '%s'), gán '%s'",
                    tinh_goc, khoa_tra, TINH_KHONG_XAC_DINH)
     return TINH_KHONG_XAC_DINH
+
+
+def lam_sach_o_sku(cot_sku):
+    """Bỏ khoảng trắng hai đầu SKU, coi ô chỉ có khoảng trắng là rỗng.
+
+    Nhận: Series SKU thô (Shopee: `SKU sản phẩm` / `SKU phân loại hàng` của
+    file, hoặc `item_sku` / `model_sku` của API).
+    Trả: Series SKU đã strip. Ô rỗng / chỉ có khoảng trắng → NaN.
+    Cần hàm này vì chuỗi dự phòng chỉ chuyển sang cột kế khi ô rỗng thật. Ô
+    "   " sau strip thành "" — không phải NaN nên sẽ lọt qua làm một SKU rỗng.
+    API Shopee trả "" khi chưa đặt SKU, nên 2 đường dùng CHUNG hàm này
+    (chuyển từ shopee_parser sang đây ở bước 10b, chỉ dẫn 013).
+    """
+    sku_da_strip = cot_sku.str.strip()
+    # mask(điều kiện) thay ô thỏa điều kiện bằng NaN; NaN vẫn giữ là NaN.
+    return sku_da_strip.mask(sku_da_strip == "")
+
+
+def dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai):
+    """Dựng cột sku Shopee theo chuỗi dự phòng của SPEC §5.1 (§21.1 cho đường API).
+
+    Nhận: 2 Series đã qua lam_sach_o_sku — sản phẩm (`SKU sản phẩm` /
+    `item_sku`), phân loại (`SKU phân loại hàng` / `model_sku`).
+    Trả: Series sku không còn NaN: lấy SKU sản phẩm; rỗng thì lấy SKU phân
+    loại; cả hai rỗng thì "UNKNOWN".
+    Cần hàm này vì sku là khóa chống trùng và NOT NULL (§4.1). Dữ liệu thật có
+    6 dòng `SKU sản phẩm` rỗng, cột dự phòng cho ra `M21 live`.
+    """
+    # Đây là CHỖ DUY NHẤT điền giá trị cho sku rỗng (§5.1 CẢNH BÁO 2). Trước
+    # đây NaN phải còn là NaN: ép .astype(str) sớm thì pandas 2.2 biến NaN
+    # thành chuỗi "nan", fillna không còn gì để điền và sinh 1 SKU giả (§17.7b).
+    sku_sau_du_phong = sku_san_pham.fillna(sku_phan_loai)
+    return sku_sau_du_phong.fillna(SKU_KHONG_XAC_DINH)
 
 
 def tra_ma_san_pham(cot_sku, bang_san_pham):

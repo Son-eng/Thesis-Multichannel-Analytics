@@ -20,9 +20,6 @@ from app.etl import cleaners
 from app.etl.loader import COT_CHUAN_SHOPEE
 from app.etl.status_mapper import TRANG_THAI_KHONG_XAC_DINH, gom_nhom_trang_thai_api
 
-# Cuối chuỗi dự phòng sku (§5.1, §21.1) — cùng giá trị với đường file.
-SKU_KHONG_XAC_DINH = "UNKNOWN"
-
 
 def trai_phang_don(cac_don):
     """Đơn thô → DataFrame, mỗi dòng là một phần tử item_list kèm các trường mức đơn.
@@ -63,16 +60,6 @@ def bang_seller_discount(cac_phan_tu_escrow):
     return bang
 
 
-def lam_sach_sku(cot_sku):
-    """Strip, coi chuỗi rỗng là thiếu — cùng quy tắc với đường file (§5.1).
-
-    API trả "" khi shop chưa đặt SKU; "" phải thành NaN thì chuỗi dự phòng
-    mới chuyển sang cột kế.
-    """
-    sku_da_strip = cot_sku.fillna("").str.strip()
-    return sku_da_strip.mask(sku_da_strip == "")
-
-
 def tinh_nmv(bang, seller_discount):
     """NMV mức dòng và cờ tạm tính (§7.5, §21.1).
 
@@ -108,9 +95,10 @@ def chuan_hoa_api_shopee(ket_qua_keo, ten_shop):
 
     # sku: item_sku → dự phòng model_sku → "UNKNOWN". Pipeline cũ dùng
     # model_sku trước — cố ý đảo để giữ đúng quy tắc §5.1 đã kiểm chứng (§21.1).
-    sku_san_pham = lam_sach_sku(bang["item_sku"])
-    sku_phan_loai = lam_sach_sku(bang["model_sku"])
-    sku = sku_san_pham.fillna(sku_phan_loai).fillna(SKU_KHONG_XAC_DINH)
+    # Dùng CHUNG hàm với đường file (cleaners, chỉ dẫn 013).
+    sku_san_pham = cleaners.lam_sach_o_sku(bang["item_sku"])
+    sku_phan_loai = cleaners.lam_sach_o_sku(bang["model_sku"])
+    sku = cleaners.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
 
     tra_escrow = bang_seller_discount(ket_qua_keo["escrow"])
     khoa_dong = zip(bang["order_sn"], bang["item_id"], bang["model_id"])

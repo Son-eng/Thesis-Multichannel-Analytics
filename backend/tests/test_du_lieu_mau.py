@@ -198,9 +198,9 @@ def test_tinh_khong_dong_nao_ve_khac_va_dung_so_tinh(shopee, tiktok, bang_tinh):
 def test_product_map_phu_du_sku_shopee(shopee, bang_san_pham):
     # Gọi đúng chuỗi dự phòng SKU của parser (§5.1), không dựng lại trong test.
     # Nội dung tập SKU (§17.7b: không "nan", có "M21 live") kiểm ở test_parsers.py.
-    sku_san_pham = shopee_parser.lam_sach_o_sku(shopee["SKU sản phẩm"])
-    sku_phan_loai = shopee_parser.lam_sach_o_sku(shopee["SKU phân loại hàng"])
-    sku = shopee_parser.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
+    sku_san_pham = cleaners.lam_sach_o_sku(shopee["SKU sản phẩm"])
+    sku_phan_loai = cleaners.lam_sach_o_sku(shopee["SKU phân loại hàng"])
+    sku = cleaners.dien_sku_theo_chuoi_du_phong(sku_san_pham, sku_phan_loai)
 
     tap_sku = set(sku)
     assert len(tap_sku) == 19
