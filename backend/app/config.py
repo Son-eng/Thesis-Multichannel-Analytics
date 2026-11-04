@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     SYNC_BACKFILL_FROM: date = date(2026, 1, 1)
     # Còn ≤ N ngày đến refresh_expires_at thì token_status = "expiring" (§12.1.3.2).
     TOKEN_EXPIRING_DAYS: int = Field(default=7, gt=0)
+    # Bật lịch đồng bộ nền khi chạy `uvicorn app.main:app` (§20.4). Test tắt bằng tham số của tao_ung_dung().
+    SYNC_SCHEDULER_ENABLED: bool = True
+    # Quét thư mục nạp file tự động mỗi N giây (§2.4: 30 giây, đặt trong .env, không hard-code).
+    WATCHER_INTERVAL_SECONDS: int = Field(default=30, gt=0)
 
     @field_validator("DATABASE_URL")
     @classmethod

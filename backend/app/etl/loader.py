@@ -232,6 +232,13 @@ def upsert_don_hang(phien, san, bang_chuan, source_file):
     model, cot_chuan = BANG_THEO_SAN[san]
     kiem_cot_va_khoa(bang_chuan, cot_chuan)
 
+    # Lượt đồng bộ định kỳ không có đơn nào đổi là trường hợp BÌNH THƯỜNG (§20.3):
+    # không có gì để ghi. Bảng rỗng không có kiểu datetime nên đi tiếp sẽ lỗi
+    # ở bước đổi kiểu (".dt accessor") — phát hiện ở bước 11 khi chạy lượt thứ 2
+    # sau backfill. Đã kiểm cột ở trên, nên bảng rỗng SAI cột vẫn bị chặn.
+    if bang_chuan.empty:
+        return 0, 0
+
     cac_dong = doi_sang_dong_python(bang_chuan)
     for dong in cac_dong:
         dong["source_file"] = source_file

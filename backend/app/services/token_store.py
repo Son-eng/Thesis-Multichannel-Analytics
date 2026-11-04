@@ -18,7 +18,7 @@ giờ, PostgreSQL tự đổi về múi giờ phiên — cùng quy ước với 
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.database import SessionLocal
@@ -124,6 +124,45 @@ def doc_token(san, ten_shop):
         if dong is not None:
             phien.expunge(dong)
         return dong
+
+
+def ghi_token(san, ten_shop, token_moi):
+    """Ghi lại cặp token mới trong một phiên CSDL MỚI (dùng khi `LoiGhiTokenSauLamMoi`).
+
+    Nhận: token_moi — dict `LoiGhiTokenSauLamMoi.token_moi` (access_token,
+    refresh_token, access_expires_at, refresh_expires_at).
+    Lỗi: LookupError nếu không có dòng của shop; lỗi CSDL thì ném nguyên.
+    """
+    with SessionLocal() as phien:
+        dong = phien.execute(
+            select(PlatformToken)
+            .where(PlatformToken.platform == san, PlatformToken.shop_name == ten_shop)
+            .with_for_update()
+        ).scalar_one_or_none()
+        if dong is None:
+            raise LookupError(f"Chưa có token của {san}/{ten_shop} trong platform_tokens")
+        dong.access_token = token_moi["access_token"]
+        dong.refresh_token = token_moi["refresh_token"]
+        dong.access_expires_at = token_moi["access_expires_at"]
+        dong.refresh_expires_at = token_moi["refresh_expires_at"]
+        dong.updated_at = func.now()
+        phien.commit()
+
+
+def danh_dau_het_quyen(san, ten_shop):
+    """Đánh dấu shop hết quyền: đặt cả 2 hạn về BÂY GIỜ → token_status = "expired" (§12.1.3.2).
+
+    Dùng khi sàn đã vô hiệu refresh_token cũ mà không ghi lại được token mới:
+    người dùng phải ủy quyền lại. Đặt `refresh_expires_at` cả với TikTok (vốn
+    NULL = "ok") để trang đồng bộ báo đúng. Không đổi giá trị token.
+    """
+    with SessionLocal() as phien:
+        phien.execute(
+            update(PlatformToken)
+            .where(PlatformToken.platform == san, PlatformToken.shop_name == ten_shop)
+            .values(access_expires_at=func.now(), refresh_expires_at=func.now(), updated_at=func.now())
+        )
+        phien.commit()
 
 
 def lam_moi_va_ghi(san, ten_shop, ham_lam_moi, bay_gio=None):

@@ -39,6 +39,10 @@ engine = create_engine(
     # "server closed the connection unexpectedly" ở một chỗ hoàn toàn không
     # liên quan, rất khó lần ra nguyên nhân.
     pool_pre_ping=True,
+    # Ép múi giờ phiên là UTC: cột `timestamp` không có múi giờ, nên `now()` và mọi
+    # datetime có múi giờ ghi vào đều quy về UTC; lớp API đổi sang giờ VN khi đọc
+    # (app/api/sync.py). Không ép thì kết quả phụ thuộc cài đặt của máy chủ PostgreSQL.
+    connect_args={"options": "-c timezone=UTC"},
 )
 
 # Khuôn để tạo ra các phiên làm việc. Mỗi phiên là một đơn vị công việc với

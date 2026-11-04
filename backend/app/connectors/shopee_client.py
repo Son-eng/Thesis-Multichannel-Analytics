@@ -98,6 +98,8 @@ class ShopeeClient:
         self.so_lan_gui_toi_da = so_lan_gui_toi_da
         self.cho_co_ban_giay = cho_co_ban_giay
         self.ham_ngu = ham_ngu
+        # Số yêu cầu HTTP đã gửi (kể cả lần thử lại) — sync_job ghi vào sync_runs.api_calls.
+        self.so_lan_goi = 0
         self._http = httpx2.Client(base_url=base_url, timeout=30)
 
     def __enter__(self):
@@ -125,6 +127,7 @@ class ShopeeClient:
     def _gui_mot_lan(self, phuong_thuc, duong_dan, tham_so_rieng, than, la_shop_api):
         """Gửi qua http_retry. Trả JSON (dict) của phản hồi không phải lỗi tạm thời."""
         def gui():
+            self.so_lan_goi += 1
             return self._http.request(
                 phuong_thuc, duong_dan,
                 params={**self.tham_so_chung(duong_dan, la_shop_api), **(tham_so_rieng or {})},

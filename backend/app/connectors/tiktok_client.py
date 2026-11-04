@@ -97,6 +97,8 @@ class TikTokClient:
         self.so_lan_gui_toi_da = so_lan_gui_toi_da
         self.cho_co_ban_giay = cho_co_ban_giay
         self.ham_ngu = ham_ngu
+        # Số yêu cầu HTTP đã gửi (kể cả lần thử lại) — sync_job ghi vào sync_runs.api_calls.
+        self.so_lan_goi = 0
         self._http = httpx2.Client(base_url=base_url, timeout=30)
         self._http_auth = httpx2.Client(base_url=auth_base_url, timeout=30)
 
@@ -121,6 +123,7 @@ class TikTokClient:
     def _gui_mot_lan(self, phuong_thuc, duong_dan, tham_so_rieng, than):
         """Gửi qua http_retry (ký lại với timestamp mới mỗi lần thử). Trả JSON (dict)."""
         def gui():
+            self.so_lan_goi += 1
             tham_so = {"app_key": self.app_key, "timestamp": str(int(time.time())),
                        "shop_cipher": self.shop_cipher, **(tham_so_rieng or {})}
             tham_so["sign"] = self.ky(duong_dan, tham_so, than)
@@ -160,6 +163,7 @@ class TikTokClient:
         sống: token_store tự tính 7 ngày / NULL (§12.1.3.2).
         """
         def gui():
+            self.so_lan_goi += 1
             return self._http_auth.get(DUONG_DAN_LAM_MOI_TOKEN, params={
                 "app_key": self.app_key, "app_secret": self.app_secret,
                 "refresh_token": refresh_token, "grant_type": "refresh_token",

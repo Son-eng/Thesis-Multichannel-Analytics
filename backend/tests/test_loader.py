@@ -69,3 +69,17 @@ def test_nan_thanh_none(shopee):
     dong_rong = shopee[shopee["order_status_raw"].isna()].head(1)
     dong = loader.doi_sang_dong_python(dong_rong)[0]
     assert dong["order_status_raw"] is None
+
+
+def test_bang_rong_dung_cot_khong_ghi_gi_va_khong_loi(shopee, tiktok):
+    """Lượt đồng bộ định kỳ không có đơn đổi (§20.3) → bảng rỗng đúng cột: trả (0, 0), không chạm CSDL.
+
+    Phiên truyền vào là None: nếu code đi tiếp tới câu lệnh ghi thì sẽ lỗi ngay.
+    """
+    assert loader.upsert_don_hang(None, "shopee", shopee.iloc[0:0], None) == (0, 0)
+    assert loader.upsert_don_hang(None, "tiktok", tiktok.iloc[0:0], None) == (0, 0)
+
+
+def test_bang_rong_sai_cot_van_bi_chan(shopee):
+    with pytest.raises(ValueError, match="không đúng cột chuẩn"):
+        loader.upsert_don_hang(None, "shopee", shopee.iloc[0:0].drop(columns=["nmv"]), None)
