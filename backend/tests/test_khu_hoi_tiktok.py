@@ -41,9 +41,8 @@ NGOAI_LE = {
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status (đã duyệt 04/11)",
     "data_source": "theo định nghĩa: 'file' / 'api' (đã duyệt 04/11)",
     # is_affiliate KHÔNG còn là ngoại lệ (bước 16, chỉ dẫn 014): khớp đủ 4.297 dòng.
-    # CHỜ DUYỆT (phát hiện ở 10b):
+    # Đã duyệt 06/11 (chỉ dẫn 015); `variation` KHÔNG còn là ngoại lệ — tiktok_parser đã strip:
     "returned_quantity": "file điền Sku Quantity of return cả cho đơn hủy; API không có nguồn → 0 (§3.2, §21.2)",
-    "variation": "219 dòng file giữ dấu cách cuối chuỗi, API đã strip (chờ sinh viên chốt)",
 }
 
 DOANH_THU_TONG = 7538502584                                             # §17.2
@@ -176,11 +175,10 @@ def test_ngoai_le_returned_quantity(gop):
     assert (gop.loc[~hoan & (gop["returned_quantity_file"] > 0), "order_status_file"] == "cancelled").all()
 
 
-def test_ngoai_le_variation_chi_khac_khoang_trang_cuoi(gop):
-    khac = gop[gop["variation_file"] != gop["variation_api"]]
-    assert len(khac) == 219
-    assert (khac["variation_file"].str.strip() == khac["variation_api"]).all()
-    assert (khac["variation_file"] != khac["variation_file"].str.strip()).all()
+def test_variation_khop_sau_khi_parser_strip(gop):
+    """Trước đây 219 dòng khác nhau chỉ ở dấu cách cuối; nay hai đường khớp đủ."""
+    assert (gop["variation_file"] == gop["variation_api"]).all()
+    assert not gop["variation_file"].str.endswith(" ").any()
 
 
 def test_bo_dem_khop(dap_an, duong_api):

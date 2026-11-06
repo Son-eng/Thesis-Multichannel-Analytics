@@ -129,7 +129,7 @@ def tao_bang_chuan(bang_goc, sku):
     # hủy, ra 2.308 dòng thay vì 139 (§3.2). Ô rỗng so "==" ra False.
     bang_chuan["is_returned"] = bang_goc["Cancelation/Return Type"] == LOAI_HOAN_HANG
     bang_chuan["product_name"] = bang_goc["Product Name"]
-    bang_chuan["variation"] = bang_goc["Variation"]
+    bang_chuan["variation"] = bang_goc["Variation"].str.strip()  # 219 dòng file có dấu cách cuối; API đã strip (§21.5)
     bang_chuan["quantity"] = pd.to_numeric(bang_goc["Quantity"], errors="raise")
     # Giữ để truy vết, CẤM dùng tính tỷ lệ hoàn — lý do như is_returned ở trên.
     bang_chuan["returned_quantity"] = pd.to_numeric(bang_goc["Sku Quantity of return"], errors="raise")

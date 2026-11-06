@@ -259,6 +259,12 @@ def test_variation_shopee_khong_con_o_chi_co_khoang_trang(shopee):
     assert (shopee["variation"] == "").sum() == 685
 
 
+def test_variation_tiktok_khong_con_dau_cach_thua(tiktok):
+    """File có 219 dòng Variation kết thúc bằng dấu cách; parser strip để khớp đường API (chỉ dẫn 015)."""
+    co_gia_tri = tiktok["variation"].dropna()
+    assert (co_gia_tri == co_gia_tri.str.strip()).all()
+
+
 def test_sku_tiktok_rong_thanh_unknown():
     sku = tiktok_parser.tao_cot_sku(pd.Series(["'BU01'", np.nan, "''"]))
     assert sku.tolist() == ["BU01", "UNKNOWN", "UNKNOWN"]
