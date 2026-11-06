@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import lay_phien_db
-from app.services import kpi_service
+from app.services import alert_service, kpi_service
 
 router = APIRouter(tags=["dashboard"])
 
@@ -74,3 +74,10 @@ def theo_tinh(platform: San, granularity: Muc = "month", period: str | None = No
 def theo_gio(platform: San, granularity: Muc = "month", period: str | None = None, shop_name: str | None = None,
              product_code: str | None = None, phien: Session = Depends(lay_phien_db)):
     return _goi(kpi_service.by_hour, phien, platform, granularity, period, shop_name, product_code)
+
+
+@router.get("/api/{platform}/alerts")
+def canh_bao(platform: San, granularity: Muc = "month", shop_name: str | None = None,
+             product_code: str | None = None, phien: Session = Depends(lay_phien_db)):
+    """Mọi kỳ bị cảnh báo theo mức đang chọn trên toàn bộ dữ liệu của sàn (§12.1.1.8). Không nhận `period`."""
+    return alert_service.liet_ke_canh_bao(phien, platform, granularity, shop_name, product_code)

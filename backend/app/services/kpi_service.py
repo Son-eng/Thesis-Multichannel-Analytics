@@ -17,6 +17,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import text
 
 from app.config import settings
+from app.services.alert_service import co_canh_bao, nguong_giam
 
 BANG = {"shopee": "orders_shopee", "tiktok": "orders_tiktok"}
 
@@ -272,11 +273,6 @@ def dung_metrics(hien_tai, truoc, co_du_lieu):
     return metrics
 
 
-def co_canh_bao(pct_tho, nguong_giam):
-    """Cảnh báo khi doanh thu giảm từ `nguong_giam`% trở lên (pct_change <= −ngưỡng). pct None → không bao giờ cảnh báo."""
-    return pct_tho is not None and pct_tho <= -float(nguong_giam)
-
-
 def doanh_thu_theo_ngay(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=None):
     """{ngày: doanh thu hợp lệ} trong khoảng; ngày không có dòng hợp lệ không có khóa."""
     loc, tham_so = _loc(shop_name, product_code)
@@ -329,7 +325,7 @@ def kpi(phien, san, muc, ma_ky, shop_name=None, product_code=None):
         trang_thai = "ok"
 
     metrics = dung_metrics(hien_tai, truoc, co_du_lieu)
-    nguong = settings.ALERT_DROP_THRESHOLD_PCT
+    nguong = nguong_giam()
     pct_tho = (thay_doi_phan_tram_tho(hien_tai["revenue"], truoc["revenue"])
                if (co_du_lieu and truoc is not None) else None)
 
@@ -342,7 +338,7 @@ def kpi(phien, san, muc, ma_ky, shop_name=None, product_code=None):
         "data_max_date": ngay_max.isoformat(),
         "metrics": metrics,
         "previous_full": None,
-        "alert": {"triggered": co_canh_bao(pct_tho, nguong), "threshold_pct": -float(nguong)},
+        "alert": {"triggered": co_canh_bao(pct_tho, nguong), "threshold_pct": -nguong},
         "data_quality": {
             "rows_status_unknown": hien_tai["rows_unknown"] if co_du_lieu else None,
             "revenue_status_unknown": hien_tai["revenue_unknown"] if co_du_lieu else None,

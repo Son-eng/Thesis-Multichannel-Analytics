@@ -16,7 +16,7 @@ from sqlalchemy import text
 from app.database import SessionLocal
 from app.etl import shopee_parser, tiktok_parser
 from app.main import tao_ung_dung
-from app.services import kpi_service
+from app.services import alert_service, kpi_service
 
 pytestmark = pytest.mark.db
 
@@ -504,6 +504,6 @@ def test_xac_dinh_ky_cat_cung_so_ngay_cac_muc():
 
 
 def test_co_canh_bao_dung_nguong_va_khong_bao_gio_voi_none():
-    assert kpi_service.co_canh_bao(-30.0, 30) is True
-    assert kpi_service.co_canh_bao(-29.99, 30) is False
-    assert kpi_service.co_canh_bao(None, 30) is False
+    assert alert_service.co_canh_bao(-30.0, 30) is True
+    assert alert_service.co_canh_bao(-29.99, 30) is False
+    assert alert_service.co_canh_bao(None, 30) is False
