@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App.jsx';
+import { xuLyMock, datCauHinhMock } from './api/mock/handlers.js';
 
 // Khung ứng dụng, router, phân quyền menu.
 
@@ -92,6 +93,56 @@ describe('menu', () => {
     const nutThoat = screen.getByRole('button', { name: /Đăng xuất/ });
     await userEvent.click(nutThoat);
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument());
+  });
+});
+
+describe('nút "Đồng bộ ngay" ở chân menu (F02 việc A2)', () => {
+  const ADMIN = 'mock-token-admin.vh';
+
+  it('không sàn nào chạy: bắt đầu cả hai sàn, không có lỗi', async () => {
+    datCauHinhMock({ thoiGianDongBo: 60000 });
+    mo('/compare', ADMIN);
+    const nut = await screen.findByRole('button', { name: 'Đồng bộ ngay' });
+    await waitFor(() => expect(screen.getByText('Tự đồng bộ mỗi 10 phút')).toBeInTheDocument());
+    await userEvent.click(nut);
+    expect(await screen.findByText('Đã bắt đầu đồng bộ Shopee và TikTok Shop.')).toBeInTheDocument();
+    expect(document.querySelector('.ant-message-error')).toBeNull();
+  });
+
+  it('một sàn đang chạy: chỉ gọi sàn còn lại và ghi rõ sàn bị bỏ qua, không hiện như lỗi', async () => {
+    datCauHinhMock({ thoiGianDongBo: 60000 });
+    await xuLyMock('POST', '/api/sync/tiktok', {}, { token: ADMIN });
+    mo('/compare', ADMIN);
+    const nut = await screen.findByRole('button', { name: 'Đồng bộ ngay' });
+    await userEvent.click(nut);
+    expect(await screen.findByText('Đã bắt đầu đồng bộ Shopee. TikTok Shop đang đồng bộ nên bỏ qua.')).toBeInTheDocument();
+    expect(document.querySelector('.ant-message-error')).toBeNull();
+    expect(document.querySelector('.ant-message-warning')).toBeNull();
+  });
+
+  it('cả hai sàn đang chạy: nút bị khóa', async () => {
+    datCauHinhMock({ thoiGianDongBo: 60000 });
+    await xuLyMock('POST', '/api/sync/shopee', {}, { token: ADMIN });
+    await xuLyMock('POST', '/api/sync/tiktok', {}, { token: ADMIN });
+    mo('/compare', ADMIN);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Đồng bộ ngay' })).toBeDisabled());
+  });
+
+  it('409 do chạy chồng giữa lúc đọc trạng thái và lúc gọi: coi là "đang đồng bộ, bỏ qua", không phải lỗi', async () => {
+    datCauHinhMock({ thoiGianDongBo: 60000 });
+    mo('/compare', ADMIN);
+    const nut = await screen.findByRole('button', { name: 'Đồng bộ ngay' });
+    await waitFor(() => expect(screen.getByText('Tự đồng bộ mỗi 10 phút')).toBeInTheDocument());
+    // Mỗi lời gọi mock chờ 400ms: trạng thái được đọc ở ~400ms, hai lệnh POST xử lý ở ~800ms.
+    // Chen một lượt TikTok vào quãng giữa (~600ms) thì POST tiktok nhận 409.
+    datCauHinhMock({ doTre: 400 });
+    await userEvent.click(nut);
+    await new Promise((xong) => {
+      setTimeout(xong, 600);
+    });
+    await xuLyMock('POST', '/api/sync/tiktok', {}, { token: ADMIN });
+    expect(await screen.findByText('Đã bắt đầu đồng bộ Shopee. TikTok Shop đang đồng bộ nên bỏ qua.')).toBeInTheDocument();
+    expect(document.querySelector('.ant-message-error')).toBeNull();
   });
 });
 

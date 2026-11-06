@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { message } from 'antd';
 import { mau, chuDao, san, canhBao, boGoc, coChu, khoangCach } from '../theme/tokens.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { chayDongBo } from '../api/sync.js';
+import { chayDongBo, layTrangThaiDongBo } from '../api/sync.js';
 import { docLoi } from '../api/client.js';
 import { dinhDangThoiDiem } from '../utils/format.js';
 import Icon from './Icon.jsx';
@@ -26,6 +26,23 @@ function MucMenu({ den, children, chamMau }) {
   );
 }
 
+const SAN_DONG_BO = [
+  { ma: 'shopee', ten: 'Shopee' },
+  { ma: 'tiktok', ten: 'TikTok Shop' },
+];
+
+/** Câu thông báo sau "Đồng bộ ngay": "Đã bắt đầu đồng bộ Shopee. TikTok Shop đang đồng bộ nên bỏ qua." */
+export function dungThongBaoDongBo(batDau, boQua) {
+  const phan = [];
+  if (batDau.length > 0) {
+    phan.push(`Đã bắt đầu đồng bộ ${batDau.join(' và ')}.`);
+  }
+  if (boQua.length > 0) {
+    phan.push(`${boQua.join(' và ')} đang đồng bộ nên bỏ qua.`);
+  }
+  return phan.join(' ');
+}
+
 /** Lần đồng bộ thành công gần nhất của mọi gian hàng (mới nhất). */
 function lanGanNhat(trangThai) {
   const danhSach = trangThai.shops.map((s) => s.last_success_at).filter((t) => t !== null);
@@ -46,14 +63,43 @@ export default function Sidebar({ trangThai, lamMoi }) {
   const soSapHetQuyen = trangThai ? trangThai.shops.filter((s) => s.token_status === 'expiring').length : 0;
   const dangChayCaHai = trangThai ? trangThai.platforms.shopee.running && trangThai.platforms.tiktok.running : false;
 
-  /** "Đồng bộ ngay" ở chân menu: chạy cả hai sàn; sàn nào đang chạy thì báo 409 riêng. */
+  /**
+   * "Đồng bộ ngay" ở chân menu. Đọc trạng thái MỚI NHẤT trước, chỉ gọi sàn không đang chạy;
+   * sàn đang chạy được bỏ qua và ghi trong thông báo (không phải lỗi). Nếu giữa lúc đọc và lúc gọi
+   * sàn kia kịp chạy (409) thì cũng coi là "đang đồng bộ, bỏ qua". Lỗi khác vẫn báo là lỗi.
+   */
   const dongBoNgay = async () => {
-    const ketQua = await Promise.allSettled([chayDongBo('shopee'), chayDongBo('tiktok')]);
-    const loi = ketQua.find((k) => k.status === 'rejected');
-    if (loi) {
-      thongBao.warning(docLoi(loi.reason).message);
+    let tt;
+    try {
+      tt = await layTrangThaiDongBo();
+    } catch (e) {
+      thongBao.error(docLoi(e).message);
+      return;
+    }
+    const batDau = [];
+    const boQua = [];
+    const loiKhac = [];
+    const dsSan = SAN_DONG_BO.filter((s) => {
+      if (tt.platforms[s.ma].running) {
+        boQua.push(s.ten);
+        return false;
+      }
+      return true;
+    });
+    const ketQua = await Promise.allSettled(dsSan.map((s) => chayDongBo(s.ma)));
+    ketQua.forEach((k, i) => {
+      if (k.status === 'fulfilled') {
+        batDau.push(dsSan[i].ten);
+      } else if (k.reason && k.reason.status === 409) {
+        boQua.push(dsSan[i].ten);
+      } else {
+        loiKhac.push(docLoi(k.reason).message);
+      }
+    });
+    if (loiKhac.length > 0) {
+      thongBao.error(loiKhac[0]);
     } else {
-      thongBao.success('Đã bắt đầu đồng bộ');
+      thongBao.info(dungThongBaoDongBo(batDau, boQua));
     }
     lamMoi();
   };

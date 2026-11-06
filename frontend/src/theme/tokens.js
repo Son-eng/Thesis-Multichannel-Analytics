@@ -163,6 +163,7 @@ export const tokenAntd = {
   colorTextSecondary: mau.chuPhu,
   colorTextTertiary: mau.chuNhan,
   colorError: canhBao.chinh,
+  colorBgMask: mau.phuNen, // lớp phủ sau hộp thoại
   borderRadius: boGoc.nut,
   borderRadiusLG: boGoc.the,
   fontFamily: font.chu,

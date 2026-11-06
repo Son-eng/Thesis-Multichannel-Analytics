@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Modal } from 'antd';
 import { mau, chuDao, canhBao, coChu, khoangCach } from '../theme/tokens.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTaiDuLieu } from '../hooks/useTaiDuLieu.js';
@@ -6,7 +7,6 @@ import { layDanhSachNguoiDung, taoNguoiDung, doiVaiTro, datLaiMatKhau, xoaNguoiD
 import { docLoi } from '../api/client.js';
 import Card from '../components/Card.jsx';
 import PageTitle from '../components/PageTitle.jsx';
-import HopThoai from '../components/HopThoai.jsx';
 import Icon from '../components/Icon.jsx';
 import KhoiDuLieu from '../components/KhoiDuLieu.jsx';
 import { dinhDangNgay } from '../utils/format.js';
@@ -31,7 +31,8 @@ function NhanVaiTro({ vaiTro }) {
 export default function Users() {
   const { nguoiDung } = useAuth();
   const tt = useTaiDuLieu(() => layDanhSachNguoiDung(), []);
-  const [hop, setHop] = useState(null); // {loai: 'vaiTro'|'matKhau'|'xoa', nguoi}
+  const [hop, setHop] = useState(null); // {loai: 'vaiTro'|'matKhau'|'xoa', nguoi}; giữ lại sau khi đóng để nội dung không biến mất giữa chừng lúc hộp thoại khép lại
+  const [hopMo, setHopMo] = useState(false);
   const [giaTriNhap, setGiaTriNhap] = useState('');
   const [loiHop, setLoiHop] = useState('');
   const [dangGui, setDangGui] = useState(false);
@@ -41,10 +42,11 @@ export default function Users() {
 
   const moHop = (loai, nguoi) => {
     setHop({ loai, nguoi });
+    setHopMo(true);
     setLoiHop('');
     setGiaTriNhap(loai === 'vaiTro' ? nguoi.role : '');
   };
-  const dongHop = () => setHop(null);
+  const dongHop = () => setHopMo(false);
 
   /** Chạy một thao tác của hộp thoại: thành công thì đóng và tải lại danh sách, lỗi thì hiện trong hộp. */
   const chayThaoTac = async (viec) => {
@@ -52,7 +54,7 @@ export default function Users() {
     setLoiHop('');
     try {
       await viec();
-      setHop(null);
+      setHopMo(false);
       tt.thuLai();
     } catch (e) {
       setLoiHop(docLoi(e).message);
@@ -178,34 +180,53 @@ export default function Users() {
         </Card>
       </div>
 
-      {hop ? (
-        <HopThoai
-          tieuDe={{ vaiTro: `Đổi vai trò của ${hop.nguoi.username}`, matKhau: `Đặt lại mật khẩu của ${hop.nguoi.username}`, xoa: `Xóa tài khoản ${hop.nguoi.username}` }[hop.loai]}
-          khiDong={dongHop}
-          khiDongY={xacNhanHop}
-          nhanDongY={{ vaiTro: 'Lưu vai trò', matKhau: 'Đặt lại', xoa: 'Xóa tài khoản' }[hop.loai]}
-          nguyHiem={hop.loai === 'xoa'}
-          khoaDongY={dangGui || (hop.loai === 'matKhau' && giaTriNhap === '')}
-          loi={loiHop}
-        >
-          {hop.loai === 'vaiTro' ? (
-            <div>
-              <label className="nhan-o" htmlFor="hop-vai-tro">Vai trò mới</label>
-              <select id="hop-vai-tro" className="o-nhap" value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)}>
-                <option value="user">Người dùng</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          ) : null}
-          {hop.loai === 'matKhau' ? (
-            <div>
-              <label className="nhan-o" htmlFor="hop-mat-khau">Mật khẩu mới</label>
-              <input id="hop-mat-khau" className="o-nhap" type="password" autoFocus value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)} />
-            </div>
-          ) : null}
-          {hop.loai === 'xoa' ? <p style={{ margin: 0, color: mau.chuPhu }}>Tài khoản sẽ bị xóa và không đăng nhập được nữa. Không hoàn tác được.</p> : null}
-        </HopThoai>
-      ) : null}
+      {/* Modal của Ant Design lo phần trợ năng: đưa con trỏ vào trong khi mở, giữ Tab trong hộp, trả con trỏ về nút đã bấm khi đóng, Esc để đóng.
+          Màu và bo góc lấy từ token qua ConfigProvider (theme/antdTheme.js). */}
+      <Modal
+        open={hopMo}
+        title={hop ? { vaiTro: `Đổi vai trò của ${hop.nguoi.username}`, matKhau: `Đặt lại mật khẩu của ${hop.nguoi.username}`, xoa: `Xóa tài khoản ${hop.nguoi.username}` }[hop.loai] : ''}
+        onCancel={dongHop}
+        onOk={xacNhanHop}
+        okText={hop ? { vaiTro: 'Lưu vai trò', matKhau: 'Đặt lại', xoa: 'Xóa tài khoản' }[hop.loai] : ''}
+        cancelText="Hủy"
+        okButtonProps={{ danger: hop !== null && hop.loai === 'xoa', disabled: dangGui || (hop !== null && hop.loai === 'matKhau' && giaTriNhap === '') }}
+        maskClosable
+        width={420}
+      >
+        {hop ? (
+          <form
+            onSubmit={(sk) => {
+              sk.preventDefault();
+              if (!(dangGui || (hop.loai === 'matKhau' && giaTriNhap === ''))) {
+                xacNhanHop();
+              }
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            {hop.loai === 'vaiTro' ? (
+              <div>
+                <label className="nhan-o" htmlFor="hop-vai-tro">Vai trò mới</label>
+                <select id="hop-vai-tro" className="o-nhap" value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)}>
+                  <option value="user">Người dùng</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            ) : null}
+            {hop.loai === 'matKhau' ? (
+              <div>
+                <label className="nhan-o" htmlFor="hop-mat-khau">Mật khẩu mới</label>
+                <input id="hop-mat-khau" className="o-nhap" type="password" autoFocus value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)} />
+              </div>
+            ) : null}
+            {hop.loai === 'xoa' ? <p style={{ margin: 0, color: mau.chuPhu }}>Tài khoản sẽ bị xóa và không đăng nhập được nữa. Không hoàn tác được.</p> : null}
+            {loiHop ? (
+              <div role="alert" style={{ fontSize: coChu.nho, color: canhBao.chuDam }}>
+                {loiHop}
+              </div>
+            ) : null}
+          </form>
+        ) : null}
+      </Modal>
     </>
   );
 }

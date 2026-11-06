@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes, useLocation, useParams, Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
-import { antdTheme } from './theme/antdTheme.js';
+import { layAntdTheme } from './theme/antdTheme.js';
 import { cssToanCuc } from './theme/globalStyles.js';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import AppLayout from './components/AppLayout.jsx';
@@ -67,7 +67,7 @@ export function TuyenUngDung() {
 /** Gốc ứng dụng: theme Ant Design từ tokens, CSS toàn cục, phiên đăng nhập, router. */
 export default function App() {
   return (
-    <ConfigProvider locale={viVN} theme={antdTheme}>
+    <ConfigProvider locale={viVN} theme={layAntdTheme()}>
       <style>{cssToanCuc}</style>
       <AuthProvider>
         <TuyenUngDung />

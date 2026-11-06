@@ -7,9 +7,10 @@ import { dinhDangTien, dinhDangSo, dinhDangPhanTram, KHONG_CO_DU_LIEU } from '..
 /**
  * Các chỉ số cả hai sàn đều tính được (SPEC §12). Tỷ lệ mới có thanh ngang, vì tỷ lệ so được giữa
  * hai sàn dù số ngày khác nhau; số tiền và số đơn thì không (hai sàn khác số ngày).
+ * Cố ý KHÔNG có hàng "Doanh thu": doanh thu đã nằm ở hai thẻ phía trên, đặt hai số tiền cạnh nhau
+ * trong bảng sẽ dễ bị đọc như so hai sàn trong khi số ngày khác nhau (duyệt F01, F02 việc A1).
  */
 export const HANG_CHI_SO = [
-  { khoa: 'revenue', nhan: 'Doanh thu', phu: 'Đã loại đơn hủy và đơn hoàn', kieu: 'tien', dang: 'phanTram', tangLaTot: true, loai: 'doanh_thu', thanh: false },
   { khoa: 'order_count', nhan: 'Số đơn hợp lệ', phu: 'Không hủy, không hoàn', kieu: 'so', dang: 'phanTram', tangLaTot: true, loai: 'don', thanh: false },
   { khoa: 'aov', nhan: 'Giá trị đơn trung bình', phu: 'Doanh thu / số đơn hợp lệ', kieu: 'tien', dang: 'phanTram', tangLaTot: true, loai: 'don', thanh: false },
   { khoa: 'cancel_rate', nhan: 'Tỷ lệ hủy', phu: 'Trên tổng số đơn', kieu: 'tyLe', dang: 'diemPhanTram', tangLaTot: false, loai: 'don', thanh: true },

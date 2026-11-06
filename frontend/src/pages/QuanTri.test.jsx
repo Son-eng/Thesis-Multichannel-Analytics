@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App.jsx';
@@ -235,6 +235,22 @@ describe('Người dùng', () => {
     await userEvent.type(within(hop).getByLabelText('Mật khẩu mới'), 'mk-moi-gia');
     await userEvent.click(within(hop).getByRole('button', { name: 'Đặt lại' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('hộp thoại (Modal Ant Design): mở thì con trỏ nằm trong hộp; Esc đóng; đóng thì trả con trỏ về nút đã bấm', async () => {
+    mo('/admin/users');
+    const khac = await screen.findByTestId('nguoi-quanly.kd');
+    const nutXoa = within(khac).getByRole('button', { name: 'Xóa' });
+    nutXoa.focus();
+    await userEvent.click(nutXoa);
+    const hop = await screen.findByRole('dialog');
+    await waitFor(() => expect(hop.contains(document.activeElement)).toBe(true));
+    // Nút xác nhận của hộp Xóa là nút nguy hiểm (danger).
+    expect(within(hop).getByRole('button', { name: 'Xóa tài khoản' }).className).toContain('ant-btn-dangerous');
+    // user-event không điền keyCode cho Esc còn rc-dialog đọc keyCode; trình duyệt thật luôn có keyCode 27.
+    fireEvent.keyDown(document.activeElement, { key: 'Escape', code: 'Escape', keyCode: 27 });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(nutXoa));
   });
 
   it('xóa có xác nhận: Hủy thì giữ, xác nhận thì mất', async () => {

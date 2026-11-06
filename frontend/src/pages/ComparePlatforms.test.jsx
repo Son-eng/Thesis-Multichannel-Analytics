@@ -87,14 +87,15 @@ describe('chọn 2026-03: cánh Shopee không có dữ liệu, cánh TikTok vẫ
 });
 
 describe('bảng chỉ số hai cánh', () => {
-  it('có đủ sáu hàng; thanh ngang chỉ vẽ cho ba tỷ lệ (hai cánh mỗi hàng)', async () => {
+  it('có đủ năm hàng và KHÔNG có hàng Doanh thu; thanh ngang chỉ vẽ cho ba tỷ lệ (hai cánh mỗi hàng)', async () => {
     const { container } = mo();
     await chuaTai();
-    ['revenue', 'order_count', 'aov', 'cancel_rate', 'return_rate', 'affiliate_share'].forEach((k) => {
+    ['order_count', 'aov', 'cancel_rate', 'return_rate', 'affiliate_share'].forEach((k) => {
       expect(screen.getByTestId(`hang-${k}`)).toBeInTheDocument();
     });
+    expect(screen.queryByTestId('hang-revenue')).not.toBeInTheDocument();
     await waitFor(() => expect(container.querySelectorAll('[data-testid="thanh-hai-canh"]').length).toBe(6));
-    ['revenue', 'order_count', 'aov'].forEach((k) => {
+    ['order_count', 'aov'].forEach((k) => {
       expect(within(screen.getByTestId(`hang-${k}`)).queryAllByTestId('thanh-hai-canh')).toHaveLength(0);
     });
   });
