@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     TIKTOK_SHOP_B_ACCESS_TOKEN: str
     TIKTOK_SHOP_B_REFRESH_TOKEN: str
 
+    # Các origin của frontend được phép gọi API (CORS). Vite dev chạy ở cổng 5173; đặt trong .env dạng JSON: ["http://localhost:5173"].
+    CORS_ALLOW_ORIGINS: list[str] = ["http://localhost:5173"]
+
     # ---------------- Tác vụ đồng bộ (§20.3, §20.4) ----------------
     SYNC_INTERVAL_MINUTES: int = Field(default=10, gt=0)
     SYNC_LOOKBACK_DAYS: int = Field(default=3, gt=0)

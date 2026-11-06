@@ -15,7 +15,9 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import dashboard as api_dashboard
 from app.api import sync as api_sync
 from app.api import upload as api_upload
 from app.etl import nap_file as bo_nap
@@ -74,9 +76,13 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
 
     ung_dung = FastAPI(title="Hệ thống phân tích dữ liệu bán hàng đa kênh", lifespan=lifespan)
     ung_dung.state.ham_chay_nen = ham_chay_nen or api_sync.chay_nen_mac_dinh
+    # CORS: frontend dev (Vite) ở origin khác cổng với backend.
+    ung_dung.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ALLOW_ORIGINS,
+                            allow_methods=["*"], allow_headers=["*"])
     ung_dung.state.trang_thai_quet = trang_thai_quet
     ung_dung.include_router(api_sync.router)
     ung_dung.include_router(api_upload.router)
+    ung_dung.include_router(api_dashboard.router)
     return ung_dung
 
 

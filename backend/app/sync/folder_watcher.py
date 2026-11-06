@@ -119,8 +119,10 @@ def quet_mot_lan(thu_muc_goc, kich_thuoc_truoc, ham_nap, trang_thai=None):
                 ket_qua.append((san, file.name, "processed"))
             kich_thuoc_nay.pop(file, None)    # đã xử lý xong, quên kích thước
     if trang_thai is not None:
-        trang_thai.last_scan_at = datetime.now(timezone.utc)
+        # Gán số file chờ TRƯỚC mốc quét: GET /api/watcher/status chạy ở thread khác, thấy mốc quét mới
+        # thì số file chờ phải đã là của lần quét đó (không được thấy mốc mới kèm số cũ).
         trang_thai.pending_files = sum(len(liet_ke_file(thu_muc_goc, san)) for san in CAC_SAN)
+        trang_thai.last_scan_at = datetime.now(timezone.utc)
     return kich_thuoc_nay, ket_qua
 
 
