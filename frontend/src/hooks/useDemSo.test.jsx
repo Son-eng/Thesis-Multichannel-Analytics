@@ -9,21 +9,22 @@ describe('useDemSo', () => {
   });
 
   it('hệ điều hành bật giảm chuyển động: trả ngay giá trị cuối', () => {
-    const goc = window.matchMedia;
     window.matchMedia = (truyVan) => ({ matches: truyVan.includes('reduce'), media: truyVan, addEventListener() {}, removeEventListener() {} });
     const { result } = renderHook(() => useDemSo(1234));
     expect(result.current).toBe(1234);
-    window.matchMedia = goc;
   });
 
   it('giá trị null không bao giờ thành 0 (quy tắc 1)', () => {
     const { result } = renderHook(() => useDemSo(null, { tat: true }));
     expect(result.current).toBeNull();
+    // Cả khi chuyển động bật: null chưa bao giờ biến thành 0 ở giá trị cuối.
+    window.matchMedia = (truyVan) => ({ matches: false, media: truyVan, addEventListener() {}, removeEventListener() {} });
     const { result: r2 } = renderHook(() => useDemSo(null));
-    expect(r2.current === null || r2.current === 0).toBe(true);
+    expect(r2.current).toBeNull();
   });
 
   it('bật chuyển động: bắt đầu từ 0 rồi tiến dần đến giá trị cuối', () => {
+    window.matchMedia = (truyVan) => ({ matches: false, media: truyVan, addEventListener() {}, removeEventListener() {} });
     vi.useFakeTimers();
     let thoiGian = 0;
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => setTimeout(() => cb((thoiGian += 100)), 100));
@@ -43,6 +44,7 @@ describe('useDemSo', () => {
   });
 
   it('đổi giá trị đích: chạy từ giá trị hiện tại, không chạy lại từ 0', () => {
+    window.matchMedia = (truyVan) => ({ matches: false, media: truyVan, addEventListener() {}, removeEventListener() {} });
     vi.useFakeTimers();
     let thoiGian = 0;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => setTimeout(() => cb((thoiGian += 100)), 100));

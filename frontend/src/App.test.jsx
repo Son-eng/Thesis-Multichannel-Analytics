@@ -17,36 +17,44 @@ function mo(duongDan, token) {
   );
 }
 
+/**
+ * Chờ tới khi tiêu đề xuất hiện. Dùng waitFor thay vì findByRole vì trang dashboard dựng lại phần tiêu đề
+ * khi bộ lọc tải xong, nên phần tử tìm được lúc đầu có thể bị thay trước khi kiểm tra.
+ */
+async function coTieuDe(ten) {
+  await waitFor(() => expect(screen.getByRole('heading', { name: ten })).toBeInTheDocument());
+}
+
 describe('router', () => {
   it('chưa đăng nhập thì về /login', async () => {
     mo('/dashboard/shopee');
-    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument();
+    await coTieuDe('Đăng nhập');
   });
 
   it('đã đăng nhập mở /dashboard/shopee thấy tiêu đề', async () => {
     mo('/dashboard/shopee', 'mock-token-admin.vh');
-    expect(await screen.findByRole('heading', { name: 'Dashboard Shopee' })).toBeInTheDocument();
+    await coTieuDe('Dashboard Shopee');
   });
 
   it('/dashboard/tiktok có tiêu đề TikTok Shop', async () => {
     mo('/dashboard/tiktok', 'mock-token-admin.vh');
-    expect(await screen.findByRole('heading', { name: 'Dashboard TikTok Shop' })).toBeInTheDocument();
+    await coTieuDe('Dashboard TikTok Shop');
   });
 
   it('/dashboard/abc (sàn không hợp lệ) chuyển về /dashboard/shopee', async () => {
     mo('/dashboard/abc', 'mock-token-admin.vh');
-    expect(await screen.findByRole('heading', { name: 'Dashboard Shopee' })).toBeInTheDocument();
+    await coTieuDe('Dashboard Shopee');
   });
 
   it('user thường vào /admin/users bị chuyển về dashboard', async () => {
     mo('/admin/users', 'mock-token-quanly.kd');
-    expect(await screen.findByRole('heading', { name: 'Dashboard Shopee' })).toBeInTheDocument();
+    await coTieuDe('Dashboard Shopee');
     expect(screen.queryByRole('heading', { name: 'Người dùng' })).not.toBeInTheDocument();
   });
 
   it('admin vào được /admin/users', async () => {
     mo('/admin/users', 'mock-token-admin.vh');
-    expect(await screen.findByRole('heading', { name: 'Người dùng' })).toBeInTheDocument();
+    await coTieuDe('Người dùng');
   });
 });
 
@@ -60,7 +68,7 @@ describe('menu', () => {
 
   it('user thường KHÔNG thấy nhóm QUẢN TRỊ và không có nút Đồng bộ ngay', async () => {
     mo('/compare', 'mock-token-quanly.kd');
-    expect(await screen.findByRole('heading', { name: 'Đối chiếu hai sàn' })).toBeInTheDocument();
+    await coTieuDe('Đối chiếu hai sàn');
     expect(screen.queryByText('QUẢN TRỊ')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Đồng bộ ngay' })).not.toBeInTheDocument();
   });
@@ -101,6 +109,6 @@ describe('đăng nhập', () => {
     await userEvent.type(await screen.findByLabelText('Tên đăng nhập'), 'quanly.kd');
     await userEvent.type(screen.getByLabelText('Mật khẩu'), 'demo123');
     await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
-    expect(await screen.findByRole('heading', { name: 'Dashboard Shopee' })).toBeInTheDocument();
+    await coTieuDe('Dashboard Shopee');
   });
 });

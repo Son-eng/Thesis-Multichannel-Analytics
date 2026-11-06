@@ -46,6 +46,12 @@ export const san = {
   tiktok: { chinh: '#27C2B0', nhat: '#E3F7F4', chu: '#0B6B61' },
 };
 
+/** Hai kênh bán trong bán nguyệt "Doanh thu theo kênh bán" (không phải màu sàn). */
+export const kenhBan = {
+  lienKet: '#5B4BE0', // tiếp thị liên kết
+  tuBan: '#27C2B0', // shop tự bán
+};
+
 /** Dãy màu theo mã sản phẩm (4 mã đầu + "mã khác") và màu nền nhạt của ô mã. */
 export const maSanPham = {
   day: ['#4F3FD1', '#8E7FF5', '#5C8DF6', '#27C2B0', '#A9E9E0'],

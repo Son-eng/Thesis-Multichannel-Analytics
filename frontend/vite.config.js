@@ -10,5 +10,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.js'],
     css: false,
+    testTimeout: 30000,
+    // Giới hạn số tiến trình chạy song song: máy yếu khởi động quá nhiều jsdom cùng lúc sẽ bị quá thời gian chờ.
+    maxWorkers: 3,
   },
 })

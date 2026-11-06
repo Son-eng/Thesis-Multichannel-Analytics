@@ -14,11 +14,13 @@ import { dinhDangNgay, rutGonTien, dinhDangTien, dinhDangPhanTram } from '../../
  * - doTre: độ trễ giả (ms) để thấy trạng thái đang tải.
  * - thoiGianDongBo: một lượt "Đồng bộ ngay" chạy bao lâu (ms).
  * - llmLoi: true thì /api/insights/generate trả 503.
+ * - loiKhoi: endpoint dashboard nào trả 500 (để test một khối lỗi không làm hỏng khối khác).
  */
 export const cauHinhMock = {
   doTre: 300,
   thoiGianDongBo: 5000,
   llmLoi: false,
+  loiKhoi: [], // danh sách endpoint dashboard cố ý trả 500, ví dụ ['by-hour']; chỉ test dùng
 };
 
 export function datCauHinhMock(thayDoi) {
@@ -125,6 +127,7 @@ export function datLaiMock() {
   lichSu = taoLichSuMau();
   idLuotKeTiep = 1000;
   cauHinhMock.llmLoi = false;
+  cauHinhMock.loiKhoi = [];
 }
 datLaiMock();
 
@@ -446,6 +449,9 @@ export async function xuLyMock(phuongThuc, duongDan, thamSo = {}, nguCanh = { to
       alerts: () => engine.alerts(dau, goc),
     };
     if (bang[hai]) {
+      if (cauHinhMock.loiKhoi.includes(hai)) {
+        throw loiCoMa(500, 'internal_error', 'Lỗi máy chủ giả lập');
+      }
       return bang[hai]();
     }
   }
