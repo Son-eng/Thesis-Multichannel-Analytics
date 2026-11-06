@@ -33,7 +33,15 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
 .nut-chinh:hover:not(:disabled) { background: ${chuDao.nutChinhHover}; border-color: ${chuDao.nutChinhHover}; }
 .nut-nguy { color: ${canhBao.chuDam}; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.o-nhap { display: block; width: 100%; box-sizing: border-box; height: 42px; padding: 0 12px; border: 1px solid ${mau.vienChip}; border-radius: ${boGoc.nut}px; background: ${mau.nenThe}; font-size: 14px; color: ${mau.chuChinh}; }
+.o-nhap:hover { border-color: ${mau.vienChipHover}; }
+.o-nhap:focus-visible { outline: 2px solid ${chuDao.chinh}; outline-offset: 1px; }
+.nhan-o { display: block; font-size: 13px; font-weight: 500; color: ${mau.chuPhu}; margin-bottom: 6px; }
+.dang-nhap { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
+@media (max-width: 900px) { .dang-nhap { grid-template-columns: 1fr; } .dang-nhap-tranh { display: none !important; } }
+@keyframes xoay { to { transform: rotate(360deg); } }
+.xoay { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; animation: xoay .8s linear infinite; }
 @keyframes khungXam { 0% { opacity: .55; } 50% { opacity: 1; } 100% { opacity: .55; } }
 .khung-xam { background: ${mau.thanhNen}; border-radius: 8px; animation: khungXam 1.4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .khung-xam { animation: none; } * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .khung-xam, .xoay { animation: none; } * { transition: none !important; } }
 `;

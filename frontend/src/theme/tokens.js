@@ -20,6 +20,8 @@ export const mau = {
   chuDonVi: '#8A90A3', // CHỈ dùng cho đơn vị "đ" cạnh số lớn
   thanhNen: '#F1F2F7', // nền thanh tỷ trọng, nền nhãn trung tính
   cotXam: '#ECEEF5', // cột biểu đồ không nổi bật
+  phuNen: 'rgba(26,29,41,.45)', // lớp phủ mờ phía sau hộp thoại
+  chuTrenNen: '#B9BED6', // chữ phụ trên nền tối (trang đăng nhập)
 };
 
 /** Màu chủ đạo của giao diện: KHÔNG đổi theo sàn. */
@@ -44,6 +46,12 @@ export const chuDao = {
 export const san = {
   shopee: { chinh: '#F26B4A', nhat: '#FEEDE8', chu: '#A3360F' },
   tiktok: { chinh: '#27C2B0', nhat: '#E3F7F4', chu: '#0B6B61' },
+};
+
+/** Hai đường minh họa ở trang đăng nhập (màu hai sàn, chỉ để trang trí). */
+export const dangNhap = {
+  duongA: '#FF6A3D',
+  duongB: '#10B3A3',
 };
 
 /** Hai kênh bán trong bán nguyệt "Doanh thu theo kênh bán" (không phải màu sàn). */
