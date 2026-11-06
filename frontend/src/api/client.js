@@ -1,6 +1,9 @@
 // MỘT cửa duy nhất gọi API. Trang và hook KHÔNG BAO GIỜ gọi fetch trực tiếp.
 // Cờ VITE_USE_MOCK chọn nguồn dữ liệu: bật -> src/api/mock/, tắt -> fetch tới VITE_API_BASE_URL.
 // Nhờ vậy khi backend xong, chỉ cần tắt cờ, không phải sửa trang nào (SPEC §14 điểm 4).
+// Ngoại lệ: nhóm endpoint backend chưa có luôn đi vào mock, khai báo ở cheDo.js.
+
+import { luonGiaLap } from './cheDo.js';
 
 const KHOA_TOKEN = 'dak_token';
 export const SU_KIEN_HET_PHIEN = 'dak-het-phien';
@@ -40,7 +43,10 @@ export function xoaToken() {
   }
 }
 
-/** Mock được bật trừ khi VITE_USE_MOCK được đặt rõ là "false". */
+/**
+ * Mock được bật trừ khi VITE_USE_MOCK được đặt rõ là "false".
+ * Lưu ý: ngay cả khi tắt, các nhóm trong `cheDo.js` (auth, users, insights, export) vẫn đi vào mock.
+ */
 export function dungMock() {
   return import.meta.env.VITE_USE_MOCK !== 'false';
 }
@@ -149,7 +155,7 @@ async function goiHttp(phuongThuc, duongDan, thamSo) {
  */
 export async function goiApi(phuongThuc, duongDan, thamSo) {
   try {
-    if (dungMock()) {
+    if (dungMock() || luonGiaLap(duongDan)) {
       return await goiMock(phuongThuc, duongDan, thamSo);
     }
     return await goiHttp(phuongThuc, duongDan, thamSo);

@@ -30,6 +30,23 @@ Không đặt biến thì mock được bật.
 
 **Tài khoản mock (GIẢ, chỉ để demo):** `admin.vh` (quản trị viên) và `quanly.kd` (người dùng), mật khẩu giả `demo123`. Đăng nhập bằng `quanly.kd` thì nhóm menu "QUẢN TRỊ" biến mất và các trang quản trị chuyển về dashboard.
 
+## Chạy với backend thật
+
+1. Bật backend từ repo chính (backend, CSDL, Docker do bạn tự bật; frontend không tự bật).
+2. Tạo `frontend/.env.local` (đã được git bỏ qua, **không commit**):
+
+   ```
+   VITE_USE_MOCK=false
+   VITE_API_BASE_URL=http://localhost:8000
+   ```
+
+3. `npm run dev`.
+
+**Nhóm endpoint vẫn được giả lập** khi `VITE_USE_MOCK=false`: `auth` (`/api/auth/*`), `users` (`/api/users*`), `insights` (`/api/insights/generate`), `export` (`/api/export/*`).
+Lý do: backend chưa có các nhóm này và theo hợp đồng `docs/SPEC.md §12.1` mục 5 chúng ghi là "Mock khi demo"; nếu tắt mock hoàn toàn thì đăng nhập sẽ hỏng.
+Danh sách nằm ở **một chỗ**: `src/api/cheDo.js` (`NHOM_LUON_GIA_LAP`). Backend làm xong nhóm nào thì xóa nhóm đó khỏi danh sách, không phải sửa trang.
+Các nhóm còn lại (`/api/shopee/*`, `/api/tiktok/*`, `/api/compare/*`, `/api/sync/*`, `/api/upload/*`, ...) gọi thẳng backend.
+
 ## Cấu trúc
 
 ```
