@@ -160,8 +160,21 @@ def test_kpi_no_data_khong_bao_gio_la_0(client):
 
 
 def test_kpi_tieu_chi_chat_luong_du_lieu(client):
+    """Số dòng/ doanh thu `unknown` phải bằng đúng số đếm trực tiếp trong CSDL; ở dữ liệu nạp từ tệp thì là số §17.
+
+    Đường API không bao giờ sinh `unknown` (§6.4: Shopee API luôn có trạng thái), nên sau khi lịch đồng bộ ghi đè
+    dữ liệu mẫu bằng dữ liệu API (đã gặp khi làm theo README: backend tự đồng bộ ngay lúc khởi động) con số này là 0.
+    Vì vậy kiểm theo trạng thái thực của CSDL thay vì ép cứng 19.
+    """
+    with SessionLocal() as phien:
+        tat_ca_tu_tep = phien.execute(text("SELECT bool_and(data_source = 'file') FROM orders_shopee")).scalar_one()
+        so_dong, doanh_thu = phien.execute(text(
+            "SELECT count(*), COALESCE(sum(nmv_after_tax) FILTER (WHERE order_status <> 'cancelled' AND NOT is_returned), 0) "
+            "FROM orders_shopee WHERE order_status = 'unknown'")).one()
     shopee = lay(client, "/api/shopee/kpi", granularity="year", period="2026")["data_quality"]
-    assert shopee == {"rows_status_unknown": 19, "revenue_status_unknown": 29814813, "rows_nmv_provisional": 0}
+    assert shopee == {"rows_status_unknown": so_dong, "revenue_status_unknown": int(doanh_thu), "rows_nmv_provisional": 0}
+    if tat_ca_tu_tep:
+        assert (so_dong, int(doanh_thu)) == (19, 29814813)                       # §17.2, §17.6
     tiktok = lay(client, "/api/tiktok/kpi", granularity="year", period="2026")["data_quality"]
     assert tiktok == {"rows_status_unknown": 0, "revenue_status_unknown": 0, "rows_nmv_provisional": None}
 
