@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
 import { datCauHinhMock } from '../api/mock/handlers.js';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  window.localStorage.clear();
+});
 
 function mo(duongDan) {
   return render(
@@ -246,10 +252,46 @@ describe('đầu trang và ô chọn', () => {
     expect(within(chonMa).getByRole('option', { name: 'M22' })).toBeInTheDocument();
   });
 
-  it('"Xuất báo cáo" hiện "Chưa hỗ trợ trong bản demo"', async () => {
+  it('"Xuất PDF" hiện "Chưa hỗ trợ trong bản demo" và không gọi máy chủ', async () => {
+    const hamFetch = vi.fn();
+    vi.stubGlobal('fetch', hamFetch);
     mo('/dashboard/shopee');
-    await userEvent.click(await screen.findByRole('button', { name: /Xuất báo cáo/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Xuất PDF/ }));
     expect(screen.getByText('Chưa hỗ trợ trong bản demo')).toBeInTheDocument();
+    expect(hamFetch).not.toHaveBeenCalled();
+  });
+
+  it('"Xuất Excel" ở chế độ giả lập nói rõ cần máy chủ thật (không tạo tệp giả)', async () => {
+    mo('/dashboard/shopee');
+    await userEvent.click(await screen.findByRole('button', { name: /Xuất Excel/ }));
+    expect(await screen.findByText(/cần chạy với máy chủ thật/)).toBeInTheDocument();
+  });
+
+  it('"Xuất Excel" với máy chủ thật: gọi đúng kỳ và bộ lọc đang xem, kèm token, rồi lưu tệp', async () => {
+    vi.stubEnv('VITE_USE_MOCK', 'false');
+    window.localStorage.setItem('dak_token', 'token-that');
+    const hamFetch = vi.fn(async (url) => {
+      if (String(url).includes('/api/export/')) {
+        return { ok: true, status: 200, headers: { get: () => 'attachment; filename="bao-cao-shopee-2026-07.xlsx"' }, blob: async () => new Blob(['x']) };
+      }
+      // Các endpoint dữ liệu khác: dùng chính bộ xử lý mock làm "máy chủ thật" để trang dựng được.
+      const { xuLyMock } = await import('../api/mock/handlers.js');
+      const u = new URL(url);
+      const thamSo = Object.fromEntries(u.searchParams);
+      return { ok: true, status: 200, json: async () => xuLyMock('GET', u.pathname, thamSo, { token: 'mock-token-admin.vh' }) };
+    });
+    vi.stubGlobal('fetch', hamFetch);
+    URL.createObjectURL = () => 'blob:thu';
+    URL.revokeObjectURL = () => {};
+    mo('/dashboard/shopee?ky=2026-07&ma=M15');
+    await userEvent.click(await screen.findByRole('button', { name: /Xuất Excel/ }));
+    expect(await screen.findByText('Đã tải bao-cao-shopee-2026-07.xlsx')).toBeInTheDocument();
+    const loiGoi = hamFetch.mock.calls.find(([url]) => String(url).includes('/api/export/'));
+    expect(loiGoi[0]).toContain('/api/export/shopee/excel?');
+    expect(loiGoi[0]).toContain('granularity=month');
+    expect(loiGoi[0]).toContain('period=2026-07');
+    expect(loiGoi[0]).toContain('product_code=M15');
+    expect(loiGoi[1].headers.Authorization).toBe('Bearer token-that');
   });
 
   it('không còn khung debug, nút test hay JSON thô trên giao diện', async () => {

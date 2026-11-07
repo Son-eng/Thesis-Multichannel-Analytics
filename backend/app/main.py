@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth as api_auth
 from app.api import dashboard as api_dashboard
+from app.api import export as api_export
 from app.api import sync as api_sync
 from app.api import upload as api_upload
 from app.api import users as api_users
@@ -88,6 +89,7 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
     ung_dung.include_router(api_sync.router)
     ung_dung.include_router(api_upload.router)
     ung_dung.include_router(api_dashboard.router)
+    ung_dung.include_router(api_export.router)
     return ung_dung
 
 

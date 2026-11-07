@@ -16,8 +16,8 @@ function giaFetch(thanBang = { shops: ['Shop C'] }) {
 }
 
 describe('danh sách nhóm luôn giả lập', () => {
-  it('chỉ còn nhóm backend chưa làm (auth, users đã có backend thật từ 07/11/2026)', () => {
-    expect([...NHOM_LUON_GIA_LAP].sort()).toEqual(['export', 'insights']);
+  it('chỉ còn nhóm backend chưa làm (auth, users, export đã có backend thật từ 07/11/2026)', () => {
+    expect([...NHOM_LUON_GIA_LAP].sort()).toEqual(['insights']);
   });
 
   it('nhận ra nhóm từ đường dẫn, bỏ qua query', () => {
@@ -27,7 +27,7 @@ describe('danh sách nhóm luôn giả lập', () => {
     expect(luonGiaLap('/api/users')).toBe(false);
     expect(nhomCuaDuongDan('/khong-phai-api')).toBeNull();
     expect(luonGiaLap('/api/insights/generate')).toBe(true);
-    expect(luonGiaLap('/api/export/report')).toBe(true);
+    expect(luonGiaLap('/api/export/shopee/excel')).toBe(false);
     expect(luonGiaLap('/api/shopee/kpi')).toBe(false);
     expect(luonGiaLap('/api/sync/status')).toBe(false);
     // Tên nhóm phải khớp nguyên đoạn, không khớp tiền tố.
@@ -55,7 +55,7 @@ describe('VITE_USE_MOCK=false', () => {
     expect(hamFetch.mock.calls[0][1].headers.Authorization).toBe('Bearer token-that');
   });
 
-  it('nhóm insights và export vẫn vào mock (chưa có backend)', async () => {
+  it('nhóm insights vẫn vào mock (chưa có backend)', async () => {
     vi.stubEnv('VITE_USE_MOCK', 'false');
     const hamFetch = giaFetch();
     window.localStorage.setItem('dak_token', 'mock-token-admin.vh');

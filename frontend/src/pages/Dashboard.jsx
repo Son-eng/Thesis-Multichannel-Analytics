@@ -5,6 +5,7 @@ import { TrangChuyenDong } from '../hooks/useChuyenDong.jsx';
 import { useTaiDuLieu } from '../hooks/useTaiDuLieu.js';
 import { layBoLoc, layKpi, layCanhBao } from '../api/dashboard.js';
 import { docLoi } from '../api/client.js';
+import { taiBaoCaoExcel } from '../api/export.js';
 import Card from '../components/Card.jsx';
 import PageTitle from '../components/PageTitle.jsx';
 import ChipChon from '../components/ChipChon.jsx';
@@ -57,6 +58,7 @@ export default function Dashboard() {
   const { platform: san } = useParams();
   const [thamSoUrl, setThamSoUrl] = useSearchParams();
   const [ghiChu, setGhiChu] = useState('');
+  const [dangXuat, setDangXuat] = useState(false);
 
   const ttLoc = useTaiDuLieu(() => layBoLoc(san), [san]);
   const loc = ttLoc.duLieu;
@@ -80,6 +82,20 @@ export default function Dashboard() {
       }
     });
     setThamSoUrl(p, { replace: true });
+  };
+
+  /** Nút "Xuất Excel": tải tệp của đúng kỳ và bộ lọc đang xem; lỗi thì hiện thông báo của máy chủ. */
+  const xuatExcel = async () => {
+    setDangXuat(true);
+    setGhiChu('Đang tạo tệp Excel…');
+    try {
+      const ten = await taiBaoCaoExcel(san, { granularity: muc, period: ky, ...thamSo });
+      setGhiChu(`Đã tải ${ten}`);
+    } catch (loi) {
+      setGhiChu(docLoi(loi).message);
+    } finally {
+      setDangXuat(false);
+    }
   };
 
   const sanSang = loc !== null && ky !== null;
@@ -135,9 +151,13 @@ export default function Dashboard() {
             <ChipChon nhan="Mức thời gian" giaTri={muc} khiDoi={(v) => capNhat({ muc: v === 'month' ? '' : v, ky: '' })} luaChon={luaChonMuc} />
             <ChipChon nhan="Gian hàng" bieuTuong="filter" giaTri={shop} khiDoi={(v) => capNhat({ shop: v })} luaChon={luaChonShop} />
             <ChipChon nhan="Mã sản phẩm" bieuTuong="box" giaTri={ma} khiDoi={(v) => capNhat({ ma: v })} luaChon={luaChonMa} />
+            <button type="button" className="chip" onClick={xuatExcel} disabled={dangXuat}>
+              <Icon ten="download" kichThuoc={15} />
+              Xuất Excel
+            </button>
             <button type="button" className="chip" onClick={() => setGhiChu('Chưa hỗ trợ trong bản demo')}>
               <Icon ten="download" kichThuoc={15} />
-              Xuất báo cáo
+              Xuất PDF
             </button>
           </>
         }
