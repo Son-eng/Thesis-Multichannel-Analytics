@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Phiên bản được GHIM CHÍNH XÁC (==), không dùng >= hay ~=.
 #
 # Lý do: bài nộp khóa luận gồm thư mục Source/ và người chấm có thể
