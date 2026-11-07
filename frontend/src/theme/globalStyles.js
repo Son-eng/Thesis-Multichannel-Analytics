@@ -26,6 +26,10 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
 .bang td { padding: 12px; border-bottom: 1px solid ${mau.vienTrong}; text-align: right; font-variant-numeric: tabular-nums; }
 .bang td:first-child { text-align: left; }
 .bang tr:last-child td { border-bottom: 0; }
+/* Bảng nhiều cột (lịch sử đồng bộ): lề hẹp, tiêu đề được xuống dòng, ô không xuống dòng — vừa khung 1440 px, hẹp hơn thì cuộn ngang trong khung bảng. */
+.bang-gon th, .bang-gon td { padding-left: 8px; padding-right: 8px; }
+.bang-gon th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+.bang-gon td { white-space: nowrap; }
 .nut { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: ${boGoc.nut}px; border: 1px solid ${mau.vienChip}; background: ${mau.nenThe}; cursor: pointer; font-size: 13px; font-weight: 500; color: ${mau.chuChinh}; text-decoration: none; }
 .nut:hover:not(:disabled) { border-color: ${mau.vienChipHover}; background: ${mau.nenPhu}; }
 .nut:disabled { opacity: .55; cursor: not-allowed; }

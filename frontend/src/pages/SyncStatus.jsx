@@ -194,7 +194,7 @@ export default function SyncStatus() {
             return (
               <>
                 <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                  <table className="bang" style={{ minWidth: 1100, whiteSpace: 'nowrap' }}>
+                  <table className="bang bang-gon">
                     <thead>
                       <tr>
                         <th scope="col">Thời gian</th>
