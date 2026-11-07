@@ -13,9 +13,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.config import settings
+from app.core.deps import yeu_cau_dang_nhap
 from app.database import SessionLocal
 from app.etl import shopee_parser, tiktok_parser
 from app.main import tao_ung_dung
+from app.models.user import User
 from app.services import alert_service, kpi_service
 
 pytestmark = pytest.mark.db
@@ -36,7 +38,9 @@ def du_lieu_mau_da_nap():
 
 @pytest.fixture(scope="module")
 def client(du_lieu_mau_da_nap):
-    with TestClient(tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False)) as c:
+    ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False)
+    ung_dung.dependency_overrides[yeu_cau_dang_nhap] = lambda: User(id=-1, username="nguoi_thu", role="user")
+    with TestClient(ung_dung) as c:
         yield c
 
 

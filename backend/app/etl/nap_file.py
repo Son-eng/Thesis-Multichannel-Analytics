@@ -68,7 +68,7 @@ def chay_parser(san, duong_dan, ten_shop):
     return tiktok_parser.chuan_hoa_file_tiktok(duong_dan)
 
 
-def tao_dong_sync_run(san, duong_dan, ten_shop, nguon):
+def tao_dong_sync_run(san, duong_dan, ten_shop, nguon, nguoi_chay=None):
     """Tạo đối tượng SyncRun cho một lần nạp file, chưa ghi xuống CSDL.
 
     Nhận: sàn, đường dẫn file, tên shop (None với TikTok), nguon —
@@ -90,10 +90,11 @@ def tao_dong_sync_run(san, duong_dan, ten_shop, nguon):
         source=nguon,
         trigger_type=kieu_kich_hoat,
         file_name=Path(duong_dan).name,
+        triggered_by=nguoi_chay,
     )
 
 
-def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau):
+def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau, nguoi_chay=None):
     """Ghi một dòng sync_runs status='failed' trong giao dịch RIÊNG.
 
     Nhận: thông tin lần nạp như tao_dong_sync_run; loi — exception đã xảy ra;
@@ -104,7 +105,7 @@ def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau
     được lần nạp hỏng này và lý do.
     """
     with SessionLocal() as phien:
-        dong_sync = tao_dong_sync_run(san, duong_dan, ten_shop, nguon)
+        dong_sync = tao_dong_sync_run(san, duong_dan, ten_shop, nguon, nguoi_chay)
         # Phải gán tay: để mặc định now() thì started_at là giờ của giao dịch
         # RIÊNG này, tức lúc đã hỏng xong, không phải lúc lần nạp bắt đầu.
         # Cột kiểu timestamp không múi giờ; PostgreSQL tự đổi giá trị có múi
@@ -120,11 +121,12 @@ def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau
         return dong_sync.id
 
 
-def nap_file(san, duong_dan, ten_shop, nguon):
+def nap_file(san, duong_dan, ten_shop, nguon, nguoi_chay=None):
     """Nạp một file CSV vào bảng orders_* và ghi nhật ký vào sync_runs.
 
     Nhận: san — "shopee"/"tiktok"; duong_dan — file CSV; ten_shop — tên gian
-    hàng (Shopee) hoặc None (TikTok); nguon — "file_manual" hoặc "file_auto".
+    hàng (Shopee) hoặc None (TikTok); nguon — "file_manual" hoặc "file_auto";
+    nguoi_chay — id người dùng tải file lên (nút tải file), None với thư mục quét và lệnh chạy tay.
     Trả: dict kết quả (id sync_runs, số dòng, số thêm mới, số cập nhật, 5 bộ đếm).
     Lỗi: rollback toàn bộ, ghi sync_runs 'failed', rồi raise lại lỗi gốc để
     nơi gọi biết (lệnh chạy tay thoát mã 1; thư mục quét chuyển file sang failed/).
@@ -137,7 +139,7 @@ def nap_file(san, duong_dan, ten_shop, nguon):
         # `with` đảm bảo phiên luôn đóng; thoát khối bằng exception mà chưa
         # commit thì SQLAlchemy tự rollback giao dịch.
         with SessionLocal() as phien:
-            dong_sync = tao_dong_sync_run(san, duong_dan, ten_shop, nguon)
+            dong_sync = tao_dong_sync_run(san, duong_dan, ten_shop, nguon, nguoi_chay)
             phien.add(dong_sync)
             # flush: gửi INSERT ngay (vẫn trong giao dịch, chưa commit) để CSDL
             # cấp id và started_at.
@@ -171,7 +173,7 @@ def nap_file(san, duong_dan, ten_shop, nguon):
     except Exception as loi:
         # Bắt mọi loại lỗi (đọc file, parser, CSDL) vì lỗi nào cũng phải để
         # lại dấu vết trong sync_runs. Không nuốt lỗi: raise lại ngay sau đó.
-        ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau)
+        ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau, nguoi_chay)
         raise
 
 

@@ -24,11 +24,11 @@ MAU_GIO_VN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+07:00$")
 
 
 @pytest.fixture
-def client(phien_test, tao_phien_test, monkeypatch):
+def client(phien_test, tao_phien_test, monkeypatch, tieu_de_admin):
     monkeypatch.setattr(nap_file, "SessionLocal", tao_phien_test)
     ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False)
     ung_dung.dependency_overrides[lay_phien_db] = lambda: phien_test
-    with TestClient(ung_dung) as c:
+    with TestClient(ung_dung, headers=tieu_de_admin) as c:
         yield c
 
 
@@ -47,7 +47,7 @@ def test_tai_file_shopee_tra_dung_mot_sync_run_file_manual(client, ket_noi_test)
     run = phan_hoi.json()
     assert (run["platform"], run["shop_name"], run["source"], run["trigger_type"], run["status"]) == \
            ("shopee", "Shop C", "file_manual", "manual", "success")
-    assert run["file_name"] == "shopee_orders_anonymized.csv" and run["triggered_by"] is None
+    assert run["file_name"] == "shopee_orders_anonymized.csv" and run["triggered_by"]["username"] == "admin_thu"
     assert (run["rows_total"], run["rows_inserted"], run["rows_updated"]) == (1774, 1774, 0)
     assert MAU_GIO_VN.match(run["started_at"]) and MAU_GIO_VN.match(run["finished_at"])
     assert set(run["quality"]) == {"rows_sku_fallback", "rows_sku_unknown", "rows_status_unknown",
@@ -129,13 +129,13 @@ def test_watcher_status_dung_khuon(client):
     assert du_lieu == {"interval_seconds": 30, "last_scan_at": "2026-08-23T16:52:30+07:00", "pending_files": 2}
 
 
-def test_lifespan_bat_watcher_quet_ngay_khi_khoi_dong_va_cap_nhat_trang_thai(phien_test, tmp_path):
+def test_lifespan_bat_watcher_quet_ngay_khi_khoi_dong_va_cap_nhat_trang_thai(phien_test, tmp_path, tieu_de_admin):
     (tmp_path / "inbox" / "tiktok").mkdir(parents=True)
     (tmp_path / "inbox" / "tiktok" / "cho.csv").write_text("x", encoding="utf-8")
     ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=True,
                             thu_muc_data=tmp_path, ham_nap=lambda *tham_so: None)
     ung_dung.dependency_overrides[lay_phien_db] = lambda: phien_test
-    with TestClient(ung_dung) as c:
+    with TestClient(ung_dung, headers=tieu_de_admin) as c:
         for _ in range(100):                                  # vòng quét đầu chạy ở thread nền
             du_lieu = c.get("/api/watcher/status").json()
             if du_lieu["last_scan_at"]:

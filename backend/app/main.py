@@ -4,7 +4,7 @@ Chạy (từ backend/, đã có .env và Docker PostgreSQL):
     .venv\\Scripts\\python -m uvicorn app.main:app --port 8000
 
 Lúc khởi động (lifespan):
-  1. dọn các lượt đồng bộ 'running' còn sót (máy chủ tắt giữa lượt);
+  1. dọn các lượt đồng bộ 'running' còn sót (máy chủ tắt giữa lượt); tạo admin đầu tiên nếu bảng users trống;
   2. nạp sẵn token ban đầu từ .env vào platform_tokens (shop nào chưa có);
   3. bật lịch đồng bộ nền (SYNC_SCHEDULER_ENABLED);
   4. bật quét thư mục data/inbox (WATCHER_ENABLED, §2.4).
@@ -17,13 +17,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth as api_auth
 from app.api import dashboard as api_dashboard
 from app.api import sync as api_sync
 from app.api import upload as api_upload
+from app.api import users as api_users
 from app.etl import nap_file as bo_nap
 from app.config import settings
 from app.database import SessionLocal
-from app.services import token_store
+from app.services import token_store, user_service
 from app.sync import folder_watcher, scheduler, sync_job
 
 
@@ -57,6 +59,7 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
         if khoi_dong_csdl:
             with SessionLocal() as phien:
                 sync_job.don_dep_luot_treo(phien)
+                user_service.tao_admin_dau_tien(phien, settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD)
             token_store.nap_san_tu_cau_hinh(settings)
         dung = asyncio.Event()
         tac_vu = None
@@ -80,6 +83,8 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
     ung_dung.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ALLOW_ORIGINS,
                             allow_methods=["*"], allow_headers=["*"])
     ung_dung.state.trang_thai_quet = trang_thai_quet
+    ung_dung.include_router(api_auth.router)
+    ung_dung.include_router(api_users.router)
     ung_dung.include_router(api_sync.router)
     ung_dung.include_router(api_upload.router)
     ung_dung.include_router(api_dashboard.router)

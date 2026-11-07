@@ -97,3 +97,53 @@ def bat_may_chu_gia_lap():
     yield bat
     for may_chu in cac_may_chu:
         may_chu.tat()
+
+
+# ---------------- Đăng nhập cho test API (chỉ dẫn 017) ----------------
+
+@pytest.fixture(autouse=True)
+def bcrypt_nhanh(monkeypatch):
+    """Hạ số vòng bcrypt xuống mức tối thiểu cho mọi test (mặc định 12 vòng làm mỗi lần băm ~0,3 giây)."""
+    monkeypatch.setattr(settings, "BCRYPT_ROUNDS", 4)
+
+
+@pytest.fixture
+def tao_nguoi(phien_test):
+    """Hàm tạo người dùng THẬT trong CSDL test (rollback cuối test): tao_nguoi("admin1", "admin") → User."""
+    from app.core import security
+    from app.models.user import User
+
+    def _tao(ten, vai_tro="admin", mat_khau="mat-khau-thu-1"):
+        nguoi = User(username=ten, password_hash=security.bam_mat_khau(mat_khau), role=vai_tro)
+        phien_test.add(nguoi)
+        phien_test.flush()
+        return nguoi
+    return _tao
+
+
+def tieu_de_dang_nhap(nguoi):
+    """Header Authorization với token thật của `nguoi`."""
+    from app.core import security
+    return {"Authorization": f"Bearer {security.tao_token(nguoi.id)}"}
+
+
+@pytest.fixture
+def tieu_de_admin(tao_nguoi):
+    return tieu_de_dang_nhap(tao_nguoi("admin_thu", "admin"))
+
+
+@pytest.fixture
+def tieu_de_user(tao_nguoi):
+    return tieu_de_dang_nhap(tao_nguoi("user_thu", "user"))
+
+
+@pytest.fixture
+def gia_dang_nhap():
+    """Hàm gắn một người dùng GIẢ (không cần CSDL) cho app: dùng ở test chỉ-đọc trên dữ liệu mẫu.
+    Việc ĐÒI đăng nhập được kiểm riêng ở test_auth_api (mọi endpoint không token → 401)."""
+    from app.core.deps import yeu_cau_dang_nhap
+    from app.models.user import User
+
+    def _gan(ung_dung, vai_tro="user"):
+        ung_dung.dependency_overrides[yeu_cau_dang_nhap] = lambda: User(id=-1, username="nguoi_thu", role=vai_tro)
+    return _gan

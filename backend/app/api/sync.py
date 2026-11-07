@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.deps import yeu_cau_admin
+from app.core.deps import yeu_cau_admin, yeu_cau_dang_nhap
 from app.database import lay_phien_db
 from app.models.platform_token import PlatformToken
 from app.models.sync_run import SyncRun
@@ -23,6 +23,8 @@ from app.models.user import User
 from app.sync import sync_job
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+# GET: mọi người dùng đã đăng nhập; POST: chỉ admin (khai báo ở từng route).
+CAN_DANG_NHAP = [Depends(yeu_cau_dang_nhap)]
 
 GIO_VN = timezone(timedelta(hours=7))
 TEN_SAN_HIEN_THI = {"shopee": "Shopee", "tiktok": "TikTok Shop"}
@@ -78,7 +80,7 @@ def luot_chay_sang_json(dong, nguoi_chay):
     }
 
 
-@router.get("/status")
+@router.get("/status", dependencies=CAN_DANG_NHAP)
 def trang_thai_dong_bo(phien: Session = Depends(lay_phien_db)):
     """Mỗi sàn: có lượt đang chạy không. Mỗi (sàn, shop): lần thành công gần nhất, hạn token (KHÔNG có token)."""
     bay_gio = datetime.now(timezone.utc)
@@ -104,7 +106,7 @@ def trang_thai_dong_bo(phien: Session = Depends(lay_phien_db)):
     return {"interval_minutes": settings.SYNC_INTERVAL_MINUTES, "platforms": cac_san, "shops": cac_shop}
 
 
-@router.get("/runs")
+@router.get("/runs", dependencies=CAN_DANG_NHAP)
 def lich_su_dong_bo(
     platform: Literal["shopee", "tiktok"] | None = None,
     source: Literal["api", "file_auto", "file_manual"] | None = None,
@@ -181,7 +183,7 @@ def dong_bo_ngay(
                 raise HTTPException(409, detail={
                     "code": "sync_running", "message": f"{TEN_SAN_HIEN_THI[platform]} đang có lượt đồng bộ chạy"})
             cac_khoa.append(khoa)
-        trigger_by = None if nguoi_dung is None else nguoi_dung.id
+        trigger_by = nguoi_dung.id
         cac_run_id = [sync_job.tao_luot_chay(phien, san, ten_shop, "manual", trigger_by) for san, ten_shop in cac_shop]
     except BaseException:
         for khoa in cac_khoa:

@@ -13,7 +13,7 @@ lúc rồi chết giữa chừng ở chỗ không liên quan.
 from datetime import date
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Đường dẫn tuyệt đối tới backend/.env, tính ngược từ vị trí file này
@@ -63,6 +63,23 @@ class Settings(BaseSettings):
     # 100 thì không kỳ nào cảnh báo được - cả hai đều là lỗi gõ nhầm, chặn
     # ngay còn hơn để chạy rồi ngồi thắc mắc sao không có cảnh báo nào.
     ALERT_DROP_THRESHOLD_PCT: float = Field(gt=0, le=100)
+
+    # ---------------- Đăng nhập và phân quyền (SPEC §11, §12.1.4.1) ----------------
+    # Khóa ký JWT. BẮT BUỘC, không có mặc định: để mặc định là ai đọc mã nguồn cũng giả được token.
+    # Tối thiểu 32 ký tự. Sinh: python -c "import secrets; print(secrets.token_urlsafe(48))"
+    JWT_SECRET: str = Field(min_length=32)
+    # Token hết hạn sau bao nhiêu phút (480 = 8 giờ, một ca làm việc).
+    JWT_EXPIRE_MINUTES: int = Field(default=480, gt=0)
+    # Số vòng băm bcrypt (2^N). 12 là mức thông dụng; test hạ xuống 4 cho nhanh.
+    BCRYPT_ROUNDS: int = Field(default=12, ge=4, le=15)
+    # Tài khoản admin đầu tiên, chỉ tạo khi bảng users TRỐNG (main.py lúc khởi động). Không đặt thì không tạo.
+    ADMIN_USERNAME: str | None = None
+    ADMIN_PASSWORD: str | None = None
+
+    # ---------------- Nhận định bằng LLM (SPEC §10, UC12) ----------------
+    # Khóa Gemini API: SecretStr nên không bao giờ hiện trong repr/log. Không đặt thì chức năng trả 503 llm_unavailable.
+    GEMINI_API_KEY: SecretStr | None = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     # Bật log chi tiết khi phát triển. Khi demo/nộp bài nên để false.
     DEBUG: bool = False

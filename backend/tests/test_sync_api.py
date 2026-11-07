@@ -45,7 +45,7 @@ def khong_lo_token(phan_hoi):
 
 
 @pytest.fixture
-def api(phien_test, ket_noi_test, tao_phien_test, monkeypatch):
+def api(phien_test, ket_noi_test, tao_phien_test, monkeypatch, tieu_de_admin):
     """(client, các lời gọi chạy nền). platform_tokens nạp đủ 3 shop; sync_runs rỗng (ket_noi_test đã xóa)."""
     ket_noi_test.execute(text("DELETE FROM platform_tokens"))
     monkeypatch.setattr(token_store, "SessionLocal", tao_phien_test)
@@ -57,7 +57,7 @@ def api(phien_test, ket_noi_test, tao_phien_test, monkeypatch):
 
     ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, ham_chay_nen=chay_nen_gia)
     ung_dung.dependency_overrides[lay_phien_db] = lambda: phien_test
-    with TestClient(ung_dung) as client:
+    with TestClient(ung_dung, headers=tieu_de_admin) as client:
         yield client, cac_lan_chay
     for lan in cac_lan_chay:
         for khoa in lan["khoa"]:
@@ -177,8 +177,9 @@ def test_post_202_tao_dong_running_cho_moi_shop_va_goi_chay_nen(api, ket_noi_tes
     assert set(phan_hoi.json()) == {"run_ids"} and len(run_ids) == 2                  # Shop A, Shop B
     cac_dong = ket_noi_test.execute(text("SELECT platform, shop_name, source, trigger_type, status, triggered_by "
                                          "FROM sync_runs ORDER BY id")).all()
-    assert cac_dong == [("tiktok", "Shop A", "api", "manual", "running", None),
-                        ("tiktok", "Shop B", "api", "manual", "running", None)]       # triggered_by NULL: chưa có đăng nhập
+    ma_admin = ket_noi_test.execute(text("SELECT id FROM users WHERE username = 'admin_thu'")).scalar_one()
+    assert cac_dong == [("tiktok", "Shop A", "api", "manual", "running", ma_admin),
+                        ("tiktok", "Shop B", "api", "manual", "running", ma_admin)]   # triggered_by = người bấm nút
     assert [lan["run_ids"] for lan in cac_lan_chay] == [run_ids]
     assert cac_lan_chay[0]["shops"] == [("tiktok", "Shop A"), ("tiktok", "Shop B")]
     khong_lo_token(phan_hoi)

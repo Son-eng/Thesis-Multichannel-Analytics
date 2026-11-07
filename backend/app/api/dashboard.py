@@ -10,10 +10,12 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.deps import yeu_cau_dang_nhap
 from app.database import lay_phien_db
 from app.services import alert_service, kpi_service
 
-router = APIRouter(tags=["dashboard"])
+# Mọi endpoint đọc dữ liệu cần đăng nhập (mọi vai trò) — SPEC §11.
+router = APIRouter(tags=["dashboard"], dependencies=[Depends(yeu_cau_dang_nhap)])
 
 San = Literal["shopee", "tiktok"]
 Muc = Literal["day", "month", "quarter", "year"]

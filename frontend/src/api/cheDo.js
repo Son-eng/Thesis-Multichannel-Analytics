@@ -1,11 +1,11 @@
 // Chế độ giả lập lai: khi VITE_USE_MOCK=false (chạy với backend thật), một số nhóm endpoint VẪN được giả lập
-// vì backend chưa có và theo hợp đồng sẽ không có trước buổi demo.
+// vì backend chưa làm. 07/11/2026: `auth` và `users` đã có backend thật (chỉ dẫn 017 phần 1) nên đã gỡ khỏi danh sách.
 //
 // Nguồn: SPEC §12.1 mục 5, các nhóm này ghi là "Mock khi demo".
 // Khi backend làm xong nhóm nào: XÓA nhóm đó khỏi danh sách dưới đây. Không phải sửa trang nào.
 
 /** Nhóm endpoint luôn đi vào mock. Nhóm = đoạn đứng ngay sau "/api/" của đường dẫn. */
-export const NHOM_LUON_GIA_LAP = ['auth', 'users', 'insights', 'export'];
+export const NHOM_LUON_GIA_LAP = ['insights', 'export'];
 
 /** Nhóm của một đường dẫn: "/api/auth/login" -> "auth"; "/api/users/3?x=1" -> "users". */
 export function nhomCuaDuongDan(duongDan) {

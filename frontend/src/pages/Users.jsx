@@ -154,7 +154,7 @@ export default function Users() {
             </div>
             <div>
               <label className="nhan-o" htmlFor="tk-mk">Mật khẩu</label>
-              <input id="tk-mk" className="o-nhap" type="password" value={moi.password} onChange={(e) => setMoi({ ...moi, password: e.target.value })} />
+              <input id="tk-mk" className="o-nhap" type="password" placeholder="Tối thiểu 8 ký tự" value={moi.password} onChange={(e) => setMoi({ ...moi, password: e.target.value })} />
             </div>
             <div>
               <label className="nhan-o" htmlFor="tk-vt">Vai trò</label>
@@ -215,7 +215,7 @@ export default function Users() {
             {hop.loai === 'matKhau' ? (
               <div>
                 <label className="nhan-o" htmlFor="hop-mat-khau">Mật khẩu mới</label>
-                <input id="hop-mat-khau" className="o-nhap" type="password" autoFocus value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)} />
+                <input id="hop-mat-khau" className="o-nhap" type="password" placeholder="Tối thiểu 8 ký tự" autoFocus value={giaTriNhap} onChange={(e) => setGiaTriNhap(e.target.value)} />
               </div>
             ) : null}
             {hop.loai === 'xoa' ? <p style={{ margin: 0, color: mau.chuPhu }}>Tài khoản sẽ bị xóa và không đăng nhập được nữa. Không hoàn tác được.</p> : null}
