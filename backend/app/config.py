@@ -79,7 +79,11 @@ class Settings(BaseSettings):
     # ---------------- Nhận định bằng LLM (SPEC §10, UC12) ----------------
     # Khóa Gemini API: SecretStr nên không bao giờ hiện trong repr/log. Không đặt thì chức năng trả 503 llm_unavailable.
     GEMINI_API_KEY: SecretStr | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Model ổn định (stable) còn hoạt động theo tài liệu Google ngày 07/11/2026; gemini-2.5-* đã deprecated.
+    GEMINI_MODEL: str = "gemini-3.6-flash"
+    # Mức "suy nghĩ" của model (MINIMAL/LOW/MEDIUM/HIGH, chỉ dòng Gemini 3 trở lên). Nhận định ngắn không cần suy nghĩ sâu,
+    # và token suy nghĩ tính vào giới hạn đầu ra (đã gặp finishReason=MAX_TOKENS khi để mặc định). Để trống nếu dùng model cũ.
+    GEMINI_THINKING_LEVEL: str | None = "LOW"
 
     # Bật log chi tiết khi phát triển. Khi demo/nộp bài nên để false.
     DEBUG: bool = False

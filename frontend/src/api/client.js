@@ -45,7 +45,7 @@ export function xoaToken() {
 
 /**
  * Mock được bật trừ khi VITE_USE_MOCK được đặt rõ là "false".
- * Lưu ý: ngay cả khi tắt, các nhóm trong `cheDo.js` (auth, users, insights, export) vẫn đi vào mock.
+ * Lưu ý: ngay cả khi tắt, các nhóm khai báo trong `cheDo.js` (hiện rỗng) vẫn đi vào mock.
  */
 export function dungMock() {
   return import.meta.env.VITE_USE_MOCK !== 'false';

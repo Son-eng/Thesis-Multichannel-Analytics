@@ -16,8 +16,8 @@ function giaFetch(thanBang = { shops: ['Shop C'] }) {
 }
 
 describe('danh sách nhóm luôn giả lập', () => {
-  it('chỉ còn nhóm backend chưa làm (auth, users, export đã có backend thật từ 07/11/2026)', () => {
-    expect([...NHOM_LUON_GIA_LAP].sort()).toEqual(['insights']);
+  it('không còn nhóm nào luôn giả lập (auth, users, export, insights đều có backend thật từ 07/11/2026)', () => {
+    expect([...NHOM_LUON_GIA_LAP].sort()).toEqual([]);
   });
 
   it('nhận ra nhóm từ đường dẫn, bỏ qua query', () => {
@@ -26,8 +26,8 @@ describe('danh sách nhóm luôn giả lập', () => {
     expect(luonGiaLap('/api/auth/login')).toBe(false);
     expect(luonGiaLap('/api/users')).toBe(false);
     expect(nhomCuaDuongDan('/khong-phai-api')).toBeNull();
-    expect(luonGiaLap('/api/insights/generate')).toBe(true);
     expect(luonGiaLap('/api/export/shopee/excel')).toBe(false);
+    expect(luonGiaLap('/api/insights/generate')).toBe(false);
     expect(luonGiaLap('/api/shopee/kpi')).toBe(false);
     expect(luonGiaLap('/api/sync/status')).toBe(false);
     // Tên nhóm phải khớp nguyên đoạn, không khớp tiền tố.
@@ -55,12 +55,14 @@ describe('VITE_USE_MOCK=false', () => {
     expect(hamFetch.mock.calls[0][1].headers.Authorization).toBe('Bearer token-that');
   });
 
-  it('nhóm insights vẫn vào mock (chưa có backend)', async () => {
+  it('nhóm insights đi vào backend thật: gọi fetch tới /api/insights/generate', async () => {
     vi.stubEnv('VITE_USE_MOCK', 'false');
-    const hamFetch = giaFetch();
-    window.localStorage.setItem('dak_token', 'mock-token-admin.vh');
-    await goiApi('POST', '/api/insights/generate', { platform: 'shopee', granularity: 'month', period: '2026-08' }).catch(() => {});
-    expect(hamFetch).not.toHaveBeenCalled();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://may-chu-thu.test:9000');
+    const hamFetch = giaFetch({ text: 'Nhận định thử', generated_at: 'x', period_complete: true, data_max_date: '2026-08-16' });
+    const kq = await goiApi('POST', '/api/insights/generate', { platform: 'shopee', granularity: 'month', period: '2026-08' });
+    expect(kq.text).toBe('Nhận định thử');
+    expect(hamFetch.mock.calls[0][0]).toBe('http://may-chu-thu.test:9000/api/insights/generate');
+    expect(JSON.parse(hamFetch.mock.calls[0][1].body)).toEqual({ platform: 'shopee', granularity: 'month', period: '2026-08' });
   });
 
   it('401 từ backend thật: xóa token và phát sự kiện hết phiên (trừ lời gọi đăng nhập)', async () => {
