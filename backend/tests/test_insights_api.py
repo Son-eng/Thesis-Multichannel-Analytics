@@ -23,7 +23,7 @@ from app.services import insight_service
 pytestmark = pytest.mark.db
 
 KHOA_GIA = "KHOA-GIA-DE-TEST-0123456789-ABCDEF"
-SO_DONG_MAU = {"orders_shopee": 1774, "orders_tiktok": 7540}
+SO_DONG_MAU = {"shopee": 1774, "tiktok": 7540}
 VAN_BAN_TOT = ("Doanh thu Shopee tháng 08/2026 tính đến ngày 16/08 đạt 840.035.154 đ, tăng 34,6% so với cùng kỳ "
                "tháng 07 (624.277.755 đ). Sản phẩm M15 dẫn đầu.")
 
@@ -32,8 +32,8 @@ VAN_BAN_TOT = ("Doanh thu Shopee tháng 08/2026 tính đến ngày 16/08 đạt 
 def du_lieu_mau_da_nap():
     with SessionLocal() as phien:
         for bang, so_dong in SO_DONG_MAU.items():
-            if phien.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one() != so_dong:
-                pytest.skip(f"{bang} chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
+            if phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one() != so_dong:
+                pytest.skip(f"orders ({bang}) chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
 
 
 @pytest.fixture

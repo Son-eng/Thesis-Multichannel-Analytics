@@ -42,11 +42,11 @@ def liet_ke_canh_bao(phien, san, muc, shop_name=None, product_code=None):
     if ngay_max is None:
         return ket_qua
 
-    loc, tham_so = kpi._loc(shop_name, product_code)
+    loc, tham_so = kpi._loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
         SELECT order_date, COUNT(*) AS so_dong,
                COALESCE(SUM(nmv_after_tax) FILTER (WHERE {kpi.HOP_LE}), 0) AS revenue
-        FROM {kpi.BANG[san]} WHERE order_date BETWEEN :tu AND :den {loc} GROUP BY order_date
+        FROM orders WHERE order_date BETWEEN :tu AND :den {loc} GROUP BY order_date
     """), {"tu": ngay_min, "den": ngay_max, **tham_so}).all()
     so_dong_ngay = {ngay: so for ngay, so, _ in cac_dong}
     doanh_thu_ngay = {ngay: int(tien) for ngay, _, tien in cac_dong}

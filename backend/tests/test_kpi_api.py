@@ -23,7 +23,7 @@ from app.services import alert_service, kpi_service
 pytestmark = pytest.mark.db
 
 THU_MUC_MAU = Path(__file__).resolve().parents[2] / "data" / "samples"
-SO_DONG_MAU = {"orders_shopee": 1774, "orders_tiktok": 7540}
+SO_DONG_MAU = {"shopee": 1774, "tiktok": 7540}
 
 KHOA_CHI_SO_SO = {"value", "previous", "pct_change", "previous_zero"}
 KHOA_CHI_SO_TY_LE = {"value", "previous", "change_pp"}
@@ -41,8 +41,8 @@ DOANH_THU_THANG_TIKTOK = {                                                  # §
 def du_lieu_mau_da_nap():
     with SessionLocal() as phien:
         for bang, so_dong in SO_DONG_MAU.items():
-            if phien.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one() != so_dong:
-                pytest.skip(f"{bang} chưa nạp đủ {so_dong} dòng dữ liệu mẫu (python -m app.etl.nap_file …)")
+            if phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one() != so_dong:
+                pytest.skip(f"orders ({bang}) chưa nạp đủ {so_dong} dòng dữ liệu mẫu (python -m app.etl.nap_file …)")
 
 
 @pytest.fixture(scope="module")
@@ -167,10 +167,10 @@ def test_kpi_tieu_chi_chat_luong_du_lieu(client):
     Vì vậy kiểm theo trạng thái thực của CSDL thay vì ép cứng 19.
     """
     with SessionLocal() as phien:
-        tat_ca_tu_tep = phien.execute(text("SELECT bool_and(data_source = 'file') FROM orders_shopee")).scalar_one()
+        tat_ca_tu_tep = phien.execute(text("SELECT bool_and(data_source = 'file') FROM orders WHERE platform = 'shopee'")).scalar_one()
         so_dong, doanh_thu = phien.execute(text(
             "SELECT count(*), COALESCE(sum(nmv_after_tax) FILTER (WHERE order_status <> 'cancelled' AND NOT is_returned), 0) "
-            "FROM orders_shopee WHERE order_status = 'unknown'")).one()
+            "FROM orders WHERE platform = 'shopee' AND order_status = 'unknown'")).one()
     shopee = lay(client, "/api/shopee/kpi", granularity="year", period="2026")["data_quality"]
     assert shopee == {"rows_status_unknown": so_dong, "revenue_status_unknown": int(doanh_thu), "rows_nmv_provisional": 0}
     if tat_ca_tu_tep:
@@ -259,7 +259,7 @@ def test_by_affiliate_khop_dong_va_doanh_thu_cua_duong_file(client, bang_file, s
     assert du_lieu["affiliate"]["share_pct"] + du_lieu["self_sold"]["share_pct"] == pytest.approx(100, abs=0.11)
     # Số dòng affiliate của đường file (tất cả trạng thái) khớp CSDL: 771 / 4.297.
     with SessionLocal() as phien:
-        so_dong = phien.execute(text(f"SELECT count(*) FROM orders_{san} WHERE is_affiliate")).scalar_one()
+        so_dong = phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p AND is_affiliate"), {"p": san}).scalar_one()
     assert so_dong == int(bang["is_affiliate"].sum()) == {"shopee": 771, "tiktok": 4297}[san]
 
 
@@ -467,7 +467,7 @@ def test_cors_cho_phep_origin_cua_vite_va_chan_origin_la(client):
 def test_khong_sql_nao_cong_thang_cot_muc_don():
     """§7.4: `order_amount` (mức đơn của TikTok) chỉ được xuất hiện ở hằng số khai báo, không ở câu SQL nào."""
     ma_nguon = Path(kpi_service.__file__).read_text(encoding="utf-8")
-    assert kpi_service.ORDER_LEVEL_COLUMNS == {"orders_shopee": [], "orders_tiktok": ["order_amount"]}
+    assert kpi_service.ORDER_LEVEL_COLUMNS == {"shopee": [], "tiktok": ["order_amount"]}
     assert ma_nguon.count("order_amount") == 1
     assert "SUM(order_amount" not in ma_nguon.replace(" ", "")
 
@@ -524,3 +524,20 @@ def test_co_canh_bao_dung_nguong_va_khong_bao_gio_voi_none():
     assert alert_service.co_canh_bao(-30.0, 30) is True
     assert alert_service.co_canh_bao(-29.99, 30) is False
     assert alert_service.co_canh_bao(None, 30) is False
+
+
+def test_moi_cau_sql_doc_bang_orders_deu_loc_theo_san():
+    """Từ khi gộp CSDL (08/11/2026) quên điều kiện `platform` là cộng gộp hai sàn mà không báo lỗi:
+    mọi câu SQL có `FROM orders` trong kpi_service và alert_service phải có `platform = :platform` hoặc `{loc}` (đã chứa nó)."""
+    import re
+    from app.services import alert_service
+    for module in (kpi_service, alert_service):
+        ma_nguon = Path(module.__file__).read_text(encoding="utf-8")
+        cac_cau = re.findall(r'text\(\s*f?"""(.*?)"""', ma_nguon, flags=re.S) + re.findall(r'text\(\s*f?"([^"\n]*)"', ma_nguon)
+        cac_cau_doc_orders = [c for c in cac_cau if "FROM orders" in c]
+        assert cac_cau_doc_orders, module.__name__
+        for cau in cac_cau_doc_orders:
+            assert "platform = :platform" in cau or "{loc}" in cau, f"{module.__name__}: thiếu điều kiện sàn:\n{cau}"
+    # _loc luôn đặt điều kiện sàn trước các bộ lọc khác.
+    menh_de, tham_so = kpi_service._loc("tiktok", "Shop A", "M15")
+    assert menh_de.startswith(" AND platform = :platform") and tham_so == {"platform": "tiktok", "shop_name": "Shop A", "product_code": "M15"}

@@ -19,10 +19,11 @@ from sqlalchemy import text
 from app.config import settings
 from app.services.alert_service import co_canh_bao, nguong_giam
 
-BANG = {"shopee": "orders_shopee", "tiktok": "orders_tiktok"}
+# Từ 08/11/2026 mọi sàn nằm chung MỘT bảng `orders` (SPEC §3); MỌI truy vấn ở đây phải lọc `platform = :platform`.
+SAN_HOP_LE = ("shopee", "tiktok")
 
-# Cột MỨC ĐƠN: giá trị lặp lại trên mọi dòng của một đơn → CẤM SUM theo dòng (§7.4).
-ORDER_LEVEL_COLUMNS = {"orders_shopee": [], "orders_tiktok": ["order_amount"]}
+# Cột MỨC ĐƠN theo sàn: giá trị lặp lại trên mọi dòng của một đơn → CẤM SUM theo dòng (§7.4).
+ORDER_LEVEL_COLUMNS = {"shopee": [], "tiktok": ["order_amount"]}
 
 HOP_LE = "order_status <> 'cancelled' AND is_returned = FALSE"
 CAC_MUC = ("day", "month", "quarter", "year")
@@ -146,9 +147,12 @@ def xac_dinh_ky(muc, ma_ky, ngay_min, ngay_max):
 
 # ---------------------------------------------------------------- truy vấn
 
-def _loc(shop_name, product_code):
-    """Mệnh đề lọc + tham số cho `shop_name`, `product_code` (không bắt buộc)."""
-    menh_de, tham_so = "", {}
+def _loc(san, shop_name, product_code):
+    """Mệnh đề lọc + tham số: LUÔN có điều kiện sàn; `shop_name`, `product_code` không bắt buộc.
+
+    Chuỗi trả về bắt đầu bằng " AND ..." nên chỉ nối vào sau một WHERE đã có.
+    """
+    menh_de, tham_so = " AND platform = :platform", {"platform": san}
     if shop_name:
         menh_de += " AND shop_name = :shop_name"
         tham_so["shop_name"] = shop_name
@@ -160,17 +164,19 @@ def _loc(shop_name, product_code):
 
 def khoang_du_lieu(phien, san):
     """(ngày nhỏ nhất, ngày lớn nhất) của TOÀN BẢNG của sàn — không áp bộ lọc (§9.2). Bảng rỗng → (None, None)."""
-    dong = phien.execute(text(f"SELECT MIN(order_date), MAX(order_date) FROM {BANG[san]}")).one()
+    dong = phien.execute(text("SELECT MIN(order_date), MAX(order_date) FROM orders WHERE platform = :platform"),
+                         {"platform": san}).one()
     return dong[0], dong[1]
 
 
 def danh_sach_loc(phien, san):
     """Dữ liệu cho `/filters` (§12.1.1.1)."""
-    bang = BANG[san]
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
-    cac_shop = phien.execute(text(f"SELECT DISTINCT shop_name FROM {bang} ORDER BY shop_name")).scalars().all()
+    cac_shop = phien.execute(text("SELECT DISTINCT shop_name FROM orders WHERE platform = :platform ORDER BY shop_name"),
+                             {"platform": san}).scalars().all()
     cac_ma = phien.execute(text(
-        f"SELECT DISTINCT product_code FROM {bang} WHERE product_code IS NOT NULL ORDER BY product_code")).scalars().all()
+        "SELECT DISTINCT product_code FROM orders WHERE platform = :platform AND product_code IS NOT NULL ORDER BY product_code"),
+        {"platform": san}).scalars().all()
     return {"platform": san, "shops": cac_shop, "product_codes": cac_ma,
             "data_min_date": ngay_min.isoformat() if ngay_min else None,
             "data_max_date": ngay_max.isoformat() if ngay_max else None}
@@ -182,8 +188,7 @@ def so_lieu_khoang(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=N
     Trả dict: so_dong, revenue, order_count, order_count_all, quantity, cancelled_orders, returned_orders,
     affiliate_revenue, rows_unknown, revenue_unknown, rows_provisional (None với TikTok).
     """
-    bang = BANG[san]
-    loc, tham_so = _loc(shop_name, product_code)
+    loc, tham_so = _loc(san, shop_name, product_code)
     cot_tam_tinh = ("COUNT(*) FILTER (WHERE nmv_is_provisional)" if san == "shopee" else "NULL")
     dong = phien.execute(text(f"""
         SELECT COUNT(*) AS so_dong,
@@ -197,7 +202,7 @@ def so_lieu_khoang(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=N
                COUNT(*) FILTER (WHERE order_status = 'unknown') AS rows_unknown,
                COALESCE(SUM(nmv_after_tax) FILTER (WHERE {HOP_LE} AND order_status = 'unknown'), 0) AS revenue_unknown,
                {cot_tam_tinh} AS rows_provisional
-        FROM {bang}
+        FROM orders
         WHERE order_date BETWEEN :tu AND :den {loc}
     """), {"tu": tu_ngay, "den": den_ngay, **tham_so}).mappings().one()
     ket_qua = dict(dong)
@@ -275,9 +280,9 @@ def dung_metrics(hien_tai, truoc, co_du_lieu):
 
 def doanh_thu_theo_ngay(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=None):
     """{ngày: doanh thu hợp lệ} trong khoảng; ngày không có dòng hợp lệ không có khóa."""
-    loc, tham_so = _loc(shop_name, product_code)
+    loc, tham_so = _loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
-        SELECT order_date, SUM(nmv_after_tax) FROM {BANG[san]}
+        SELECT order_date, SUM(nmv_after_tax) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY order_date
     """), {"tu": tu_ngay, "den": den_ngay, **tham_so}).all()
     return {ngay: int(tien) for ngay, tien in cac_dong}
@@ -373,8 +378,7 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
         return {"platform": san, "granularity": muc, "top_product_codes": [], "items": []}
     tu_ngay = tu_ngay or ngay_min
     den_ngay = den_ngay or ngay_max
-    loc, tham_so = _loc(shop_name, product_code)
-    bang = BANG[san]
+    loc, tham_so = _loc(san, shop_name, product_code)
     tham_so_khoang = {"tu": tu_ngay, "den": den_ngay, **tham_so}
 
     # Gộp theo (ngày, mã) rồi chia vào kỳ ở Python: cùng một cách chia kỳ cho mọi mức.
@@ -382,11 +386,11 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
         SELECT order_date, product_code,
                COUNT(*) AS so_dong,
                COALESCE(SUM(nmv_after_tax) FILTER (WHERE {HOP_LE}), 0) AS revenue
-        FROM {bang} WHERE order_date BETWEEN :tu AND :den {loc}
+        FROM orders WHERE order_date BETWEEN :tu AND :den {loc}
         GROUP BY order_date, product_code
     """), tham_so_khoang).all()
     don_hop_le = phien.execute(text(f"""
-        SELECT order_date, COUNT(DISTINCT order_id) FROM {bang}
+        SELECT order_date, COUNT(DISTINCT order_id) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY order_date
     """), tham_so_khoang).all()
     # order_date là ngày đặt của đơn nên một đơn chỉ nằm ở một ngày: cộng số đơn theo ngày vào kỳ là đúng.
@@ -435,12 +439,11 @@ def top_products(phien, san, muc, ma_ky, limit, sort_by, shop_name=None, product
     if ngay_max is None:
         ngay_min = ngay_max = date.today()
     ky = xac_dinh_ky(muc, ma_ky, ngay_min, ngay_max)
-    loc, tham_so = _loc(shop_name, product_code)
-    bang = BANG[san]
+    loc, tham_so = _loc(san, shop_name, product_code)
 
     def theo_ma(tu, den):
         cac_dong = phien.execute(text(f"""
-            SELECT product_code, SUM(nmv_after_tax) AS revenue, SUM(quantity) AS quantity FROM {bang}
+            SELECT product_code, SUM(nmv_after_tax) AS revenue, SUM(quantity) AS quantity FROM orders
             WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY product_code
         """), {"tu": tu, "den": den, **tham_so}).all()
         return {ma: (int(tien), int(sl)) for ma, tien, sl in cac_dong}
@@ -483,14 +486,14 @@ def _ky_don_gian(phien, san, muc, ma_ky):
 def by_affiliate(phien, san, muc, ma_ky, shop_name=None, product_code=None):
     """`/by-affiliate` (§12.1.1.5): doanh thu và số đơn hợp lệ của hai nhánh; tổng hai nhánh = doanh thu sàn."""
     ky, _ = _ky_don_gian(phien, san, muc, ma_ky)
-    loc, tham_so = _loc(shop_name, product_code)
+    loc, tham_so = _loc(san, shop_name, product_code)
     so_dong = so_lieu_khoang(phien, san, ky["dau"], ky["den"], shop_name, product_code)["so_dong"]
     ket_qua = {"platform": san, "period": ky["ky"], "status": _trang_thai_don_gian(so_dong),
                "affiliate": None, "self_sold": None}
     if not so_dong:
         return ket_qua
     cac_dong = phien.execute(text(f"""
-        SELECT is_affiliate, COALESCE(SUM(nmv_after_tax), 0), COUNT(DISTINCT order_id) FROM {BANG[san]}
+        SELECT is_affiliate, COALESCE(SUM(nmv_after_tax), 0), COUNT(DISTINCT order_id) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY is_affiliate
     """), {"tu": ky["dau"], "den": ky["den"], **tham_so}).all()
     theo_co = {co: (int(tien), so_don) for co, tien, so_don in cac_dong}
@@ -503,9 +506,9 @@ def by_affiliate(phien, san, muc, ma_ky, shop_name=None, product_code=None):
 
 def thong_ke_theo_tinh(phien, san, ky, shop_name=None, product_code=None):
     """Danh sách tỉnh (đã sắp, nhóm "Khác" cuối) — dùng chung cho `/by-province` và compare."""
-    loc, tham_so = _loc(shop_name, product_code)
+    loc, tham_so = _loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
-        SELECT COALESCE(province, 'Khác'), COUNT(DISTINCT order_id), SUM(nmv_after_tax) FROM {BANG[san]}
+        SELECT COALESCE(province, 'Khác'), COUNT(DISTINCT order_id), SUM(nmv_after_tax) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY 1
     """), {"tu": ky["dau"], "den": ky["den"], **tham_so}).all()
     tong = sum(int(tien) for _, _, tien in cac_dong)
@@ -529,9 +532,9 @@ def by_province(phien, san, muc, ma_ky, shop_name=None, product_code=None):
 
 def thong_ke_theo_gio(phien, san, ky, shop_name=None, product_code=None):
     """24 phần tử (giờ 0–23, kể cả giờ không có đơn) — dùng chung cho `/by-hour` và compare."""
-    loc, tham_so = _loc(shop_name, product_code)
+    loc, tham_so = _loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
-        SELECT hour_bucket, COUNT(DISTINCT order_id), COALESCE(SUM(nmv_after_tax), 0) FROM {BANG[san]}
+        SELECT hour_bucket, COUNT(DISTINCT order_id), COALESCE(SUM(nmv_after_tax), 0) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} AND hour_bucket IS NOT NULL {loc} GROUP BY hour_bucket
     """), {"tu": ky["dau"], "den": ky["den"], **tham_so}).all()
     theo_gio = {}
@@ -563,7 +566,7 @@ def so_sanh_hai_san(phien, muc, ma_ky):
     Mỗi sàn cắt cùng số ngày theo MAX(order_date) của chính sàn đó.
     """
     if ma_ky is None:
-        ngay_moi_nhat = [khoang_du_lieu(phien, san)[1] for san in BANG]
+        ngay_moi_nhat = [khoang_du_lieu(phien, san)[1] for san in SAN_HOP_LE]
         ngay_moi_nhat = [n for n in ngay_moi_nhat if n]
         ma_ky = ky_chua_ngay(muc, max(ngay_moi_nhat))[2] if ngay_moi_nhat else None
     ket_qua = {"granularity": muc, "period": ma_ky}

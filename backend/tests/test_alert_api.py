@@ -23,7 +23,7 @@ from app.services import alert_service, kpi_service
 pytestmark = pytest.mark.db
 
 THU_MUC_MAU = Path(__file__).resolve().parents[2] / "data" / "samples"
-SO_DONG_MAU = {"orders_shopee": 1774, "orders_tiktok": 7540}
+SO_DONG_MAU = {"shopee": 1774, "tiktok": 7540}
 KHOA_ALERT = {"platform", "granularity", "threshold_pct", "items"}
 KHOA_MUC = {"period", "previous_period", "revenue", "revenue_previous", "pct_change", "previous_zero", "period_complete"}
 
@@ -32,8 +32,8 @@ KHOA_MUC = {"period", "previous_period", "revenue", "revenue_previous", "pct_cha
 def du_lieu_mau_da_nap():
     with SessionLocal() as phien:
         for bang, so_dong in SO_DONG_MAU.items():
-            if phien.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one() != so_dong:
-                pytest.skip(f"{bang} chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
+            if phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one() != so_dong:
+                pytest.skip(f"orders ({bang}) chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
 
 
 @pytest.fixture(scope="module")

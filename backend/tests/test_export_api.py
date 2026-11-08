@@ -19,7 +19,7 @@ from app.services import export_service
 
 pytestmark = pytest.mark.db
 
-SO_DONG_MAU = {"orders_shopee": 1774, "orders_tiktok": 7540}
+SO_DONG_MAU = {"shopee": 1774, "tiktok": 7540}
 TEN_SHEET = ["Tổng quan", "Doanh thu theo kỳ", "Sản phẩm bán chạy", "Tỉnh thành", "Khung giờ", "Kênh bán"]
 
 
@@ -27,8 +27,8 @@ TEN_SHEET = ["Tổng quan", "Doanh thu theo kỳ", "Sản phẩm bán chạy", "
 def du_lieu_mau_da_nap():
     with SessionLocal() as phien:
         for bang, so_dong in SO_DONG_MAU.items():
-            if phien.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one() != so_dong:
-                pytest.skip(f"{bang} chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
+            if phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one() != so_dong:
+                pytest.skip(f"orders ({bang}) chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
 
 
 @pytest.fixture(scope="module")
