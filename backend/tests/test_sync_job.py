@@ -23,8 +23,8 @@ pytestmark = pytest.mark.db
 GIO_VN = timezone(timedelta(hours=7))
 DOANH_THU_SHOPEE = 1908961059
 DOANH_THU_TIKTOK = 7538502584
-SQL_DOANH_THU = ("SELECT COALESCE(SUM(nmv_after_tax), 0) FROM {bang} "
-                 "WHERE order_status <> 'cancelled' AND is_returned = FALSE")
+SQL_DOANH_THU = ("SELECT COALESCE(SUM(nmv_after_tax), 0) FROM orders "
+                 "WHERE platform = '{san}' AND order_status <> 'cancelled' AND is_returned = FALSE")
 BAY_GIO = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 
 
@@ -164,8 +164,8 @@ def test_dong_bo_shopee_day_du_doanh_thu_va_so_lieu_luot(sync, ket_noi_test, bat
     assert (luot["rows_sku_fallback"], luot["rows_sku_unknown"], luot["rows_status_unknown"],
             luot["rows_province_unmapped"], luot["rows_product_unmapped"]) == (6, 0, 0, 0, 0)   # §3.3: unknown = 0 ở đường API
     assert luot["window_from"] is not None and luot["window_to"] is not None
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_shopee")) == DOANH_THU_SHOPEE
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee WHERE data_source = 'api' AND is_affiliate") == 771
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="shopee")) == DOANH_THU_SHOPEE
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee' AND data_source = 'api' AND is_affiliate") == 771
 
 
 @pytest.mark.cham
@@ -176,9 +176,9 @@ def test_dong_bo_tiktok_hai_shop_doanh_thu_hoan_va_affiliate(sync, ket_noi_test,
     cac_luot = [doc_luot(ket_noi_test, run_id) for run_id in cac_run]
     assert [luot["status"] for luot in cac_luot] == ["success", "success"]
     assert [(l["orders_fetched"], l["rows_inserted"]) for l in cac_luot] == [(5364, 5377), (2162, 2163)]
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_tiktok")) == DOANH_THU_TIKTOK
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_tiktok WHERE is_returned") == 139
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_tiktok WHERE is_affiliate") == 4297
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="tiktok")) == DOANH_THU_TIKTOK
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'tiktok' AND is_returned") == 139
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'tiktok' AND is_affiliate") == 4297
 
 
 @pytest.mark.cham
@@ -189,17 +189,17 @@ def test_luy_dang_dong_bo_2_lan_cung_cua_so(sync, ket_noi_test, bat_may_chu_gia_
     lan_1 = sync.dong_bo_mot_shop("shopee", settings.SHOPEE_SHOP_NAME, cua_so=cua_so, ham_ngu=khong_ngu)
     anh_chup = ket_noi_test.execute(text("SELECT md5(string_agg(t::text, '|' ORDER BY order_id, sku)) FROM "
                                          "(SELECT order_id, sku, order_status, nmv, nmv_after_tax, is_affiliate, is_returned "
-                                         "FROM orders_shopee) t")).scalar_one()
+                                         "FROM orders WHERE platform = 'shopee') t")).scalar_one()
     lan_2 = sync.dong_bo_mot_shop("shopee", settings.SHOPEE_SHOP_NAME, cua_so=cua_so, ham_ngu=khong_ngu)
 
     luot_1, luot_2 = doc_luot(ket_noi_test, lan_1), doc_luot(ket_noi_test, lan_2)
     assert (luot_1["rows_inserted"], luot_1["rows_updated"]) == (1774, 0)
     assert (luot_2["rows_inserted"], luot_2["rows_updated"]) == (0, 1774)
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee") == 1774
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_shopee")) == DOANH_THU_SHOPEE
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'") == 1774
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="shopee")) == DOANH_THU_SHOPEE
     assert ket_noi_test.execute(text("SELECT md5(string_agg(t::text, '|' ORDER BY order_id, sku)) FROM "
                                      "(SELECT order_id, sku, order_status, nmv, nmv_after_tax, is_affiliate, is_returned "
-                                     "FROM orders_shopee) t")).scalar_one() == anh_chup
+                                     "FROM orders WHERE platform = 'shopee') t")).scalar_one() == anh_chup
 
 
 @pytest.mark.cham
@@ -211,7 +211,7 @@ def test_lan_dinh_ky_sau_backfill_khong_them_dong_khi_khong_co_don_moi(sync, ket
     assert doc_luot(ket_noi_test, lan_1)["rows_inserted"] == 1774
     luot_2 = doc_luot(ket_noi_test, lan_2)
     assert (luot_2["status"], luot_2["orders_fetched"], luot_2["rows_total"], luot_2["rows_inserted"]) == ("success", 0, 0, 0)
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee") == 1774
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'") == 1774
 
 
 # ---------- Lỗi ----------
@@ -235,7 +235,7 @@ def test_mot_shop_loi_khong_chan_shop_con_lai(sync, ket_noi_test, bat_may_chu_gi
     assert hong["rows_inserted"] == 0 and hong["error_message"]
     assert "TOKEN_BIA" not in hong["error_message"]                      # không lộ token vào nhật ký
     assert tot["status"] == "success" and tot["rows_inserted"] > 0
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_tiktok WHERE shop_name = :s",
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'tiktok' AND shop_name = :s",
                    s=settings.TIKTOK_SHOP_A_NAME) == 0                   # shop hỏng không để lại dòng đơn nào
 
 

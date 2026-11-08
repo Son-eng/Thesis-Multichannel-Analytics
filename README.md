@@ -40,7 +40,7 @@ Mở `backend\.env`, đổi tối thiểu hai giá trị (đều đang là giá 
 Tùy chọn: `GEMINI_API_KEY` (khóa lấy ở Google AI Studio) để dùng nút "Sinh nhận định"; để trống thì chỉ nút đó báo lỗi, các phần khác vẫn chạy.
 
 ```powershell
-.venv\Scripts\python -m alembic upgrade head          # tạo 5 bảng
+.venv\Scripts\python -m alembic upgrade head          # tạo các bảng (orders, sync_runs, platform_tokens, users)
 .venv\Scripts\python -m app.etl.nap_file shopee ..\data\samples\shopee_orders_anonymized.csv --shop "Shop C"
 .venv\Scripts\python -m app.etl.nap_file tiktok ..\data\samples\tiktok_orders_anonymized.csv
 ```

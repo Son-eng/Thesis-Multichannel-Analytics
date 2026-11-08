@@ -123,7 +123,7 @@ def test_file_tot_vao_processed_va_ghi_sync_run_file_auto(data, nap_that, ket_no
         "SELECT platform, shop_name, source, trigger_type, status, rows_total, rows_inserted FROM sync_runs ORDER BY platform")).all()
     assert cac_dong == [("shopee", "Shop C", "file_auto", "schedule", "success", 1774, 1774),
                         ("tiktok", None, "file_auto", "schedule", "success", 7540, 7540)]
-    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders_shopee WHERE order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 1908961059
+    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders WHERE platform = 'shopee' AND order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 1908961059
 
 
 @pytest.mark.db
@@ -134,7 +134,7 @@ def test_file_thieu_cot_vao_failed_khong_ghi_don_nao(data, nap_that, ket_noi_tes
     file.write_text(",".join(c for c in cot if c != "Mã đơn hàng") + "\n", encoding="utf-8-sig")
     _, kq = quet_hai_lan(data, nap_that)
     assert kq == [("shopee", "thieu_cot.csv", "failed")]
-    assert ket_noi_test.execute(text("SELECT count(*) FROM orders_shopee")).scalar_one() == 0
+    assert ket_noi_test.execute(text("SELECT count(*) FROM orders WHERE platform = 'shopee'")).scalar_one() == 0
     dong = ket_noi_test.execute(text("SELECT source, status, error_message FROM sync_runs")).one()
     assert dong[0] == "file_auto" and dong[1] == "failed" and "Mã đơn hàng" in dong[2]
     assert next((data / "failed" / "shopee").glob("*.log")).read_text(encoding="utf-8").count("Mã đơn hàng") == 1
@@ -145,6 +145,6 @@ def test_nap_lai_cung_file_qua_thu_muc_khong_nhan_doi_du_lieu(data, nap_that, ke
     for _ in range(2):
         shutil.copy(FILE_TIKTOK, data / "inbox" / "tiktok" / "TikTok_T8.csv")
         quet_hai_lan(data, nap_that)
-    assert ket_noi_test.execute(text("SELECT count(*) FROM orders_tiktok")).scalar_one() == 7540
+    assert ket_noi_test.execute(text("SELECT count(*) FROM orders WHERE platform = 'tiktok'")).scalar_one() == 7540
     cac_luot = ket_noi_test.execute(text("SELECT rows_inserted, rows_updated FROM sync_runs ORDER BY id")).all()
     assert cac_luot == [(7540, 0), (0, 7540)]

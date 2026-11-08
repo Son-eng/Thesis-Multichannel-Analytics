@@ -33,6 +33,9 @@ def client(phien_test, tao_phien_test, monkeypatch, tieu_de_admin):
 
 
 def dem(ket_noi, bang):
+    """Đếm dòng: `bang` là "sync_runs" hoặc tên sàn ("shopee"/"tiktok") → đếm dòng của sàn đó trong `orders`."""
+    if bang in ("shopee", "tiktok"):
+        return ket_noi.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one()
     return ket_noi.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one()
 
 
@@ -52,8 +55,8 @@ def test_tai_file_shopee_tra_dung_mot_sync_run_file_manual(client, ket_noi_test)
     assert MAU_GIO_VN.match(run["started_at"]) and MAU_GIO_VN.match(run["finished_at"])
     assert set(run["quality"]) == {"rows_sku_fallback", "rows_sku_unknown", "rows_status_unknown",
                                     "rows_province_unmapped", "rows_product_unmapped"}
-    assert dem(ket_noi_test, "orders_shopee") == 1774 and dem(ket_noi_test, "sync_runs") == 1
-    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders_shopee WHERE order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 1908961059
+    assert dem(ket_noi_test, "shopee") == 1774 and dem(ket_noi_test, "sync_runs") == 1
+    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders WHERE platform = 'shopee' AND order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 1908961059
 
 
 def test_tai_file_tiktok_khong_can_shop_name(client, ket_noi_test):
@@ -61,7 +64,7 @@ def test_tai_file_tiktok_khong_can_shop_name(client, ket_noi_test):
     run = phan_hoi.json()
     assert phan_hoi.status_code == 200 and run["shop_name"] is None
     assert (run["rows_total"], run["rows_inserted"]) == (7540, 7540)
-    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders_tiktok WHERE order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 7538502584
+    assert ket_noi_test.execute(text("SELECT SUM(nmv_after_tax) FROM orders WHERE platform = 'tiktok' AND order_status <> 'cancelled' AND is_returned = FALSE")).scalar_one() == 7538502584
 
 
 def test_shopee_thieu_shop_name_tra_400_shop_required_va_khong_ghi_gi(client, ket_noi_test):
@@ -69,14 +72,14 @@ def test_shopee_thieu_shop_name_tra_400_shop_required_va_khong_ghi_gi(client, ke
         phan_hoi = tai_len(client, "shopee", FILE_SHOPEE, **form)
         assert phan_hoi.status_code == 400
         assert phan_hoi.json() == {"detail": {"code": "shop_required", "message": "Tệp Shopee cần chọn gian hàng"}}
-    assert dem(ket_noi_test, "orders_shopee") == 0 and dem(ket_noi_test, "sync_runs") == 0
+    assert dem(ket_noi_test, "shopee") == 0 and dem(ket_noi_test, "sync_runs") == 0
 
 
 def test_tai_lai_cung_file_khong_nhan_doi_du_lieu(client, ket_noi_test):
     tai_len(client, "tiktok", FILE_TIKTOK)
     lan_hai = tai_len(client, "tiktok", FILE_TIKTOK).json()
     assert (lan_hai["rows_inserted"], lan_hai["rows_updated"]) == (0, 7540)
-    assert dem(ket_noi_test, "orders_tiktok") == 7540
+    assert dem(ket_noi_test, "tiktok") == 7540
     assert dem(ket_noi_test, "sync_runs") == 2
 
 
@@ -89,7 +92,7 @@ def test_file_thieu_cot_tra_422_missing_columns_va_khong_ghi_don_nao(client, ket
     assert phan_hoi.json() == {"detail": {"code": "missing_columns",
                                           "message": "Tệp thiếu cột bắt buộc, không dòng nào được ghi",
                                           "missing_columns": ["Mã đơn hàng"]}}
-    assert dem(ket_noi_test, "orders_shopee") == 0
+    assert dem(ket_noi_test, "shopee") == 0
     assert ket_noi_test.execute(text("SELECT status FROM sync_runs")).scalars().all() == ["failed"]   # lần nạp hỏng có dấu vết
 
 
@@ -103,7 +106,7 @@ def test_file_tiktok_thieu_cot_liet_ke_du_cac_cot_thieu(client, ket_noi_test, tm
     thieu_bao_ve = set(phan_hoi.json()["detail"]["missing_columns"])
     from app.etl import tiktok_parser
     assert thieu_bao_ve == set(cac_thieu) & set(tiktok_parser.COT_CAN_DOC) and thieu_bao_ve
-    assert dem(ket_noi_test, "orders_tiktok") == 0
+    assert dem(ket_noi_test, "tiktok") == 0
 
 
 def test_file_khong_phai_csv_tra_422_invalid_file(client, ket_noi_test, tmp_path):
@@ -111,7 +114,7 @@ def test_file_khong_phai_csv_tra_422_invalid_file(client, ket_noi_test, tmp_path
     rac.write_bytes(b"\x00\x01\x02 khong phai csv \xff\xfe")
     phan_hoi = tai_len(client, "tiktok", rac)
     assert phan_hoi.status_code == 422 and phan_hoi.json()["detail"]["code"] == "invalid_file"
-    assert dem(ket_noi_test, "orders_tiktok") == 0
+    assert dem(ket_noi_test, "tiktok") == 0
 
 
 def test_san_la_tra_422(client):

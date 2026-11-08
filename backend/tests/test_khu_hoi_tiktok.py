@@ -201,7 +201,7 @@ def test_doanh_thu_tong_va_theo_thang(duong_api):
 @pytest.mark.db
 def test_nap_csdl_2_lan_luy_dang(duong_api, phien_test, ket_noi_test):
     bang = duong_api[0]
-    sql_doanh_thu = "SELECT SUM(nmv_after_tax) FROM orders_tiktok WHERE order_status <> 'cancelled' AND is_returned = FALSE"
+    sql_doanh_thu = "SELECT SUM(nmv_after_tax) FROM orders WHERE platform = 'tiktok' AND order_status <> 'cancelled' AND is_returned = FALSE"
 
     assert loader.upsert_don_hang(phien_test, "tiktok", bang, None) == (7540, 0)
     phien_test.flush()
@@ -209,9 +209,9 @@ def test_nap_csdl_2_lan_luy_dang(duong_api, phien_test, ket_noi_test):
 
     assert loader.upsert_don_hang(phien_test, "tiktok", bang, None) == (0, 7540)
     phien_test.flush()
-    assert ket_noi_test.execute(text("SELECT count(*) FROM orders_tiktok")).scalar_one() == 7540
+    assert ket_noi_test.execute(text("SELECT count(*) FROM orders WHERE platform = 'tiktok'")).scalar_one() == 7540
     assert ket_noi_test.execute(text(sql_doanh_thu)).scalar_one() == DOANH_THU_TONG
     assert ket_noi_test.execute(text(
-        "SELECT count(*) FROM orders_tiktok WHERE data_source = 'api' AND source_file IS NULL")).scalar_one() == 7540
+        "SELECT count(*) FROM orders WHERE platform = 'tiktok' AND data_source = 'api' AND source_file IS NULL")).scalar_one() == 7540
     assert ket_noi_test.execute(text(
-        "SELECT count(*) FROM orders_tiktok WHERE is_returned")).scalar_one() == 139
+        "SELECT count(*) FROM orders WHERE platform = 'tiktok' AND is_returned")).scalar_one() == 139

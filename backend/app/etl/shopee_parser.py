@@ -74,7 +74,7 @@ def tinh_nmv_shopee(gia_goc, so_luong, nguoi_ban_tro_gia):
 
 
 def tao_bang_chuan(bang_goc, sku, ten_shop):
-    """Tính toàn bộ cột chuẩn của bảng orders_shopee từ các cột đã đọc.
+    """Tính toàn bộ cột chuẩn của bảng `orders` (platform = shopee) từ các cột đã đọc.
 
     Nhận: bang_goc — kết quả doc_csv_shopee; sku — kết quả chuỗi dự phòng;
     ten_shop — tên gian hàng (file Shopee không có cột shop).

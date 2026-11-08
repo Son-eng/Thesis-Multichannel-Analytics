@@ -95,7 +95,7 @@ def tinh_nmv_tiktok(tong_truoc_giam_gia, nguoi_ban_giam_gia):
 
 
 def tao_bang_chuan(bang_goc, sku):
-    """Tính toàn bộ cột chuẩn của bảng orders_tiktok từ các cột đã đọc.
+    """Tính toàn bộ cột chuẩn của bảng `orders` (platform = tiktok) từ các cột đã đọc.
 
     Nhận: bang_goc — kết quả doc_csv_tiktok; sku — kết quả tao_cot_sku.
     Trả: DataFrame đúng và đủ các cột COT_CHUAN_TIKTOK, theo đúng thứ tự đó,
