@@ -1,13 +1,19 @@
 """Ghi dữ liệu đã chuẩn hóa vào CSDL — chỗ hội tụ duy nhất của mọi đường (SPEC §4, §13).
 
 File gồm 2 phần:
-1. HỢP ĐỒNG ĐẦU RA: danh sách cột chuẩn của 2 bảng đơn hàng (COT_CHUAN_*).
-2. upsert_don_hang(): ghi DataFrame cột chuẩn vào bảng bằng
-   INSERT ... ON CONFLICT (order_id, sku) DO UPDATE.
+1. HỢP ĐỒNG ĐẦU RA: danh sách cột chuẩn mà mỗi bộ chuẩn hóa của từng sàn trả về
+   (COT_CHUAN_*) và danh sách cột CHUNG của bảng `orders` (COT_CHUNG).
+2. upsert_don_hang(): ghi DataFrame cột chuẩn của một sàn vào bảng `orders` bằng
+   INSERT ... ON CONFLICT (platform, order_id, sku) DO UPDATE.
 
-Luồng của upsert_don_hang: kiểm cột và khóa trùng → đổi giá trị pandas/numpy
-sang kiểu Python → chia lô 1.000 dòng → mỗi lô một lệnh upsert, đếm dòng thêm
-mới / cập nhật từ RETURNING. Hàm KHÔNG commit — nơi gọi quyết định giao dịch.
+Từ 08/11/2026 (gộp CSDL theo yêu cầu GVHD, SPEC §3) hai bảng đơn hàng của hai sàn
+là MỘT bảng `orders`. Bốn bộ chuẩn hóa không đổi: mỗi bộ vẫn trả DataFrame với
+đúng cột của sàn mình; loader đưa về cột chung (cột riêng sàn khác để NULL,
+`nmv_is_provisional` mặc định FALSE) và đặt `platform`.
+
+Luồng của upsert_don_hang: kiểm cột và khóa trùng → đưa về cột chung → đổi giá trị
+pandas/numpy sang kiểu Python → chia lô 1.000 dòng → mỗi lô một lệnh upsert, đếm
+dòng thêm mới / cập nhật từ RETURNING. Hàm KHÔNG commit — nơi gọi quyết định giao dịch.
 
 Vì sao khai báo danh sách cột ở đây: có 4 module chuẩn hóa (2 parser CSV, 2
 transform API) và chúng chỉ chung nhau đúng một thứ — DataFrame đầu ra phải có
@@ -26,8 +32,7 @@ import pandas as pd
 from sqlalchemy import func, literal_column
 from sqlalchemy.dialects.postgresql import insert
 
-from app.models.order_shopee import OrderShopee
-from app.models.order_tiktok import OrderTiktok
+from app.models.order import Order
 
 # Thứ tự cột theo đúng thứ tự trong CREATE TABLE ở SPEC §3.1.
 COT_CHUAN_SHOPEE = [
@@ -85,19 +90,54 @@ COT_CHUAN_TIKTOK = [
 ]
 
 
-# Model và danh sách cột chuẩn của từng sàn.
-BANG_THEO_SAN = {
-    "shopee": (OrderShopee, COT_CHUAN_SHOPEE),
-    "tiktok": (OrderTiktok, COT_CHUAN_TIKTOK),
+# Danh sách cột chuẩn của từng sàn (hợp đồng của bộ chuẩn hóa sàn đó).
+COT_CHUAN_THEO_SAN = {
+    "shopee": COT_CHUAN_SHOPEE,
+    "tiktok": COT_CHUAN_TIKTOK,
 }
 
-# Hai cột tạo nên khóa chống trùng (§4). Không đưa vào SET của DO UPDATE:
-# dòng đã khớp khóa thì 2 cột này vốn bằng nhau.
-COT_KHOA = ["order_id", "sku"]
+# Cột CHUNG của bảng `orders`: hợp (union) của hai danh sách trên, theo thứ tự CREATE TABLE ở SPEC §3.1.
+# Cột chỉ một sàn có (`sku_subtotal_after_discount`, `order_amount` của TikTok; `nmv_is_provisional` của Shopee)
+# nằm ở đây; sàn không có thì nhận giá trị trong COT_MAC_DINH hoặc NULL.
+COT_CHUNG = [
+    "shop_name",
+    "order_id",
+    "sku",
+    "product_code",
+    "order_date",
+    "order_created_at",
+    "order_status_raw",
+    "order_status",
+    "is_returned",
+    "product_name",
+    "variation",
+    "quantity",
+    "returned_quantity",
+    "unit_price",
+    "sku_subtotal_after_discount",
+    "nmv",
+    "nmv_after_tax",
+    "order_amount",
+    "nmv_is_provisional",
+    "is_affiliate",
+    "province",
+    "province_raw",
+    "hour_bucket",
+    "data_source",
+]
+
+# Giá trị cho cột NOT NULL mà sàn không có (TikTok không có NMV tạm tính → FALSE). Cột khác thiếu thì NULL.
+COT_MAC_DINH = {"nmv_is_provisional": False}
+
+# Khóa chống trùng trong CSDL (§4): gồm cả sàn, vì order_id của hai sàn thuộc hai hệ mã khác nhau. Không đưa vào
+# SET của DO UPDATE: dòng đã khớp khóa thì các cột này vốn bằng nhau.
+COT_KHOA = ["platform", "order_id", "sku"]
+# Phần khóa mà DataFrame của MỘT sàn tự có (DataFrame không có cột `platform`): dùng kiểm trùng trong dữ liệu.
+COT_KHOA_TRONG_BANG = ["order_id", "sku"]
 
 # Số dòng mỗi lệnh INSERT gửi xuống CSDL. PostgreSQL giới hạn 65.535 tham số
-# trong một lệnh; mỗi dòng TikTok tốn 24 tham số (23 cột chuẩn + source_file),
-# nên một lệnh chứa tối đa ~2.700 dòng. 1.000 dòng/lô (24.000 tham số) cách xa
+# trong một lệnh; mỗi dòng tốn 26 tham số (24 cột chung + platform + source_file),
+# nên một lệnh chứa tối đa ~2.500 dòng. 1.000 dòng/lô (26.000 tham số) cách xa
 # giới hạn đó, mà file mẫu lớn nhất (7.540 dòng) vẫn chỉ cần 8 lệnh. Lô quá nhỏ
 # (vd 1 dòng) thì 7.540 lượt gửi qua mạng — chậm hẳn mà không được gì.
 CO_LO_GHI = 1000
@@ -122,9 +162,9 @@ def kiem_cot_va_khoa(bang_chuan, cot_chuan):
             "Không ghi dòng nào."
         )
 
-    dong_trung = bang_chuan.duplicated(COT_KHOA, keep=False)
+    dong_trung = bang_chuan.duplicated(COT_KHOA_TRONG_BANG, keep=False)
     if dong_trung.any():
-        khoa_trung = bang_chuan.loc[dong_trung, COT_KHOA].drop_duplicates()
+        khoa_trung = bang_chuan.loc[dong_trung, COT_KHOA_TRONG_BANG].drop_duplicates()
         raise ValueError(
             f"Có {len(khoa_trung)} cặp (order_id, sku) lặp lại trong cùng dữ liệu, ví dụ "
             f"{khoa_trung.head(3).values.tolist()}. Không ghi dòng nào."
@@ -170,10 +210,10 @@ def doi_sang_dong_python(bang_chuan):
     return bang_ghi.to_dict("records")
 
 
-def tao_lenh_upsert(model, cot_chuan):
-    """Dựng lệnh INSERT ... ON CONFLICT (order_id, sku) DO UPDATE ... RETURNING.
+def tao_lenh_upsert(model):
+    """Dựng lệnh INSERT ... ON CONFLICT (platform, order_id, sku) DO UPDATE ... RETURNING.
 
-    Nhận: model của bảng; danh sách cột chuẩn của sàn.
+    Nhận: model của bảng `orders`.
     Trả: lệnh SQLAlchemy chưa chạy, CHƯA gắn dữ liệu — dữ liệu truyền vào lúc
     execute.
     Cần hàm này để tách phần "viết SQL gì" khỏi phần "chạy theo lô", đọc riêng
@@ -191,7 +231,7 @@ def tao_lenh_upsert(model, cot_chuan):
     # sẵn tên này trong ON CONFLICT. SET cột = excluded.cột nghĩa là "lấy giá
     # trị mới từ file/API đè lên giá trị cũ".
     cot_cap_nhat = {}
-    for ten_cot in cot_chuan + ["source_file"]:
+    for ten_cot in COT_CHUNG + ["source_file"]:
         if ten_cot not in COT_KHOA:
             cot_cap_nhat[ten_cot] = lenh_insert.excluded[ten_cot]
     # Đánh dấu lần ghi gần nhất. KHÔNG đặt id và uploaded_at trong SET: id giữ
@@ -215,22 +255,35 @@ def tao_lenh_upsert(model, cot_chuan):
     return lenh_upsert.returning(la_dong_moi)
 
 
+def dua_ve_cot_chung(bang_chuan):
+    """Đưa DataFrame cột chuẩn của một sàn về đúng bộ cột chung của bảng `orders`.
+
+    Nhận: DataFrame đã qua kiem_cot_va_khoa. Trả: DataFrame có đúng COT_CHUNG, theo thứ tự đó.
+    Cột sàn không có: lấy giá trị trong COT_MAC_DINH nếu có (cột NOT NULL), không thì NULL.
+    Cần hàm này vì bốn bộ chuẩn hóa chỉ biết cột của sàn mình; việc "bảng chung có thêm cột gì" là chuyện của nơi ghi.
+    """
+    bang = bang_chuan.reindex(columns=COT_CHUNG)
+    for ten_cot, gia_tri in COT_MAC_DINH.items():
+        if ten_cot not in bang_chuan.columns:
+            bang[ten_cot] = gia_tri
+    return bang
+
+
 def upsert_don_hang(phien, san, bang_chuan, source_file):
-    """Ghi DataFrame cột chuẩn vào orders_shopee / orders_tiktok bằng upsert (SPEC §4).
+    """Ghi DataFrame cột chuẩn của một sàn vào bảng chung `orders` bằng upsert (SPEC §4).
 
     Nhận: phien — Session SQLAlchemy đang mở; san — "shopee" hoặc "tiktok";
     bang_chuan — DataFrame ĐÚNG và ĐỦ COT_CHUAN_* của sàn; source_file — tên
     file nguồn, hoặc None (đường API).
     Trả: tuple (số dòng thêm mới, số dòng cập nhật).
     Cần hàm này vì mọi đường đưa dữ liệu vào (file, API) phải ghi theo cùng
-    một quy tắc: trùng (order_id, sku) thì CẬP NHẬT — trạng thái đơn đổi theo
+    một quy tắc: trùng (platform, order_id, sku) thì CẬP NHẬT — trạng thái đơn đổi theo
     thời gian, DO NOTHING sẽ giữ trạng thái cũ mãi (§4).
 
     KHÔNG commit: nơi gọi bọc cả lượt (tạo sync_runs, parser, upsert, cập nhật
     sync_runs) trong MỘT giao dịch, lỗi ở đâu thì rollback hết.
     """
-    model, cot_chuan = BANG_THEO_SAN[san]
-    kiem_cot_va_khoa(bang_chuan, cot_chuan)
+    kiem_cot_va_khoa(bang_chuan, COT_CHUAN_THEO_SAN[san])
 
     # Lượt đồng bộ định kỳ không có đơn nào đổi là trường hợp BÌNH THƯỜNG (§20.3):
     # không có gì để ghi. Bảng rỗng không có kiểu datetime nên đi tiếp sẽ lỗi
@@ -239,13 +292,14 @@ def upsert_don_hang(phien, san, bang_chuan, source_file):
     if bang_chuan.empty:
         return 0, 0
 
-    cac_dong = doi_sang_dong_python(bang_chuan)
+    cac_dong = doi_sang_dong_python(dua_ve_cot_chung(bang_chuan))
     for dong in cac_dong:
+        dong["platform"] = san
         dong["source_file"] = source_file
 
     # insertmanyvalues_page_size: số dòng SQLAlchemy ghép vào MỘT câu INSERT
     # khi nhận cả danh sách dòng. Đặt bằng CO_LO_GHI để mỗi lô đúng một câu.
-    lenh_upsert = tao_lenh_upsert(model, cot_chuan).execution_options(
+    lenh_upsert = tao_lenh_upsert(Order).execution_options(
         insertmanyvalues_page_size=CO_LO_GHI
     )
 

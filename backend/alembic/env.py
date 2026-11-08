@@ -24,7 +24,7 @@ from app.database import Base
 # Import từng module model chỉ để các lớp model được khai báo, nhờ đó bảng của
 # chúng có mặt trong Base.metadata. Thiếu một dòng ở đây thì autogenerate
 # tưởng bảng đó không còn cần và sinh lệnh XÓA bảng.
-from app.models import order_shopee, order_tiktok, platform_token, sync_run, user  # noqa: F401
+from app.models import order, platform_token, sync_run, user  # noqa: F401
 
 config = context.config
 

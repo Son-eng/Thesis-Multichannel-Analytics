@@ -27,13 +27,13 @@ FILE_TIKTOK = THU_MUC_MAU / "tiktok_orders_anonymized.csv"
 
 # Công thức doanh thu §7.1, viết bằng SQL như kpi_service sẽ viết.
 SQL_DOANH_THU = """
-    SELECT SUM(nmv_after_tax) FROM {bang}
-    WHERE order_status <> 'cancelled' AND is_returned = FALSE
+    SELECT SUM(nmv_after_tax) FROM orders
+    WHERE platform = '{san}' AND order_status <> 'cancelled' AND is_returned = FALSE
 """
 SQL_DOANH_THU_THEO_THANG = """
     SELECT to_char(order_date, 'YYYY-MM') AS thang, SUM(nmv_after_tax)
-    FROM {bang}
-    WHERE order_status <> 'cancelled' AND is_returned = FALSE
+    FROM orders
+    WHERE platform = '{san}' AND order_status <> 'cancelled' AND is_returned = FALSE
     GROUP BY thang ORDER BY thang
 """
 
@@ -62,9 +62,9 @@ def test_nap_shopee(nap, ket_noi_test):
 
     assert ket_qua["rows_inserted"] == 1774
     assert ket_qua["rows_updated"] == 0
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee") == 1774
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_shopee")) == Decimal("1908961059")
-    theo_thang = ket_noi_test.execute(text(SQL_DOANH_THU_THEO_THANG.format(bang="orders_shopee"))).all()
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'") == 1774
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="shopee")) == Decimal("1908961059")
+    theo_thang = ket_noi_test.execute(text(SQL_DOANH_THU_THEO_THANG.format(san="shopee"))).all()
     assert dict(theo_thang) == {"2026-07": Decimal("1068925905"), "2026-08": Decimal("840035154")}
 
     dong_sync = ket_noi_test.execute(text("SELECT * FROM sync_runs")).mappings().one()
@@ -86,8 +86,8 @@ def test_nap_tiktok(nap, ket_noi_test):
     ket_qua = nap("tiktok", FILE_TIKTOK)
 
     assert (ket_qua["rows_inserted"], ket_qua["rows_updated"]) == (7540, 0)
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_tiktok")) == Decimal("7538502584")
-    theo_thang = ket_noi_test.execute(text(SQL_DOANH_THU_THEO_THANG.format(bang="orders_tiktok"))).all()
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="tiktok")) == Decimal("7538502584")
+    theo_thang = ket_noi_test.execute(text(SQL_DOANH_THU_THEO_THANG.format(san="tiktok"))).all()
     assert dict(theo_thang) == {
         "2026-01": Decimal("963328583"),
         "2026-02": Decimal("1056998596"),
@@ -115,13 +115,12 @@ def test_nap_tiktok(nap, ket_noi_test):
 ])
 @pytest.mark.cham
 def test_nap_lai_cung_file_khong_doi_gi(nap, ket_noi_test, san, duong_dan, ten_shop, so_dong, doanh_thu):
-    bang = f"orders_{san}"
     nap(san, duong_dan, ten_shop)
     ket_qua_lan_2 = nap(san, duong_dan, ten_shop)
 
     assert (ket_qua_lan_2["rows_inserted"], ket_qua_lan_2["rows_updated"]) == (0, so_dong)
-    assert gia_tri(ket_noi_test, f"SELECT count(*) FROM {bang}") == so_dong
-    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang=bang)) == doanh_thu
+    assert gia_tri(ket_noi_test, f"SELECT count(*) FROM orders WHERE platform = '{san}'") == so_dong
+    assert gia_tri(ket_noi_test, SQL_DOANH_THU.format(san=san)) == doanh_thu
     # 2 lần nạp → 2 dòng nhật ký, đều thành công.
     assert gia_tri(ket_noi_test, "SELECT count(*) FROM sync_runs WHERE status = 'success'") == 2
 
@@ -136,8 +135,8 @@ def test_doi_trang_thai_mot_dong(phien_test, ket_noi_test):
     # Cả lần nạp đầu và upsert sau nằm trong CÙNG giao dịch test, mà NOW() trả
     # giờ BẮT ĐẦU giao dịch → updated_at sẽ không đổi. Lùi tay 2 cột thời gian
     # về năm 2000 để giả lập "lần nạp trước diễn ra từ lâu".
-    ket_noi_test.execute(text("UPDATE orders_shopee SET uploaded_at = '2000-01-01', updated_at = '2000-01-01'"))
-    doanh_thu_truoc = gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_shopee"))
+    ket_noi_test.execute(text("UPDATE orders SET uploaded_at = '2000-01-01', updated_at = '2000-01-01' WHERE platform = 'shopee'"))
+    doanh_thu_truoc = gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="shopee"))
 
     # Chọn 1 dòng pending không hoàn hàng — dòng này đang được tính doanh thu.
     dong_doi = bang_chuan[(bang_chuan["order_status"] == "pending") & ~bang_chuan["is_returned"]].index[0]
@@ -152,14 +151,14 @@ def test_doi_trang_thai_mot_dong(phien_test, ket_noi_test):
 
     assert (so_dong_moi, so_dong_cap_nhat) == (0, 1774)
     dong = ket_noi_test.execute(
-        text("SELECT order_status, uploaded_at, updated_at, source_file FROM orders_shopee "
-             "WHERE order_id = :o AND sku = :s"), {"o": order_id, "s": sku}
+        text("SELECT order_status, uploaded_at, updated_at, source_file FROM orders "
+             "WHERE platform = 'shopee' AND order_id = :o AND sku = :s"), {"o": order_id, "s": sku}
     ).mappings().one()
     assert dong["order_status"] == "cancelled"
     assert dong["uploaded_at"].year == 2000          # giữ nghĩa "lần đầu xuất hiện"
     assert dong["updated_at"].year > 2000            # đánh dấu lần ghi mới
     assert dong["source_file"] == "lan_2.csv"        # dòng ghi sau thắng
-    doanh_thu_sau = gia_tri(ket_noi_test, SQL_DOANH_THU.format(bang="orders_shopee"))
+    doanh_thu_sau = gia_tri(ket_noi_test, SQL_DOANH_THU.format(san="shopee"))
     assert doanh_thu_truoc - doanh_thu_sau == nmv_dong_doi
 
 
@@ -176,12 +175,12 @@ def test_dong_hong_giua_chung_rollback_toan_bo(nap, ket_noi_test, monkeypatch):
         return bang_hong, bo_dem
     monkeypatch.setattr(shopee_parser, "chuan_hoa_file_shopee", parser_tra_dong_hong)
 
-    so_dong_truoc = gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee")
+    so_dong_truoc = gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'")
     moc_truoc_khi_nap = datetime.now().astimezone()
     with pytest.raises(IntegrityError, match="sku"):
         nap("shopee", FILE_SHOPEE, "Shop C")
 
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee") == so_dong_truoc
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'") == so_dong_truoc
     dong_sync = ket_noi_test.execute(text("SELECT * FROM sync_runs")).mappings().all()
     # Chỉ còn dòng 'failed' ghi riêng — dòng 'running' tạo đầu lượt đã rollback.
     assert len(dong_sync) == 1
@@ -205,5 +204,5 @@ def test_sai_cot_khong_ghi_gi(nap, ket_noi_test, monkeypatch):
 
     with pytest.raises(ValueError, match="thiếu"):
         nap("shopee", FILE_SHOPEE, "Shop C")
-    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders_shopee") == 0
+    assert gia_tri(ket_noi_test, "SELECT count(*) FROM orders WHERE platform = 'shopee'") == 0
     assert gia_tri(ket_noi_test, "SELECT status FROM sync_runs") == "failed"

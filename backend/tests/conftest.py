@@ -45,8 +45,7 @@ def ket_noi_test(engine_test):
     """
     ket_noi = engine_test.connect()
     giao_dich_ngoai = ket_noi.begin()
-    ket_noi.execute(text("DELETE FROM orders_shopee"))
-    ket_noi.execute(text("DELETE FROM orders_tiktok"))
+    ket_noi.execute(text("DELETE FROM orders"))
     ket_noi.execute(text("DELETE FROM sync_runs"))
     yield ket_noi
     giao_dich_ngoai.rollback()
