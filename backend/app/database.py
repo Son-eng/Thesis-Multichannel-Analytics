@@ -19,31 +19,42 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
-# engine giữ sẵn một "bể" kết nối (connection pool) tới PostgreSQL.
-#
-# Cả ứng dụng dùng CHUNG một engine duy nhất. Tạo nhiều engine thì mỗi cái
-# mở một bể riêng, vừa lãng phí vừa dễ chạm giới hạn số kết nối của Postgres
-# (mặc định 100) khi có nhiều request cùng lúc.
-engine = create_engine(
-    settings.DATABASE_URL,
-    # echo=True thì SQLAlchemy in ra mọi câu SQL nó sinh ra.
-    # Rất đáng bật khi đang học và khi debug: nhìn thấy truy vấn thật thay vì
-    # phải đoán ORM dịch ra cái gì. Khi demo thì DEBUG=false nên tự tắt.
-    echo=settings.DEBUG,
-    # Thử ping kết nối trước khi đem ra dùng, nếu chết thì lặng lẽ thay bằng
-    # kết nối mới.
-    #
-    # Cần thiết vì container Postgres có thể bị tắt/bật giữa buổi làm việc
-    # (docker compose down rồi up). Khi đó các kết nối cũ đang nằm trong bể
-    # đã chết, nhưng bể không tự biết - truy vấn kế tiếp sẽ lỗi
-    # "server closed the connection unexpectedly" ở một chỗ hoàn toàn không
-    # liên quan, rất khó lần ra nguyên nhân.
-    pool_pre_ping=True,
-    # Ép múi giờ phiên là UTC: cột `timestamp` không có múi giờ, nên `now()` và mọi
-    # datetime có múi giờ ghi vào đều quy về UTC; lớp API đổi sang giờ VN khi đọc
-    # (app/api/sync.py). Không ép thì kết quả phụ thuộc cài đặt của máy chủ PostgreSQL.
-    connect_args={"options": "-c timezone=UTC"},
-)
+def tao_engine(url, debug):
+    """Tạo engine tới PostgreSQL. Tách thành hàm để test dựng được engine CÙNG cấu hình nhưng bật `debug`.
+
+    Nhận: chuỗi kết nối; debug — bật in câu SQL (settings.DEBUG).
+    Trả: Engine giữ sẵn một "bể" kết nối (connection pool).
+
+    Cả ứng dụng dùng CHUNG một engine duy nhất. Tạo nhiều engine thì mỗi cái mở một bể riêng, vừa lãng phí vừa dễ
+    chạm giới hạn số kết nối của Postgres (mặc định 100) khi có nhiều request cùng lúc.
+    """
+    return create_engine(
+        url,
+        # echo=True thì SQLAlchemy in ra mọi câu SQL nó sinh ra.
+        # Rất đáng bật khi đang học và khi debug: nhìn thấy truy vấn thật thay vì
+        # phải đoán ORM dịch ra cái gì. Khi demo thì DEBUG=false nên tự tắt.
+        echo=debug,
+        # Che GIÁ TRỊ tham số khỏi log và thông điệp lỗi của SQLAlchemy (chốt 11/11/2026). Nếu không, bật DEBUG
+        # thì mọi lệnh ghi đều in kèm tham số — kể cả lệnh ghi `platform_tokens` với access_token/refresh_token,
+        # vi phạm quy tắc "token không bao giờ vào log" (SPEC §3.3). Câu SQL vẫn hiện đủ để học và debug.
+        hide_parameters=True,
+        # Thử ping kết nối trước khi đem ra dùng, nếu chết thì lặng lẽ thay bằng
+        # kết nối mới.
+        #
+        # Cần thiết vì container Postgres có thể bị tắt/bật giữa buổi làm việc
+        # (docker compose down rồi up). Khi đó các kết nối cũ đang nằm trong bể
+        # đã chết, nhưng bể không tự biết - truy vấn kế tiếp sẽ lỗi
+        # "server closed the connection unexpectedly" ở một chỗ hoàn toàn không
+        # liên quan, rất khó lần ra nguyên nhân.
+        pool_pre_ping=True,
+        # Ép múi giờ phiên là UTC: cột `timestamp` không có múi giờ, nên `now()` và mọi
+        # datetime có múi giờ ghi vào đều quy về UTC; lớp API đổi sang giờ VN khi đọc
+        # (app/api/sync.py). Không ép thì kết quả phụ thuộc cài đặt của máy chủ PostgreSQL.
+        connect_args={"options": "-c timezone=UTC"},
+    )
+
+
+engine = tao_engine(settings.DATABASE_URL, settings.DEBUG)
 
 # Khuôn để tạo ra các phiên làm việc. Mỗi phiên là một đơn vị công việc với
 # DB: mở -> đọc/ghi -> commit hoặc rollback -> đóng.

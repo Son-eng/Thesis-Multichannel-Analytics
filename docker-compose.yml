@@ -37,7 +37,16 @@ services:
       #
       # Nếu chạy trên máy khác mà 5434 cũng bận: đổi số ở vế trái
       # (vd "5435:5432") rồi sửa cổng tương ứng trong backend/.env
-      - "5434:5432"
+      #
+      # Vì sao có "127.0.0.1:" ở đầu (chốt 11/11/2026): viết "5434:5432" trần thì Docker mở cổng ra MỌI giao diện mạng,
+      # tức cả Wi-Fi/LAN, trong khi mật khẩu CSDL là mật khẩu dev. Gắn vào 127.0.0.1 thì chỉ chính máy này kết nối được
+      # (backend vẫn dùng "localhost:5434" như cũ). Khi demo ở nơi có mạng chung, điều này tránh lộ CSDL cho người ngoài.
+      #
+      # Phải mở cả IPv6 loopback "[::1]": trên Windows "localhost" thường được dịch sang ::1 trước. Chỉ mở 127.0.0.1 thì
+      # kết nối tới "localhost:5434" treo đến hết thời gian chờ (~6 giây mỗi lần) rồi mới quay sang 127.0.0.1 (đã đo
+      # 11/11/2026). Mở cả hai vòng lặp nội bộ thì "localhost" nhanh như cũ mà vẫn không lộ ra mạng ngoài.
+      - "127.0.0.1:5434:5432"
+      - "[::1]:5434:5432"
 
     volumes:
       # Volume có tên -> dữ liệu còn nguyên sau khi "docker compose down".
