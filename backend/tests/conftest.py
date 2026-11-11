@@ -17,7 +17,11 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+from app.core import log_filter
 from may_chu_gia_lap import THU_MUC_MOCK, MayChuGiaLap, nap_module_mock
+
+# Mọi test chạy với bộ lọc che bí mật đã lắp (như khi chạy ứng dụng thật): chỉ dẫn 022.
+log_filter.cai_dat_loc(settings)
 
 
 @pytest.fixture(scope="session")

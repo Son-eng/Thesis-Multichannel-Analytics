@@ -29,10 +29,11 @@ async def chay_mot_vong(cac_shop, ham_dong_bo):
     for san, ten_shop in cac_shop:
         try:
             ket_qua.append((san, ten_shop, await asyncio.to_thread(ham_dong_bo, san, ten_shop)))
-        except Exception:
+        except Exception as loi:
             # dong_bo_mot_shop tự ghi lỗi vào sync_runs; đây là lớp bảo vệ cuối
-            # (lỗi ngoài dự kiến, ví dụ không mở được kết nối khóa).
-            logger.exception("Lượt đồng bộ %s/%s lỗi ngoài dự kiến", san, ten_shop)
+            # (lỗi ngoài dự kiến, ví dụ không mở được kết nối khóa). Traceback đầy đủ vẫn được ghi (để gỡ lỗi) và đi qua
+            # bộ lọc che bí mật (core/log_filter.py); tên loại lỗi đưa lên đầu dòng cho dễ đọc.
+            logger.exception("Lượt đồng bộ %s/%s lỗi ngoài dự kiến (%s)", san, ten_shop, type(loi).__name__)
             ket_qua.append((san, ten_shop, "loi"))
     return ket_qua
 
@@ -48,8 +49,8 @@ async def chay_lich(dung, lay_danh_sach_shop, ham_dong_bo, so_phut):
     while not dung.is_set():
         try:
             await chay_mot_vong(await asyncio.to_thread(lay_danh_sach_shop), ham_dong_bo)
-        except Exception:
-            logger.exception("Không lấy được danh sách shop để đồng bộ")
+        except Exception as loi:
+            logger.exception("Không lấy được danh sách shop để đồng bộ (%s)", type(loi).__name__)
         try:
             await asyncio.wait_for(dung.wait(), timeout=so_phut * 60)
         except asyncio.TimeoutError:

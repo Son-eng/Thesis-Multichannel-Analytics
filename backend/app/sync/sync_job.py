@@ -29,6 +29,7 @@ from sqlalchemy import func, select, text
 from app.config import settings
 from app.connectors.shopee_client import ShopeeClient
 from app.connectors.tiktok_client import TikTokClient
+from app.core.log_filter import MAU_BI_MAT, dang_ky_bi_mat
 from app.database import SessionLocal, engine
 from app.etl import loader, shopee_api_transform, tiktok_api_transform
 from app.models.platform_token import PlatformToken
@@ -49,8 +50,7 @@ DO_DAI_TOI_DA_LOI = 2000
 # classid của khóa advisory — mỗi sàn một giá trị, objid là mã băm tên shop.
 CLASSID_KHOA = {token_store.SAN_SHOPEE: 1, token_store.SAN_TIKTOK: 2}
 
-# Mẫu giá trị bí mật có thể lọt vào thông báo lỗi (URL có query, chuỗi lỗi của thư viện).
-MAU_BI_MAT = re.compile(r"(access_token|refresh_token|app_secret|sign|partner_key)=[^&\s'\"]+", re.IGNORECASE)
+# Mẫu giá trị bí mật có thể lọt vào thông báo lỗi: định nghĩa MỘT lần ở core/log_filter.py (dùng chung với bộ lọc log).
 
 
 class LoiCanUyQuyenLai(Exception):
@@ -190,9 +190,9 @@ def ghi_that_bai(run_id, loi, cac_gia_tri_bi_mat, thong_ke):
             dong.api_calls = thong_ke.get("api_calls", 0)
             dong.finished_at = func.clock_timestamp()
             phien.commit()
-    except Exception:
+    except Exception as loi_ghi:
         # CSDL hỏng đúng lúc ghi lỗi: không còn cách nào ghi nhận, chỉ để lại log (đã che bí mật).
-        logger.exception("Không ghi được trạng thái 'failed' cho sync_runs %s", run_id)
+        logger.exception("Không ghi được trạng thái 'failed' cho sync_runs %s (%s)", run_id, type(loi_ghi).__name__)
 
 
 # ---------------------------------------------------------------- Token
@@ -265,6 +265,8 @@ def thuc_hien_luot(run_id, san, ten_shop, cua_so=None, bay_gio=None, ham_ngu=tim
         if dong_token is None:
             raise LookupError(f"Chưa có token của {san}/{ten_shop} trong platform_tokens")
         cac_bi_mat += [dong_token.access_token, dong_token.refresh_token]
+        dang_ky_bi_mat(dong_token.access_token)
+        dang_ky_bi_mat(dong_token.refresh_token)
         kiem_con_quyen(dong_token, bay_gio)
 
         if cua_so is None:
@@ -279,6 +281,7 @@ def thuc_hien_luot(run_id, san, ten_shop, cua_so=None, bay_gio=None, ham_ngu=tim
             finally:
                 thong_ke["api_calls"] = client.so_lan_goi
                 cac_bi_mat.append(client.access_token)
+                dang_ky_bi_mat(client.access_token)
 
         bang_chuan, bo_dem = chuan_hoa(san, ket_qua, ten_shop)
 

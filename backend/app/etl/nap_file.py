@@ -26,6 +26,8 @@ from pandas.errors import EmptyDataError, ParserError
 from sqlalchemy import func
 from sqlalchemy.exc import DataError, IntegrityError
 
+from app.config import settings
+from app.core import log_filter
 from app.database import SessionLocal
 from app.etl import shopee_parser, tiktok_parser
 from app.etl.loader import upsert_don_hang
@@ -259,6 +261,7 @@ def doc_tham_so_dong_lenh(danh_sach_tham_so):
 
 def main():
     """Điểm vào của lệnh chạy tay. Thành công thoát mã 0, lỗi thoát mã 1."""
+    log_filter.cai_dat_loc(settings)
     tham_so = doc_tham_so_dong_lenh(sys.argv[1:])
     try:
         ket_qua = nap_file(tham_so.san, tham_so.duong_dan, tham_so.shop, "file_manual")

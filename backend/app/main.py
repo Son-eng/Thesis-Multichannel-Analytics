@@ -26,9 +26,15 @@ from app.api import upload as api_upload
 from app.api import users as api_users
 from app.etl import nap_file as bo_nap
 from app.config import settings
+from app.core import log_filter
 from app.database import SessionLocal
 from app.services import token_store, user_service
 from app.sync import folder_watcher, scheduler, sync_job
+
+
+# Lắp bộ lọc che bí mật lên MỌI handler của tiến trình (uvicorn dựng handler trước khi nạp ứng dụng nên bộ lọc
+# phải được gắn vào cả handler đã có). Gọi ở mức module để cũng có hiệu lực khi chạy `uvicorn app.main:app`.
+log_filter.cai_dat_loc(settings)
 
 
 def lay_danh_sach_shop():

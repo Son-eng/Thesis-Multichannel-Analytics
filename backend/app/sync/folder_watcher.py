@@ -132,8 +132,8 @@ async def chay_quet(dung, thu_muc_goc, so_giay, ham_nap, trang_thai):
     while not dung.is_set():
         try:
             kich_thuoc, _ = await asyncio.to_thread(quet_mot_lan, thu_muc_goc, kich_thuoc, ham_nap, trang_thai)
-        except Exception:
-            logger.exception("Lần quét thư mục lỗi; vòng sau quét lại")
+        except Exception as loi:
+            logger.exception("Lần quét thư mục lỗi (%s); vòng sau quét lại", type(loi).__name__)
         try:
             await asyncio.wait_for(dung.wait(), timeout=so_giay)
         except asyncio.TimeoutError:

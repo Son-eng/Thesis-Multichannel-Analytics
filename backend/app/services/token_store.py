@@ -22,6 +22,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.database import SessionLocal
+from app.core.log_filter import dang_ky_bi_mat
 from app.models.platform_token import PlatformToken
 
 SAN_SHOPEE = "shopee"
@@ -123,6 +124,9 @@ def doc_token(san, ten_shop):
         ).scalar_one_or_none()
         if dong is not None:
             phien.expunge(dong)
+            # Từ đây token của shop này nằm trong bộ nhớ: đăng ký để bộ lọc log che nó ở mọi nơi nó có thể lọt vào.
+            dang_ky_bi_mat(dong.access_token)
+            dang_ky_bi_mat(dong.refresh_token)
         return dong
 
 
@@ -141,6 +145,8 @@ def ghi_token(san, ten_shop, token_moi):
         ).scalar_one_or_none()
         if dong is None:
             raise LookupError(f"Chưa có token của {san}/{ten_shop} trong platform_tokens")
+        dang_ky_bi_mat(token_moi["access_token"])
+        dang_ky_bi_mat(token_moi["refresh_token"])
         dong.access_token = token_moi["access_token"]
         dong.refresh_token = token_moi["refresh_token"]
         dong.access_expires_at = token_moi["access_expires_at"]
@@ -197,7 +203,13 @@ def lam_moi_va_ghi(san, ten_shop, ham_lam_moi, bay_gio=None):
 
         # Lỗi ở đây (sàn từ chối, hết lần thử lại…) → thoát khối `with` chưa
         # commit → rollback, nhả khóa, dòng giữ nguyên token cũ.
+        dang_ky_bi_mat(dong.access_token)
+        dang_ky_bi_mat(dong.refresh_token)
         ket_qua = ham_lam_moi(dong.refresh_token, dong.shop_ref)
+        # Đăng ký token MỚI ngay khi nhận từ sàn, TRƯỚC khi ghi: nếu commit lỗi và PostgreSQL chép cả dòng vào thông điệp
+        # lỗi thì chuỗi đó đã nằm trong tập bị che.
+        dang_ky_bi_mat(ket_qua.get("access_token"))
+        dang_ky_bi_mat(ket_qua.get("refresh_token"))
         han_access, han_refresh = tinh_han_token(san, ket_qua, bay_gio)
         token_moi = {
             "access_token": ket_qua["access_token"],
