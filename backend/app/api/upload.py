@@ -19,6 +19,13 @@ from app.models.sync_run import SyncRun
 
 router = APIRouter(tags=["upload"])
 
+# Giới hạn kích thước tệp tải lên (chốt 11/11/2026): tệp mẫu lớn nhất (TikTok) ~6 MB, 50 MB là dư rất nhiều.
+# Vượt ngưỡng → 413 và KHÔNG tạo dòng sync_runs (chưa bắt đầu nạp). Lưu ý giới hạn của cách làm này: framework đã nhận
+# và đệm toàn bộ thân yêu cầu multipart trước khi vào hàm xử lý, nên ngưỡng ở đây chặn việc COPY ra đĩa và NẠP,
+# không chặn việc nhận. Chặn cứng ở tầng nhận (nếu cần) phải làm ở máy chủ web/proxy phía trước.
+GIOI_HAN_TAI_FILE_BYTE = 50 * 1024 * 1024
+KHOI_DOC_BYTE = 1024 * 1024
+
 
 def _loi(ma, thong_diep, **them):
     return {"code": ma, "message": thong_diep, **them}
@@ -38,19 +45,27 @@ def tai_file_len(
     ten_shop = shop_name.strip() if platform == "shopee" else None
 
     # Lưu ra file tạm (đúng đuôi .csv, tên thật của file giữ trong sync_runs.file_name).
+    # Thư mục tạm tự xóa khi thoát khối `with`, kể cả khi ném 413 ở giữa chừng.
     with tempfile.TemporaryDirectory() as thu_muc_tam:
         ten_goc = Path(file.filename or "upload.csv").name
         duong_dan = Path(thu_muc_tam) / ten_goc
+        da_doc = 0
         with open(duong_dan, "wb") as dau_ra:
-            while khoi := file.file.read(1024 * 1024):
+            while khoi := file.file.read(KHOI_DOC_BYTE):
+                da_doc += len(khoi)
+                if da_doc > GIOI_HAN_TAI_FILE_BYTE:
+                    raise HTTPException(413, _loi(
+                        "file_too_large", f"Tệp vượt quá {GIOI_HAN_TAI_FILE_BYTE / (1024 * 1024):g} MB",
+                        max_bytes=GIOI_HAN_TAI_FILE_BYTE))
                 dau_ra.write(khoi)
         try:
             ket_qua = bo_nap.nap_file(platform, str(duong_dan), ten_shop, "file_manual", admin.id)
         except bo_nap.ThieuCotBatBuoc as loi:
             raise HTTPException(422, _loi("missing_columns", "Tệp thiếu cột bắt buộc, không dòng nào được ghi",
                                           missing_columns=loi.cac_cot))
-        except Exception as loi:
-            # File không đọc được (không phải CSV, sai giá trị số…): nap_file đã rollback và ghi sync_runs 'failed'.
+        except bo_nap.LOI_NOI_DUNG_TEP as loi:
+            # Chỉ lỗi do NỘI DUNG tệp (không phải CSV, sai kiểu giá trị, thiếu cột…) mới là 422: nap_file đã rollback và
+            # ghi sync_runs 'failed'. Lỗi hạ tầng (CSDL tắt…) không bị bắt ở đây nên ra 500 đúng bản chất.
             raise HTTPException(422, _loi("invalid_file", "Tệp không đọc được, không dòng nào được ghi")) from loi
 
     dong = phien.get(SyncRun, ket_qua["sync_run_id"])

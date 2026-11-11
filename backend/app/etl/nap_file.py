@@ -20,12 +20,24 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+from pandas.errors import EmptyDataError, ParserError
 from sqlalchemy import func
+from sqlalchemy.exc import DataError, IntegrityError
 
 from app.database import SessionLocal
 from app.etl import shopee_parser, tiktok_parser
 from app.etl.loader import upsert_don_hang
 from app.models.sync_run import SyncRun
+
+# Các lớp lỗi nghĩa là "NỘI DUNG TỆP có vấn đề" (không phải lỗi hạ tầng): tệp sai định dạng, thiếu cột, ô sai kiểu,
+# ký tự sai mã hóa, giá trị không vừa kiểu/ràng buộc của CSDL. Endpoint nạp tệp chỉ đổi đúng các lớp này thành 422;
+# lỗi hạ tầng (CSDL tắt: OperationalError, hết bộ nhớ…) phải ra 500 chứ không được báo là "tệp không đọc được".
+#   - ValueError: gốc của ThieuCotBatBuoc, ParserError, EmptyDataError, UnicodeDecodeError, `pd.to_numeric(errors="raise")`,
+#     và các kiểm tra của loader (cột chuẩn, khóa lặp);
+#   - KeyError: pandas báo thiếu cột khi truy cập `bang_goc["tên cột"]`;
+#   - DataError: PostgreSQL từ chối GIÁ TRỊ (chuỗi dài quá cột, số tràn, ngày sai) — lỗi do nội dung tệp;
+#   - IntegrityError: dòng vi phạm ràng buộc của bảng đơn hàng (NOT NULL, CHECK, UNIQUE) — cũng do nội dung tệp.
+LOI_NOI_DUNG_TEP = (ValueError, KeyError, ParserError, EmptyDataError, UnicodeDecodeError, DataError, IntegrityError)
 
 # Tên gian hàng Shopee mặc định khi nạp file (SPEC §5.1): file Shopee không
 # có cột shop nên phải được truyền vào.
