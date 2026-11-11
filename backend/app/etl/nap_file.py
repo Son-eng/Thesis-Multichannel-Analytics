@@ -15,6 +15,8 @@ của lần nạp dở), rồi ghi RIÊNG một dòng sync_runs 'failed' kèm th
 """
 
 import argparse
+import logging
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -29,8 +31,15 @@ from app.etl import shopee_parser, tiktok_parser
 from app.etl.loader import upsert_don_hang
 from app.models.sync_run import SyncRun
 
+logger = logging.getLogger(__name__)
+
+# Tên gian hàng Shopee mặc định khi nạp file (SPEC §5.1): file Shopee không
+# có cột shop nên phải được truyền vào.
+SHOP_SHOPEE_MAC_DINH = "Shop C"
+
+
 # Các lớp lỗi nghĩa là "NỘI DUNG TỆP có vấn đề" (không phải lỗi hạ tầng): tệp sai định dạng, thiếu cột, ô sai kiểu,
-# ký tự sai mã hóa, giá trị không vừa kiểu/ràng buộc của CSDL. Endpoint nạp tệp chỉ đổi đúng các lớp này thành 422;
+# ký tự sai mã hóa, giá trị không vừa kiểu cột của CSDL. Endpoint nạp tệp chỉ đổi đúng các lớp này thành 422;
 # lỗi hạ tầng (CSDL tắt: OperationalError, hết bộ nhớ…) phải ra 500 chứ không được báo là "tệp không đọc được".
 #   - ValueError: gốc của ThieuCotBatBuoc, ParserError, EmptyDataError, UnicodeDecodeError, `pd.to_numeric(errors="raise")`,
 #     và các kiểm tra của loader (cột chuẩn, khóa lặp);
@@ -39,9 +48,45 @@ from app.models.sync_run import SyncRun
 #   - IntegrityError: dòng vi phạm ràng buộc của bảng đơn hàng (NOT NULL, CHECK, UNIQUE) — cũng do nội dung tệp.
 LOI_NOI_DUNG_TEP = (ValueError, KeyError, ParserError, EmptyDataError, UnicodeDecodeError, DataError, IntegrityError)
 
-# Tên gian hàng Shopee mặc định khi nạp file (SPEC §5.1): file Shopee không
-# có cột shop nên phải được truyền vào.
-SHOP_SHOPEE_MAC_DINH = "Shop C"
+
+def mo_ta_loi_gon(loi):
+    """Mô tả GỌN một lỗi nạp tệp để ghi vào `sync_runs.error_message` — KHÔNG chứa giá trị ô.
+
+    Nhận: exception. Trả: chuỗi ngắn gồm loại lỗi + vị trí nếu xác định được (số dòng/byte) hoặc tên cột.
+    Cần hàm này vì thông điệp gốc của pandas/PostgreSQL thường chép nguyên giá trị ô gây lỗi (ví dụ
+    `Unable to parse string "abc"`), mà `sync_runs.error_message` hiện cho mọi người dùng ở trang lịch sử.
+    Chi tiết đầy đủ vẫn ghi vào log máy chủ (nơi gọi), không vào CSDL hay giao diện.
+    """
+    ten_loi = type(loi).__name__
+    if isinstance(loi, ThieuCotBatBuoc):
+        return f"Tệp thiếu cột bắt buộc: {', '.join(loi.cac_cot)}"
+    if isinstance(loi, ParserError):
+        khop = re.search(r"line (\d+)", str(loi))
+        return f"Lỗi đọc tệp ({ten_loi}) ở dòng {khop.group(1)}" if khop else f"Lỗi đọc tệp ({ten_loi})"
+    if isinstance(loi, EmptyDataError):
+        return f"Tệp rỗng hoặc không có dòng tiêu đề ({ten_loi})"
+    if isinstance(loi, UnicodeDecodeError):
+        return f"Tệp sai mã hóa ký tự ({ten_loi}) ở byte {loi.start}"
+    if isinstance(loi, ValueError):
+        thong_diep = str(loi)
+        if thong_diep.startswith("DataFrame không đúng cột chuẩn"):
+            return thong_diep                                          # chỉ có TÊN cột, do chính hệ thống sinh ra
+        khop_lap = re.match(r"Có (\d+) cặp \(order_id, sku\) lặp lại", thong_diep)
+        if khop_lap:
+            return f"Có {khop_lap.group(1)} cặp (order_id, sku) lặp lại trong tệp ({ten_loi})"
+        khop_vi_tri = re.search(r"at position (\d+)", thong_diep)     # `pd.to_numeric(errors="raise")`
+        if khop_vi_tri:
+            return f"Giá trị không đọc được ({ten_loi}) ở dòng dữ liệu thứ {int(khop_vi_tri.group(1)) + 1}"
+        return f"Giá trị trong tệp không hợp lệ ({ten_loi})"
+    if isinstance(loi, KeyError):
+        return f"Tệp thiếu cột hoặc sai tên cột ({ten_loi})"
+    if isinstance(loi, (DataError, IntegrityError)):
+        # Tên CỘT vi phạm (không phải giá trị) do PostgreSQL báo qua `diag.column_name`: an toàn và giúp tìm lỗi.
+        cot = getattr(getattr(getattr(loi, "orig", None), "diag", None), "column_name", None)
+        mo_ta = ("Giá trị trong tệp không vừa kiểu dữ liệu của CSDL" if isinstance(loi, DataError)
+                 else "Dòng trong tệp vi phạm ràng buộc của CSDL")
+        return f"{mo_ta} ({ten_loi})" + (f" ở cột {cot}" if cot else "")
+    return f"Lỗi hệ thống khi nạp tệp ({ten_loi})"
 
 
 class ThieuCotBatBuoc(ValueError):
@@ -124,7 +169,9 @@ def ghi_lan_nap_that_bai(san, duong_dan, ten_shop, nguon, loi, thoi_diem_bat_dau
         # giờ về múi giờ phiên — cùng quy ước với now() của dòng thành công.
         dong_sync.started_at = thoi_diem_bat_dau
         dong_sync.status = "failed"
-        dong_sync.error_message = f"{type(loi).__name__}: {loi}"
+        dong_sync.error_message = mo_ta_loi_gon(loi)
+        # Chi tiết đầy đủ (có thể chứa giá trị ô) chỉ ở log máy chủ.
+        logger.error("Nạp tệp %s (%s) thất bại: %s: %s", Path(duong_dan).name, san, type(loi).__name__, loi)
         # clock_timestamp() là giờ thực lúc chạy câu lệnh; now() là giờ BẮT
         # ĐẦU giao dịch. Cả hai theo múi giờ phiên CSDL, cùng múi với started_at.
         dong_sync.finished_at = func.clock_timestamp()

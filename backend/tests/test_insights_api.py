@@ -36,6 +36,14 @@ def du_lieu_mau_da_nap():
                 pytest.skip(f"orders ({bang}) chưa nạp đủ {so_dong} dòng dữ liệu mẫu")
 
 
+@pytest.fixture(autouse=True)
+def tat_gioi_han_tan_suat(monkeypatch):
+    """Các test ở đây gọi endpoint liên tiếp nhiều lần với cùng một người dùng giả: tắt giới hạn tần suất (C.1) để
+    kiểm đúng logic nhận định. Chính giới hạn được kiểm ở test_insights_tan_suat.py."""
+    from app.api import insights as api_insights
+    monkeypatch.setattr(api_insights, "KHOANG_NGHI_TOI_THIEU_GIAY", 0)
+
+
 @pytest.fixture
 def ung_dung(du_lieu_mau_da_nap, monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", SecretStr(KHOA_GIA))

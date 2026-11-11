@@ -40,6 +40,38 @@ DINH_DANG_DIEM = '+0.0" điểm %";-0.0" điểm %";0.0" điểm %"'
 
 MAU_TIEU_DE = PatternFill("solid", start_color="E8EEF7", end_color="E8EEF7")
 
+# Ký tự đầu khiến Excel/LibreOffice coi ô chuỗi là CÔNG THỨC (chèn công thức / CSV injection): = + - @ và tab, xuống dòng.
+DAU_HIEU_CONG_THUC = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def trung_hoa_cong_thuc(gia_tri):
+    """Chuỗi bắt đầu bằng = + - @ (hoặc tab/xuống dòng) → thêm `'` ở đầu để Excel coi là văn bản, không chạy công thức.
+
+    Chỉ đụng tới giá trị KIỂU CHUỖI. Số (kể cả số âm), None, ngày giữ nguyên.
+    Cần vì tên gian hàng (tham số truy vấn, cột `Shop` của tệp TikTok), tên sản phẩm, tỉnh... do người dùng/dữ liệu ngoài
+    quyết định, mà openpyxl ghi chuỗi bắt đầu bằng "=" thành CÔNG THỨC thật.
+    """
+    if isinstance(gia_tri, str) and gia_tri.startswith(DAU_HIEU_CONG_THUC):
+        return "'" + gia_tri
+    return gia_tri
+
+
+def trung_hoa_toan_bo_o(so_lam_viec):
+    """Áp `trung_hoa_cong_thuc` cho MỌI ô chuỗi của sổ làm việc, ngay trước khi lưu.
+
+    Làm một lượt cuối thay vì rải ở từng chỗ ghi ô (hơn 60 chỗ) để chỗ ghi mới thêm sau này cũng tự được che; báo cáo này
+    không bao giờ cố ý ghi công thức nên không có ô công thức hợp lệ nào bị phá. Ô đã bị openpyxl nhận là công thức
+    (data_type 'f') cũng được trả về dạng văn bản.
+    """
+    for sheet in so_lam_viec.worksheets:
+        for hang in sheet.iter_rows():
+            for o in hang:
+                if isinstance(o.value, str):
+                    moi = trung_hoa_cong_thuc(o.value)
+                    if moi != o.value:
+                        o.value = moi
+                        o.data_type = "s"
+
 
 def _ngay_vn(chuoi_iso):
     """'2026-08-16' → '16/08/2026'."""
@@ -261,6 +293,7 @@ def tao_bao_cao_excel(phien, san, muc, ma_ky, shop_name=None, product_code=None)
     _dung_khung_gio(bang_tinh.create_sheet(SHEET_KHUNG_GIO), gio)
     _dung_kenh_ban(bang_tinh.create_sheet(SHEET_KENH_BAN), kenh)
 
+    trung_hoa_toan_bo_o(bang_tinh)
     dem = BytesIO()
     bang_tinh.save(dem)
     return dem.getvalue(), ky
