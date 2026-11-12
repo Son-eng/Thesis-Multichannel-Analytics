@@ -102,23 +102,47 @@ npm run build
 
 Backend có test chậm (đánh dấu `cham`, kéo toàn bộ dữ liệu qua máy chủ giả lập): thêm `-m "not cham"` để bỏ qua khi làm việc hằng ngày. Bộ đầy đủ chạy mất vài phút.
 
-## 5. Cấu trúc thư mục
+## 5. Các thư mục trong dự án là gì
 
-```
-backend/         FastAPI + SQLAlchemy: etl/ (đọc CSV, chuẩn hóa, ghi), connectors/ (gọi API sàn),
-                 sync/ (đồng bộ, lịch, quét thư mục), services/ (KPI, cảnh báo, Excel, nhận định),
-                 api/ (các endpoint), alembic/ (tạo bảng), tests/
-mock_platform/   máy chủ giả lập API Shopee và TikTok Shop (cổng 8001), chạy độc lập với backend
-frontend/        React + Vite + Ant Design: 6 màn hình (đăng nhập, dashboard từng sàn, đối chiếu,
-                 đồng bộ, upload, người dùng)
-data/            samples/ (hai tệp CSV mẫu đã ẩn danh); inbox/ processed/ failed/ (thư mục nạp tự động)
-docs/            SPEC.md (đặc tả và mọi quyết định), QUY_TRINH.md (tiến độ), tracklog/ (nhật ký từng bước)
-scripts/         công cụ ẩn danh dữ liệu mẫu
-docker-compose.yml   PostgreSQL 16.4
-```
+### Mã nguồn và tài liệu (là một phần của bài nộp)
+| Thư mục / tệp | Là gì |
+|---|---|
+| `backend/` | Máy chủ FastAPI: `app/` (mã: `etl/` đọc CSV và chuẩn hóa, `connectors/` gọi API sàn, `sync/` đồng bộ + lịch + quét thư mục, `services/` KPI/cảnh báo/Excel/nhận định, `api/` các endpoint), `alembic/` (tạo bảng CSDL), `tests/`, `requirements.txt`, `.env.example` |
+| `frontend/` | Giao diện React + Vite + Ant Design: `src/` (6 màn hình: đăng nhập, dashboard từng sàn, đối chiếu, đồng bộ, upload, người dùng), `package.json` |
+| `mock_platform/` | **Máy chủ Shopee/TikTok GIẢ** (cổng 8001), chạy riêng, để demo và test đồng bộ mà không cần khóa sàn thật |
+| `docker-compose.yml` | Chạy PostgreSQL 16.4 |
+| `data/samples/` | Hai tệp CSV **đã ẩn danh** (`shopee_orders_anonymized.csv`, `tiktok_orders_anonymized.csv`): nạp dữ liệu mẫu và làm đáp án cho test |
+| `data/inbox/`, `data/processed/`, `data/failed/` | Thư mục "thả tệp vào là tự nạp" (mỗi nơi có thư mục con `shopee/`, `tiktok/`); trong git chỉ có tệp giữ chỗ `.gitkeep` |
+| `docs/` | Tài liệu: xem `docs/README.md` (`SPEC.md` đặc tả, `QUY_TRINH.md` tiến độ, `TRACKLOG.md` nhật ký cũ đã đóng băng, `tracklog/` nhật ký mới) |
+| `README.md` | Tệp này |
+
+### Ba thư mục `scripts` — KHÔNG phải một phần của luồng chạy hệ thống
+Hệ thống chạy bình thường mà không cần bất kỳ tệp nào dưới đây; đây là công cụ chạy tay.
+| Thư mục | Dùng để làm gì |
+|---|---|
+| `scripts/` (ở gốc) | Chạy **một lần**: `anonymize_samples.py` (ẩn danh CSV gốc → `data/samples/*_anonymized.csv`), `build_product_map.py` (sinh bảng mã sản phẩm). Đọc dữ liệu khách hàng thật nên chỉ chạy được trên máy có CSV gốc |
+| `backend/scripts/` | `thu_nhan_dinh.py`: chạy tay thử Gemini **thật** (tốn hạn mức, cần `GEMINI_API_KEY`) |
+| `mock_platform/scripts/` | `goi_thu.py`: chạy tay thử máy chủ giả đang chạy |
+
+### Thư mục tự sinh, xóa được bất cứ lúc nào (nằm ngoài git, sẽ tự tạo lại)
+| Thư mục | Là gì |
+|---|---|
+| `__pycache__/` (nhiều nơi trong `backend/`, `mock_platform/`, `scripts/`) | Python tự đặt bản biên dịch |
+| `backend/.pytest_cache/` | pytest tự đặt |
+| `frontend/dist/` | Kết quả của `npm run build` |
+
+### KHÔNG nộp (nặng, chứa khóa hoặc dữ liệu thật)
+| Thư mục / tệp | Vì sao |
+|---|---|
+| `backend/.venv/`, `frontend/node_modules/` | Thư viện đã cài, rất nặng; tạo lại theo mục 2 |
+| `backend/.env`, `mock_platform/.env`, `frontend/.env` | Cấu hình riêng của máy (có khóa, mật khẩu); chỉ nộp các tệp `.env.example` |
+| `data/samples/Shopee Tracking_Order.csv`, `data/samples/TikTok Tracking_Order.csv` | CSV **gốc có dữ liệu khách hàng thật** |
+| `scripts/ten_that.local.json` | Bảng tên thật, chỉ có trên máy sinh viên |
+| `prompts/` | Chỉ dẫn và báo cáo trao đổi với chat chính (ngoài git); không phải mã nguồn |
 
 ## 6. Tài liệu
 
+- `docs/README.md` — chỉ đường: tệp nào trong `docs/` là gì, tệp nào đã đóng băng.
 - `docs/SPEC.md` — đặc tả đầy đủ: công thức doanh thu (§7), cảnh báo (§9), hợp đồng JSON của mọi endpoint (§12.1), máy chủ giả lập (§19), số liệu chuẩn để kiểm (§17).
 - `docs/QUY_TRINH.md` — các bước đã làm và kết quả kiểm chứng.
 - `docs/tracklog/` — nhật ký chi tiết từng bước.
