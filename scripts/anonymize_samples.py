@@ -13,6 +13,13 @@ cho khoa. Chỉ thay trong 5 cột chữ có chứa các tên đó; mã SKU gi�
 Tên thật KHÔNG viết trong file này mà đọc từ scripts/ten_that.local.json —
 file chỉ có trên máy sinh viên, .gitignore chặn (mẫu nội dung: MAU_FILE_TEN_THAT).
 
+CHẠY KHI NÀO: MỘT LẦN, khi có tệp gốc mới (hoặc cần sinh lại bản ẩn danh). KHÔNG phải một phần của luồng chạy
+hệ thống: hệ thống chỉ dùng kết quả (data/samples/*_anonymized.csv), không bao giờ chạy script này.
+Đầu vào: data/samples/Shopee Tracking_Order.csv và TikTok Tracking_Order.csv (gốc) + scripts/ten_that.local.json.
+Đầu ra: data/samples/shopee_orders_anonymized.csv, tiktok_orders_anonymized.csv.
+CẢNH BÁO: đọc DỮ LIỆU KHÁCH HÀNG THẬT và tên thật của doanh nghiệp. Tệp gốc và ten_that.local.json bị .gitignore
+chặn — không commit, không đưa vào bài nộp, không dán nội dung ra nơi khác.
+
 Cách chạy (từ gốc project):
     backend\\.venv\\Scripts\\python scripts\\anonymize_samples.py
 """

@@ -5,6 +5,10 @@ sẵn (urllib, hmac). Thuật toán ký được VIẾT LẠI ở đây theo tà
 dùng signature.py của mock và không dùng connector của backend: ký ở đây mà
 máy chủ chấp nhận thì hai bản cài đặt độc lập đã khớp nhau.
 
+CHẠY KHI NÀO: chạy TAY khi muốn xem máy chủ giả hoạt động hoặc demo. KHÔNG phải một phần của luồng chạy hệ thống
+(backend tự gọi máy chủ giả bằng connector của nó, không qua script này). Đầu vào: máy chủ giả ĐANG CHẠY + mock_platform/.env.
+Đầu ra: in kết quả ra màn hình; không ghi tệp, không đụng CSDL, không đụng sàn thật. Token trong .env của mock là giả.
+
 Cách chạy (từ mock_platform/, máy chủ đang chạy ở cổng 8001, có .env):
     ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py              # tom-tat
     ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py keo-du       # kéo hết, đếm, đối chiếu CSV

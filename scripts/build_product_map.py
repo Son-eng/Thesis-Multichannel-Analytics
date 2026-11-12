@@ -10,6 +10,12 @@ rút ra. Gộp cả 2 phần vào đây để file JSON sinh lại được tr�
 
 Chỉ đọc 2 cột SKU của file CSV, KHÔNG đọc cột nào chứa thông tin cá nhân.
 
+CHẠY KHI NÀO: khi bảng SKU thay đổi (có sản phẩm mới) — hiếm. KHÔNG phải một phần của luồng chạy hệ thống:
+hệ thống chỉ đọc kết quả (product_map.json).
+Đầu vào: cột `Seller SKU` và `SKU Sản Phẩm` của CSV TikTok (mặc định bản ẩn danh trong data/samples/, hoặc đường dẫn truyền vào).
+Đầu ra: backend/app/etl/mappings/product_map.json (GHI ĐÈ). Chạy xong chạy lại test (tests/test_mappings.py).
+Cẩn thận: nếu truyền CSV GỐC thì đó là dữ liệu khách hàng thật — script chỉ đọc 2 cột SKU, nhưng không chép nội dung tệp ra ngoài.
+
 Cách chạy (từ gốc project):
     backend\\.venv\\Scripts\\python scripts\\build_product_map.py [đường_dẫn_csv_tiktok]
 """

@@ -1,5 +1,9 @@
 """Chạy tay: gọi Gemini THẬT để sinh nhận định cho Shopee 2026-08 (chỉ dẫn 017 phần 3).
 
+KHÔNG phải một phần của luồng chạy hệ thống (hệ thống gọi Gemini qua POST /api/insights/generate); chỉ chạy TAY để thử.
+CẢNH BÁO: gọi Gemini THẬT — tốn hạn mức khóa, và gửi số liệu tổng hợp theo kỳ (không có dữ liệu cá nhân) tới Google.
+Đầu vào: dữ liệu mẫu trong CSDL + GEMINI_API_KEY trong backend/.env. Đầu ra: in ra màn hình; không ghi CSDL.
+
 Dùng (từ backend/, đã nạp dữ liệu mẫu, Docker bật, .env có GEMINI_API_KEY):
     .venv\\Scripts\\python scripts\\thu_nhan_dinh.py            # Shopee 2026-08
     .venv\\Scripts\\python scripts\\thu_nhan_dinh.py tiktok month 2026-04
