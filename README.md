@@ -102,6 +102,15 @@ npm run build
 
 Backend có test chậm (đánh dấu `cham`, kéo toàn bộ dữ liệu qua máy chủ giả lập): thêm `-m "not cham"` để bỏ qua khi làm việc hằng ngày. Bộ đầy đủ chạy mất vài phút.
 
+**Đọc kết quả test cho đúng — bật Docker TRƯỚC khi chạy `pytest`** (`docker compose up -d`, chờ `healthy`):
+
+- Backend có **743 test**, trong đó 372 test cần PostgreSQL thật (đánh dấu `db`) và 43 test chậm (`cham`). Khi **đủ điều kiện** (Docker bật, đã nạp dữ liệu mẫu, máy có hai CSV gốc và `scripts/ten_that.local.json`) kết quả chuẩn là **`743 passed, 0 skipped`**; mock **150 passed**; frontend **186 passed** (tổng 1.079).
+- **Docker tắt thì KHÔNG chỉ là "bỏ qua": kết quả lẫn skip và đỏ.** Đo bằng cách trỏ `DATABASE_URL` vào một cổng không có CSDL (không tắt container): `394 passed, 167 skipped, 4 failed, 178 errors`, mất khoảng 24 phút vì chờ kết nối. Test nhóm `db` tự skip, nhưng nhiều test API (dashboard, cảnh báo, Excel, nhận định) báo `ERROR` ở bước dựng và vài test đồng bộ báo `FAILED`. Đừng chỉ nhìn màu: đọc dòng tổng kết `passed / skipped / failed / errors`.
+- Muốn chạy phần không cần CSDL: `python -m pytest -m "not db"` → **371 passed** (372 test `db` bị loại), khoảng 3 phút, kết quả giống nhau dù Docker bật hay tắt.
+- Trên máy **không có hai CSV gốc** hoặc `scripts/ten_that.local.json` (không nằm trong git vì chứa dữ liệu thật), 4 test đối chiếu với dữ liệu gốc (`test_du_lieu_mau.py`: `test_khong_cot_nao_con_ten_that` và `test_cot_khong_thay_ten_giong_het_file_goc`, mỗi test chạy cho 2 sàn) tự bỏ qua; tất cả test còn lại vẫn chạy trên hai tệp ẩn danh có trong git.
+- Một số test API còn tự bỏ qua khi bảng `orders` chưa nạp đủ dữ liệu mẫu (xem mục 2: nạp hai tệp mẫu trước khi chạy test).
+- Muốn biết vì sao từng test bị bỏ qua: `python -m pytest -rs` (kèm `-rsfE` để liệt kê cả test đỏ và lỗi).
+
 ## 5. Các thư mục trong dự án là gì
 
 ### Mã nguồn và tài liệu (là một phần của bài nộp)
