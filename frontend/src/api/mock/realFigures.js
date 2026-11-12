@@ -24,9 +24,6 @@ export const MA_SAN_PHAM = {
   tiktok: ['B3', 'BU01', 'M13', 'M15', 'M21', 'M22', 'M23', 'M24', 'M3 Plus', 'M5', 'M6 Pro', 'M8 AIR', 'M9 MAX'],
 };
 
-/** Mã chỉ bán trên TikTok. SPEC §12 (bảng "Chỉ so sánh các chỉ số CẢ 2 SÀN đều tính được"). */
-export const MA_CHI_TIKTOK = ['B3', 'M22', 'M23'];
-
 /** Tổng toàn bộ dữ liệu mỗi sàn. SPEC §17.2 (doanh thu, số đơn, AOV) và §17.1/§17.2 (tổng đơn, số sản phẩm). */
 export const TONG_TOAN_BO = {
   shopee: {
@@ -140,9 +137,6 @@ export const DONG_UNKNOWN_SHOPEE = { rows: 19, revenue: 29814813 };
 
 /** Số dòng và số đơn hoàn/hủy toàn bộ dữ liệu. SPEC §17.1 (dòng hoàn hàng: Shopee 56, TikTok 139). */
 export const DONG_HOAN_HANG = { shopee: 56, tiktok: 139 };
-
-/** Số tỉnh chung của hai sàn. SPEC §12 (35 tỉnh chung = toàn bộ tỉnh của Shopee). */
-export const SO_TINH_CHUNG = 35;
 
 /** Các tài khoản GIẢ dùng cho mock. Mật khẩu giả `demo123`. Không phải tài khoản thật. */
 export const TAI_KHOAN_GIA = [

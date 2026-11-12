@@ -16,8 +16,3 @@ export function chayDongBo(san) {
 export function layLichSu(tham) {
   return goiApi('GET', '/api/sync/runs', tham);
 }
-
-/** Trạng thái tác vụ quét thư mục (§12.1.3.6). */
-export function layTrangThaiThuMuc() {
-  return goiApi('GET', '/api/watcher/status');
-}

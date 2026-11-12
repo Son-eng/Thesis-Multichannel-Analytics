@@ -43,7 +43,7 @@ export const doTroiLen = 16;
  * Hệ điều hành có bật "giảm chuyển động" không.
  * Vì sao cần: người dùng bật cờ này thì mọi thứ phải hiện ngay, không chạy.
  */
-export function heDieuHanhGiamChuyenDong() {
+function heDieuHanhGiamChuyenDong() {
   if (typeof window === 'undefined' || !window.matchMedia) {
     return false;
   }

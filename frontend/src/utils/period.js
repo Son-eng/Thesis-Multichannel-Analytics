@@ -18,13 +18,13 @@ function hai(n) {
 }
 
 /** "YYYY-MM-DD" -> Date UTC 00:00. */
-export function docNgay(iso) {
+function docNgay(iso) {
   const [nam, thang, ngay] = iso.split('-').map(Number);
   return new Date(Date.UTC(nam, thang - 1, ngay));
 }
 
 /** Date UTC -> "YYYY-MM-DD". */
-export function ghiNgay(d) {
+function ghiNgay(d) {
   return `${d.getUTCFullYear()}-${hai(d.getUTCMonth() + 1)}-${hai(d.getUTCDate())}`;
 }
 

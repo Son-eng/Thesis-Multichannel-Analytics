@@ -156,7 +156,7 @@ const BO_NHO_DEM = {};
  * @returns {{ngay: object[], ngayMin: string, ngayMax: string, thang: Object<string, {rev: number, ma: Object<string, number>}>}}
  *   mỗi ngày: {date, thang, rev, orders, ordersAll, returns, qty, affPct}
  */
-export function layBoDuLieu(san) {
+function layBoDuLieu(san) {
   if (BO_NHO_DEM[san]) {
     return BO_NHO_DEM[san];
   }

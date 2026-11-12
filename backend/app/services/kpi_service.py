@@ -10,13 +10,11 @@ Mọi truy vấn số liệu nằm ở đây; router chỉ gọi hàm rồi tr�
 - Nhóm theo `product_code`, không theo `sku` (§7.3).
 """
 
-import calendar
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import text
 
-from app.config import settings
 from app.services.alert_service import co_canh_bao, nguong_giam
 
 # Từ 08/11/2026 mọi sàn nằm chung MỘT bảng `orders` (SPEC §3); MỌI truy vấn ở đây phải lọc `platform = :platform`.
@@ -26,7 +24,6 @@ SAN_HOP_LE = ("shopee", "tiktok")
 ORDER_LEVEL_COLUMNS = {"shopee": [], "tiktok": ["order_amount"]}
 
 HOP_LE = "order_status <> 'cancelled' AND is_returned = FALSE"
-CAC_MUC = ("day", "month", "quarter", "year")
 SO_MA_SAN_PHAM_TOP = 4
 
 

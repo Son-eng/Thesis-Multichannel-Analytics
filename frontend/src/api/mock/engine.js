@@ -63,7 +63,7 @@ function docMuc(q) {
  * Xác định kỳ hiện tại, kỳ trước (đã cắt cùng số ngày khi cần) của một sàn.
  * SPEC §9.2 (cắt), §9.3a (mức ngày không cắt), §12.1 "Cài đặt bước 13" (kỳ trước tồn tại khi ngày đầu >= ngày nhỏ nhất).
  */
-export function xacDinhKy(san, muc, maKy) {
+function xacDinhKy(san, muc, maKy) {
   const { min, max } = KHOANG_DU_LIEU[san];
   const ma = maKy || maKyChuaNgay(muc, max);
   if (!maKyHopLe(muc, ma)) {
@@ -99,7 +99,7 @@ export function xacDinhKy(san, muc, maKy) {
  * Lấy số liệu một khoảng ngày sau khi áp bộ lọc gian hàng và mã sản phẩm.
  * @param {{shop?: string, product?: string}} loc
  */
-export function layKhoang(san, tu, den, loc = {}) {
+function layKhoang(san, tu, den, loc = {}) {
   const gop = gopKhoang(san, tu, den);
   const rong = { coDuLieu: false, rev: 0, orders: 0, ordersAll: 0, returns: 0, qty: 0, affRev: 0, affOrders: 0, ngay: [], ma: {} };
   if (!gop.coDuLieu) {

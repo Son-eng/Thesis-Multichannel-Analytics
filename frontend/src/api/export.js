@@ -11,7 +11,7 @@ export function tenTepTuTieuDe(tieuDe, duPhong = 'bao-cao.xlsx') {
 }
 
 /** Cho trình duyệt tải một Blob về máy với tên `ten`. Tách riêng để test thay được. */
-export function luuTepVeMay(blob, ten) {
+function luuTepVeMay(blob, ten) {
   const url = URL.createObjectURL(blob);
   const thePhu = document.createElement('a');
   thePhu.href = url;

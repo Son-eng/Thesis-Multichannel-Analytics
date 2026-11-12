@@ -13,7 +13,7 @@ export const KHONG_DU_DU_LIEU = 'Không đủ dữ liệu để so sánh';
  * @param {number} n số bất kỳ (được làm tròn về nguyên)
  * @returns {string} ví dụ 840035154 -> "840.035.154"
  */
-export function nhomNghin(n) {
+function nhomNghin(n) {
   const nguyen = Math.round(Math.abs(n));
   const chu = String(nguyen);
   const nhom = chu.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -101,12 +101,4 @@ export function dinhDangThoiDiem(iso) {
   const ngay = iso.slice(0, 10);
   const gio = iso.slice(11, 16);
   return `${gio}, ${dinhDangNgayNgan(ngay)}`;
-}
-
-/** Như dinhDangThoiDiem nhưng có năm: "16:40, 23/08/2026". */
-export function dinhDangThoiDiemDayDu(iso) {
-  if (!iso) {
-    return KHONG_CO_DU_LIEU;
-  }
-  return `${iso.slice(11, 16)}, ${dinhDangNgay(iso.slice(0, 10))}`;
 }

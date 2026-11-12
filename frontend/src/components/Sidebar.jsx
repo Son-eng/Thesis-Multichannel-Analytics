@@ -32,7 +32,7 @@ const SAN_DONG_BO = [
 ];
 
 /** Câu thông báo sau "Đồng bộ ngay": "Đã bắt đầu đồng bộ Shopee. TikTok Shop đang đồng bộ nên bỏ qua." */
-export function dungThongBaoDongBo(batDau, boQua) {
+function dungThongBaoDongBo(batDau, boQua) {
   const phan = [];
   if (batDau.length > 0) {
     phan.push(`Đã bắt đầu đồng bộ ${batDau.join(' và ')}.`);

@@ -81,14 +81,3 @@ export function taoNhanThayDoi(chiSo, tuyChon = {}) {
   const dau = x > 0 ? '+' : '−';
   return { text: `${mui} ${dau}${tuyetDoi}%`, tone, huong, laThongBao: false };
 }
-
-/**
- * Chữ phụ "so với ..." dưới số lớn của thẻ chỉ số.
- * Quy tắc 7: khoảng ngày kỳ trước lấy từ API (previous.date_from/date_to), frontend không tự tính.
- */
-export function layChuKyTruoc(previous, dinhDangKhoang) {
-  if (!previous) {
-    return KHONG_DU_DU_LIEU;
-  }
-  return 'so với ' + dinhDangKhoang(previous.date_from, previous.date_to);
-}

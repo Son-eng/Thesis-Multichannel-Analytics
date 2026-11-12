@@ -19,7 +19,6 @@ Token KHÔNG BAO GIỜ được ghi ra file hay log: mọi thông báo lỗi đi
 """
 
 import logging
-import re
 import time
 import zlib
 from datetime import datetime, time as gio_trong_ngay, timedelta, timezone
