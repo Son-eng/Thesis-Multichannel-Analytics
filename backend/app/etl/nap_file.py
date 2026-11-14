@@ -35,10 +35,6 @@ from app.models.sync_run import SyncRun
 
 logger = logging.getLogger(__name__)
 
-# Tên gian hàng Shopee mặc định khi nạp file (SPEC §5.1): file Shopee không
-# có cột shop nên phải được truyền vào.
-SHOP_SHOPEE_MAC_DINH = "Shop C"
-
 
 # Các lớp lỗi nghĩa là "NỘI DUNG TỆP có vấn đề" (không phải lỗi hạ tầng): tệp sai định dạng, thiếu cột, ô sai kiểu,
 # ký tự sai mã hóa, giá trị không vừa kiểu cột của CSDL. Endpoint nạp tệp chỉ đổi đúng các lớp này thành 422;
@@ -248,14 +244,15 @@ def doc_tham_so_dong_lenh(danh_sach_tham_so):
     bo_doc = argparse.ArgumentParser(description="Nạp một file CSV đơn hàng vào CSDL.")
     bo_doc.add_argument("san", choices=["shopee", "tiktok"])
     bo_doc.add_argument("duong_dan", help="đường dẫn file CSV")
-    bo_doc.add_argument("--shop", help=f'tên gian hàng — chỉ dùng cho Shopee, mặc định "{SHOP_SHOPEE_MAC_DINH}"')
+    bo_doc.add_argument("--shop", help="tên gian hàng — BẮT BUỘC với Shopee (tệp Shopee không có cột shop), không dùng với TikTok")
     tham_so = bo_doc.parse_args(danh_sach_tham_so)
 
     if tham_so.san == "tiktok" and tham_so.shop is not None:
         # Báo lỗi thay vì lặng lẽ bỏ qua: người chạy tưởng đã đặt tên shop.
         bo_doc.error("file TikTok có cột Shop, không nhận --shop")
-    if tham_so.san == "shopee" and tham_so.shop is None:
-        tham_so.shop = SHOP_SHOPEE_MAC_DINH
+    if tham_so.san == "shopee" and not (tham_so.shop and tham_so.shop.strip()):
+        # Không có mặc định: đoán sai shop là cộng nhầm doanh thu sang shop khác mà không báo lỗi.
+        bo_doc.error('tệp Shopee không có cột shop, phải chỉ rõ gian hàng bằng --shop "<tên gian hàng>"')
     return tham_so
 
 

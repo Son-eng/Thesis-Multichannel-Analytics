@@ -21,6 +21,7 @@ export const cauHinhMock = {
   thoiGianDongBo: 5000,
   llmLoi: false,
   loiKhoi: [], // danh sách endpoint dashboard cố ý trả 500, ví dụ ['by-hour']; chỉ test dùng
+  themShopDongBo: [], // gian hàng thêm vào /api/sync/status ({platform, shop_name}), mô phỏng shop mới kết nối chưa có đơn; chỉ test dùng
 };
 
 export function datCauHinhMock(thayDoi) {
@@ -165,6 +166,9 @@ function canAdmin(nguCanh) {
 
 function trangThaiDongBo() {
   const gianHang = TOKEN_GIA.map((t) => ({ ...t }));
+  cauHinhMock.themShopDongBo.forEach((s) => {
+    gianHang.push({ last_success_at: null, access_expires_at: null, refresh_expires_at: null, token_status: 'ok', ...s });
+  });
   return {
     interval_minutes: CHU_KY_DONG_BO_PHUT,
     platforms: {

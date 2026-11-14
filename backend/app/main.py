@@ -43,6 +43,12 @@ def lay_danh_sach_shop():
         return sync_job.liet_ke_shop(phien)
 
 
+def lay_shop_shopee():
+    """Tên các shop Shopee đang có trong platform_tokens — watcher đọc lại mỗi vòng để tạo ngăn thư mục và gán tệp đúng shop."""
+    with SessionLocal() as phien:
+        return [ten for _, ten in sync_job.liet_ke_shop(phien, "shopee")]
+
+
 def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
                  chay_watcher=None, thu_muc_data=None, ham_nap=None):
     """Tạo app FastAPI.
@@ -78,7 +84,7 @@ def tao_ung_dung(chay_lich=None, khoi_dong_csdl=True, ham_chay_nen=None,
         if bat_watcher:
             tac_vu_quet = asyncio.create_task(folder_watcher.chay_quet(
                 dung, thu_muc_data or folder_watcher.thu_muc_goc_mac_dinh(), settings.WATCHER_INTERVAL_SECONDS,
-                ham_nap or bo_nap.nap_file, trang_thai_quet))
+                ham_nap or bo_nap.nap_file, trang_thai_quet, lay_shop_shopee, bo_nap.ghi_lan_nap_that_bai))
         yield
         dung.set()
         for tac in (tac_vu, tac_vu_quet):

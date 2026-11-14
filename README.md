@@ -47,6 +47,10 @@ Tùy chọn: `GEMINI_API_KEY` (khóa lấy ở Google AI Studio) để dùng nú
 
 Lệnh nạp in số dòng (Shopee 1.774 dòng, TikTok 7.540 dòng). Nạp lại cùng tệp bao nhiêu lần cũng không nhân đôi dữ liệu.
 
+Với Shopee, `--shop "<tên gian hàng>"` là **bắt buộc** (tệp Shopee không có cột gian hàng, không có tên mặc định); thiếu thì lệnh báo lỗi và không nạp gì.
+
+**Thả tệp để tự nạp:** tệp TikTok thả vào `data/inbox/tiktok/`. Tệp Shopee phải thả vào **ngăn của đúng gian hàng**: `data/inbox/shopee/<tên gian hàng>/` (ví dụ `data/inbox/shopee/Shop C/`). Hệ thống tự tạo ngăn cho mọi gian hàng Shopee đang có (thấy ngăn mới sau tối đa 30 giây khi thêm gian hàng). Tệp thả sai chỗ (thẳng ở `data/inbox/shopee/` hoặc ngăn không khớp gian hàng nào) bị chuyển sang `data/failed/shopee/` kèm tệp `.log` nói rõ lý do, và không dòng nào được nạp.
+
 **Bước 3 — Máy chủ giả lập sàn** (cổng 8001; đóng vai Shopee và TikTok Shop, dữ liệu sinh từ chính hai tệp mẫu). Mở một cửa sổ PowerShell mới:
 
 ```powershell
@@ -121,7 +125,7 @@ Backend có test chậm (đánh dấu `cham`, kéo toàn bộ dữ liệu qua m�
 | `mock_platform/` | **Máy chủ Shopee/TikTok GIẢ** (cổng 8001), chạy riêng, để demo và test đồng bộ mà không cần khóa sàn thật |
 | `docker-compose.yml` | Chạy PostgreSQL 16.4 |
 | `data/samples/` | Hai tệp CSV **đã ẩn danh** (`shopee_orders_anonymized.csv`, `tiktok_orders_anonymized.csv`): nạp dữ liệu mẫu và làm đáp án cho test |
-| `data/inbox/`, `data/processed/`, `data/failed/` | Thư mục "thả tệp vào là tự nạp" (mỗi nơi có thư mục con `shopee/`, `tiktok/`); trong git chỉ có tệp giữ chỗ `.gitkeep` |
+| `data/inbox/`, `data/processed/`, `data/failed/` | Thư mục "thả tệp vào là tự nạp" (mỗi nơi có thư mục con `shopee/`, `tiktok/`; riêng Shopee thêm một ngăn cho mỗi gian hàng, tự tạo); trong git chỉ có tệp giữ chỗ `.gitkeep` |
 | `docs/` | Tài liệu: xem `docs/README.md` (`SPEC.md` đặc tả, `QUY_TRINH.md` tiến độ, `TRACKLOG.md` nhật ký cũ đã đóng băng, `tracklog/` nhật ký mới) |
 | `README.md` | Tệp này |
 

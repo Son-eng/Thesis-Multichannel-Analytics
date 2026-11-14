@@ -127,6 +127,19 @@ describe('Upload tệp dữ liệu', () => {
     expect(nut).toBeEnabled();
   });
 
+  it('gian hàng Shopee mới chỉ có trong danh sách kết nối (chưa có đơn nào) vẫn chọn được; không lặp tên; không lẫn shop TikTok', async () => {
+    datCauHinhMock({ themShopDongBo: [{ platform: 'shopee', shop_name: 'Shop D' }, { platform: 'shopee', shop_name: 'Shop C' }, { platform: 'tiktok', shop_name: 'Shop E' }] });
+    try {
+      mo('/admin/upload');
+      const chon = await screen.findByRole('combobox', { name: 'Gian hàng' });
+      await waitFor(() => expect(within(chon).getByRole('option', { name: 'Shop D' })).toBeInTheDocument());
+      const ten = within(chon).getAllByRole('option').map((o) => o.textContent);
+      expect(ten).toEqual(['Chọn gian hàng', 'Shop C', 'Shop D']);
+    } finally {
+      datCauHinhMock({ themShopDongBo: [] });
+    }
+  });
+
   it('TikTok ghi "Tệp TikTok Shop đã có cột gian hàng, hệ thống tự nhận", không có ô chọn gian hàng', async () => {
     mo('/admin/upload');
     await userEvent.click(await screen.findByRole('radio', { name: 'TikTok Shop' }));

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { mau, chuDao, canhBao, nhanThayDoi, coChu, khoangCach, boGoc } from '../theme/tokens.js';
 import { useTaiDuLieu } from '../hooks/useTaiDuLieu.js';
 import { layBoLoc } from '../api/dashboard.js';
+import { layTrangThaiDongBo } from '../api/sync.js';
 import { napTep } from '../api/upload.js';
 import { docLoi } from '../api/client.js';
 import Card from '../components/Card.jsx';
@@ -11,6 +12,13 @@ import { COT_CHAT_LUONG, OBoDem } from '../components/ChatLuongTep.jsx';
 import { dinhDangSo, dinhDangThoiDiem } from '../utils/format.js';
 
 const TEN_SAN = { shopee: 'Shopee', tiktok: 'TikTok Shop' };
+
+/** Hợp (không lặp, sắp theo tên) gian hàng Shopee từ bộ lọc dashboard và từ danh sách gian hàng đã kết nối. */
+function hopGianHangShopee(boLoc, trangThaiDongBo) {
+  const tenCoDon = boLoc ? boLoc.shops : [];
+  const tenDaKetNoi = trangThaiDongBo ? trangThaiDongBo.shops.filter((s) => s.platform === 'shopee').map((s) => s.shop_name) : [];
+  return [...new Set([...tenCoDon, ...tenDaKetNoi])].sort((a, b) => a.localeCompare(b, 'vi'));
+}
 
 /** Dung lượng dễ đọc: "1,4 MB". */
 function dinhDangDungLuong(byte) {
@@ -38,8 +46,11 @@ export default function Upload() {
   const [loi, setLoi] = useState(null);
   const [ketQua, setKetQua] = useState(null);
   const oChonTep = useRef(null);
+  // Gian hàng chọn được = gian hàng đã có đơn (bộ lọc) HỢP gian hàng đã kết nối (trạng thái đồng bộ):
+  // shop Shopee mới kết nối chưa có đơn nào vẫn phải chọn được để nạp tệp đầu tiên.
   const ttLoc = useTaiDuLieu(() => layBoLoc('shopee'), []);
-  const dsGianHang = ttLoc.duLieu ? ttLoc.duLieu.shops : [];
+  const ttDongBo = useTaiDuLieu(() => layTrangThaiDongBo(), []);
+  const dsGianHang = hopGianHangShopee(ttLoc.duLieu, ttDongBo.duLieu);
 
   const chonTep = (f) => {
     setLoi(null);
