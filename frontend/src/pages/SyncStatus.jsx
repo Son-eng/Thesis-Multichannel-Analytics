@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { Modal } from 'antd';
 import { mau, san, nhanThayDoi, canhBao, coChu, khoangCach } from '../theme/tokens.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { useTrangThaiDongBo } from '../hooks/useTrangThaiDongBo.js';
 import { useTaiDuLieu } from '../hooks/useTaiDuLieu.js';
 import { chayDongBo, layLichSu } from '../api/sync.js';
+import { batDauKetNoi, chuyenTrinhDuyet } from '../api/connections.js';
 import { docLoi } from '../api/client.js';
 import Card from '../components/Card.jsx';
 import PageTitle from '../components/PageTitle.jsx';
@@ -17,22 +20,128 @@ const NHAN_NGUON = { api: 'API', file_auto: 'Tệp tự động', file_manual: '
 const NHAN_KET_QUA = { success: 'Thành công', failed: 'Thất bại', running: 'Đang chạy' };
 const SO_DONG_MOI_TRANG = 20;
 
-/** Nhãn trạng thái của một gian hàng. Không có chỗ nào hiện giá trị token, chỉ có hạn. */
+/** Nhãn trạng thái kết nối của một gian hàng, viết cho người không kỹ thuật. Không có chỗ nào hiện giá trị token, chỉ có hạn. */
 function trangThaiGianHang(shop, dangChay) {
   if (dangChay) {
     return { nhan: 'Đang đồng bộ', nen: nhanThayDoi.trungTinh.nen, chu: nhanThayDoi.trungTinh.chu, quay: true };
   }
   if (shop.token_status === 'expired') {
-    return { nhan: 'Hết quyền', nen: nhanThayDoi.xau.nen, chu: nhanThayDoi.xau.chu };
+    return { nhan: 'Mất quyền – cần kết nối lại', nen: nhanThayDoi.xau.nen, chu: nhanThayDoi.xau.chu };
   }
   if (shop.token_status === 'expiring') {
-    return { nhan: 'Sắp hết quyền', nen: canhBao.nenVangNhat, chu: canhBao.chuVang };
+    return { nhan: 'Sắp hết hạn – cần kết nối lại', nen: canhBao.nenVangNhat, chu: canhBao.chuVang };
   }
-  return { nhan: 'Sẵn sàng', nen: nhanThayDoi.tot.nen, chu: nhanThayDoi.tot.chu };
+  return { nhan: 'Đang hoạt động', nen: nhanThayDoi.tot.nen, chu: nhanThayDoi.tot.chu };
 }
 
-function TheGianHang({ shop, dangChay }) {
-  const [ghiChu, setGhiChu] = useState('');
+/** Thông báo sau khi quay về từ trang ủy quyền của sàn (địa chỉ có `ket_noi=thanh_cong|loi`). Chỉ chứa văn bản, không có mã nào. */
+const THONG_BAO_LOI_KET_NOI = {
+  state_khong_hop_le: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm kết nối lại từ đầu.',
+  chu_shop_tu_choi: 'Chủ shop đã từ chối ủy quyền. Chưa có gì thay đổi.',
+  thieu_ma_uy_quyen: 'Sàn không gửi về mã ủy quyền. Hãy thử lại.',
+  loi_san: 'Không hoàn tất được kết nối với sàn (mã ủy quyền hết hạn hoặc sàn từ chối). Hãy thử lại.',
+  ten_trung: 'Tên gian hàng này đã dùng cho một gian hàng khác. Hãy chọn tên khác.',
+};
+
+function thongBaoKetNoi(tham) {
+  const kq = tham.get('ket_noi');
+  if (kq === 'thanh_cong') {
+    const ten = tham.get('shop') || 'gian hàng';
+    return {
+      loai: 'tot',
+      noiDung: tham.get('lai') === '1'
+        ? `Đã kết nối lại ${ten}. Hệ thống đang đồng bộ lại.`
+        : `Đã kết nối ${ten}. Hệ thống đang đồng bộ lần đầu, số liệu sẽ có sau ít phút.`,
+    };
+  }
+  if (kq === 'loi') {
+    return { loai: 'loi', noiDung: THONG_BAO_LOI_KET_NOI[tham.get('ly_do')] || 'Kết nối không thành công. Hãy thử lại.' };
+  }
+  return null;
+}
+
+/** Hộp thoại "Kết nối gian hàng mới": chọn sàn (Shopee thì nhập thêm tên hiển thị) rồi sang trang ủy quyền của sàn. */
+function HopKetNoiMoi({ moHop, dong }) {
+  const [maSan, setMaSan] = useState('shopee');
+  const [tenShop, setTenShop] = useState('');
+  const [dangGui, setDangGui] = useState(false);
+  const [loi, setLoi] = useState('');
+
+  useEffect(() => {
+    if (moHop) {
+      setMaSan('shopee');
+      setTenShop('');
+      setLoi('');
+      setDangGui(false);
+    }
+  }, [moHop]);
+
+  const thieuTen = maSan === 'shopee' && tenShop.trim() === '';
+  const gui = async () => {
+    if (dangGui || thieuTen) {
+      return;
+    }
+    setDangGui(true);
+    setLoi('');
+    try {
+      chuyenTrinhDuyet(await batDauKetNoi(maSan, tenShop.trim()));
+    } catch (e) {
+      setLoi(docLoi(e).message);
+      setDangGui(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={moHop}
+      title="Kết nối gian hàng mới"
+      onCancel={dong}
+      onOk={gui}
+      okText="Sang trang của sàn"
+      cancelText="Hủy"
+      okButtonProps={{ disabled: dangGui || thieuTen }}
+      maskClosable
+      width={440}
+    >
+      <form
+        onSubmit={(sk) => {
+          sk.preventDefault();
+          gui();
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+      >
+        <p style={{ margin: 0, color: mau.chuPhu, fontSize: coChu.nho }}>
+          Bạn sẽ được chuyển sang trang của sàn. Chủ gian hàng đăng nhập ở đó và bấm <b>Đồng ý</b>; hệ thống không bao giờ thấy mật khẩu của sàn.
+        </p>
+        <div>
+          <label className="nhan-o" htmlFor="ket-noi-san">Sàn</label>
+          <select id="ket-noi-san" className="o-nhap" value={maSan} onChange={(e) => setMaSan(e.target.value)}>
+            <option value="shopee">Shopee</option>
+            <option value="tiktok">TikTok Shop</option>
+          </select>
+        </div>
+        {maSan === 'shopee' ? (
+          <div>
+            <label className="nhan-o" htmlFor="ket-noi-ten">Tên hiển thị của gian hàng</label>
+            <input id="ket-noi-ten" className="o-nhap" maxLength={50} placeholder="Ví dụ: Shop D" autoFocus value={tenShop} onChange={(e) => setTenShop(e.target.value)} />
+            <span style={{ display: 'block', marginTop: 6, fontSize: coChu.ratNho, color: mau.chuNhan }}>
+              Shopee không gửi kèm tên gian hàng nên cần đặt ở đây. Tên này cũng là tên thư mục để thả tệp của gian hàng.
+            </span>
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: coChu.ratNho, color: mau.chuNhan }}>Tên gian hàng TikTok Shop được lấy tự động từ sàn.</p>
+        )}
+        {loi ? (
+          <div role="alert" style={{ fontSize: coChu.nho, color: canhBao.chuDam }}>
+            {loi}
+          </div>
+        ) : null}
+      </form>
+    </Modal>
+  );
+}
+
+function TheGianHang({ shop, dangChay, laAdmin, khiKetNoiLai, loiKetNoi }) {
   const tt = trangThaiGianHang(shop, dangChay);
   const mauSan = san[shop.platform].chinh;
   // Hạn hiển thị là hạn của refresh token (hết mới phải ủy quyền lại); TikTok không có thì dùng hạn của access token (§12.1.3.2).
@@ -59,12 +168,14 @@ function TheGianHang({ shop, dangChay }) {
         <span>Quyền truy cập còn hạn đến</span>
         <b className="so" style={{ color: sapHet ? canhBao.chuDam : mau.chuChinh, fontWeight: 600 }}>{hanDen ? dinhDangNgay(hanDen) : KHONG_CO_DU_LIEU}</b>
       </div>
-      <button type="button" className={sapHet ? 'nut nut-chinh' : 'nut'} style={{ alignSelf: 'flex-start' }} onClick={() => setGhiChu('Chưa hỗ trợ trong bản demo')}>
-        Ủy quyền lại
-      </button>
-      {ghiChu ? (
-        <span role="status" style={{ fontSize: coChu.ratNho, color: mau.chuNhan }}>
-          {ghiChu}
+      {laAdmin ? (
+        <button type="button" className={sapHet ? 'nut nut-chinh' : 'nut'} style={{ alignSelf: 'flex-start' }} onClick={() => khiKetNoiLai(shop)}>
+          Kết nối lại
+        </button>
+      ) : null}
+      {loiKetNoi ? (
+        <span role="alert" style={{ fontSize: coChu.ratNho, color: canhBao.chuDam }}>
+          {loiKetNoi}
         </span>
       ) : null}
     </Card>
@@ -93,9 +204,36 @@ function OLoc({ nhan, giaTri, khiDoi, luaChon }) {
  */
 export default function SyncStatus() {
   const ngCanh = useOutletContext();
+  const { laAdmin } = useAuth();
+  const [thamTruyVan, datThamTruyVan] = useSearchParams();
   const [chuKy, setChuKy] = useState(30000);
   const { trangThai, lamMoi } = useTrangThaiDongBo(chuKy);
   const [loiDongBo, setLoiDongBo] = useState('');
+  const [thongBaoKN, setThongBaoKN] = useState(() => thongBaoKetNoi(thamTruyVan));
+  const [moHopKN, setMoHopKN] = useState(false);
+  const [loiKetNoiLai, setLoiKetNoiLai] = useState({}); // {`${sàn}-${tên}`: thông điệp}
+
+  // Vừa quay về từ trang ủy quyền: thông báo đã đọc từ địa chỉ, nên xóa tham số khỏi địa chỉ (tải lại trang không báo lại)
+  // và làm mới danh sách gian hàng để thấy gian hàng mới / hạn mới.
+  useEffect(() => {
+    if (thamTruyVan.get('ket_noi')) {
+      datThamTruyVan({}, { replace: true });
+      lamMoi();
+    }
+    // chỉ chạy một lần lúc vào trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const ketNoiLai = async (shop) => {
+    const khoa = `${shop.platform}-${shop.shop_name}`;
+    setLoiKetNoiLai((c) => ({ ...c, [khoa]: '' }));
+    setThongBaoKN(null);
+    try {
+      chuyenTrinhDuyet(await batDauKetNoi(shop.platform, shop.shop_name));
+    } catch (e) {
+      setLoiKetNoiLai((c) => ({ ...c, [khoa]: docLoi(e).message }));
+    }
+  };
   const [bo, setBo] = useState({ san: '', nguon: '', ketQua: '', trang: 1 });
 
   const dangChayBatKy = trangThai ? trangThai.platforms.shopee.running || trangThai.platforms.tiktok.running : false;
@@ -157,11 +295,33 @@ export default function SyncStatus() {
         dongPhu={`Hệ thống tự lấy đơn hàng từ API của sàn mỗi ${trangThai ? trangThai.interval_minutes : 10} phút. Dùng nút đồng bộ khi cần số liệu mới ngay.`}
         benPhai={
           <>
+            {laAdmin ? (
+              <button type="button" className="nut" onClick={() => setMoHopKN(true)}>
+                <Icon ten="plus" kichThuoc={14} />
+                Kết nối gian hàng mới
+              </button>
+            ) : null}
             {nutDongBo('shopee')}
             {nutDongBo('tiktok')}
           </>
         }
       />
+      {thongBaoKN ? (
+        <div
+          role={thongBaoKN.loai === 'loi' ? 'alert' : 'status'}
+          data-testid="thong-bao-ket-noi"
+          style={{
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: coChu.nho,
+            background: thongBaoKN.loai === 'loi' ? canhBao.nen : nhanThayDoi.tot.nen,
+            color: thongBaoKN.loai === 'loi' ? canhBao.chu : nhanThayDoi.tot.chu,
+          }}
+        >
+          {thongBaoKN.noiDung}
+        </div>
+      ) : null}
+      {laAdmin ? <HopKetNoiMoi moHop={moHopKN} dong={() => setMoHopKN(false)} /> : null}
       {loiDongBo ? (
         <div role="alert" style={{ padding: '10px 14px', borderRadius: 10, background: canhBao.nenVang, color: canhBao.chuVang, fontSize: coChu.nho }}>
           {loiDongBo}
@@ -170,7 +330,16 @@ export default function SyncStatus() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: khoangCach.giuaThe }}>
         {trangThai
-          ? trangThai.shops.map((s) => <TheGianHang key={`${s.platform}-${s.shop_name}`} shop={s} dangChay={trangThai.platforms[s.platform].running} />)
+          ? trangThai.shops.map((s) => (
+              <TheGianHang
+                key={`${s.platform}-${s.shop_name}`}
+                shop={s}
+                dangChay={trangThai.platforms[s.platform].running}
+                laAdmin={laAdmin}
+                khiKetNoiLai={ketNoiLai}
+                loiKetNoi={loiKetNoiLai[`${s.platform}-${s.shop_name}`]}
+              />
+            ))
           : [0, 1, 2].map((i) => <Card key={i} style={{ height: 170 }} />)}
       </div>
 

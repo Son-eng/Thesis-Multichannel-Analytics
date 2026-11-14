@@ -23,16 +23,16 @@ function tepCsv(ten) {
 }
 
 describe('Đồng bộ dữ liệu', () => {
-  it('thẻ từng gian hàng: trạng thái, lần thành công gần nhất, hạn quyền, nhãn "Sắp hết quyền"', async () => {
+  it('thẻ từng gian hàng: trạng thái, lần thành công gần nhất, hạn quyền, nhãn "Sắp hết hạn – cần kết nối lại"', async () => {
     mo('/admin/sync');
     const c = await screen.findByTestId('shop-Shop C');
-    expect(c.textContent).toContain('Sắp hết quyền');
+    expect(c.textContent).toContain('Sắp hết hạn – cần kết nối lại');
     expect(c.textContent).toContain('Đồng bộ thành công gần nhất');
     expect(c.textContent).toContain('16:40, 23/08');
     expect(c.textContent).toContain('Quyền truy cập còn hạn đến');
     expect(c.textContent).toContain('28/08/2026'); // refresh_expires_at
     const a = screen.getByTestId('shop-Shop A');
-    expect(a.textContent).toContain('Sẵn sàng');
+    expect(a.textContent).toContain('Đang hoạt động');
     expect(a.textContent).toContain('30/08/2026'); // refresh_expires_at null -> hiện access_expires_at
   });
 
@@ -42,11 +42,11 @@ describe('Đồng bộ dữ liệu', () => {
     expect(container.textContent).not.toMatch(/mock-token|access_token|refresh_token|bearer/i);
   });
 
-  it('"Ủy quyền lại" hiện "Chưa hỗ trợ trong bản demo"', async () => {
+  it('chế độ dữ liệu giả: "Kết nối lại" báo "Cần chạy với backend" ngay trong thẻ, không báo lỗi mạng', async () => {
     mo('/admin/sync');
     const c = await screen.findByTestId('shop-Shop C');
-    await userEvent.click(within(c).getByRole('button', { name: 'Ủy quyền lại' }));
-    expect(within(c).getByText('Chưa hỗ trợ trong bản demo')).toBeInTheDocument();
+    await userEvent.click(within(c).getByRole('button', { name: 'Kết nối lại' }));
+    expect(await within(c).findByRole('alert')).toHaveTextContent('Cần chạy với backend');
   });
 
   it('nút đồng bộ bị khóa khi sàn đang chạy (running = true)', async () => {
