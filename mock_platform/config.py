@@ -40,6 +40,13 @@ class CauHinhMock(BaseSettings):
     TIKTOK_SHOP_B_ACCESS_TOKEN: str
     TIKTOK_SHOP_B_REFRESH_TOKEN: str
 
+    # --- Ủy quyền gian hàng (chỉ dẫn 026) ---
+    # TikTok: `service_id` của app (gắn vào link ủy quyền) và Redirect URL ĐÃ ĐĂNG KÝ — TikTok không nhận
+    # `redirect` ở URL mà chuyển về địa chỉ đã khai ở Partner Center (Pipeline/Tiktok/tiktok_auth.py).
+    # Có mặc định để .env cũ vẫn chạy; đổi nếu backend chạy ở địa chỉ khác.
+    TIKTOK_SERVICE_ID: str = "mock_service_id_GIA"
+    TIKTOK_REDIRECT_URL: str = "http://localhost:8000/api/connections/tiktok/callback"
+
     # --- Hạn sống access_token (giây) ---
     # Mặc định đúng như sàn thật. Đặt số nhỏ (ví dụ 5) để test "token hết hạn"
     # mà không phải chờ 4 giờ / 7 ngày.

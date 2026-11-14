@@ -22,6 +22,7 @@ import gay_loi
 import shopee_routes
 import tiktok_routes
 import tokens
+import uy_quyen
 
 
 def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tiktok=None):
@@ -63,6 +64,20 @@ def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tikto
         access_token, refresh_token = token_ban_dau[ten_shop]
         kho_tiktok.nap_san(shop["shop_cipher"], access_token, refresh_token, bay_gio)
     ung_dung.state.kho_token_tiktok = kho_tiktok
+
+    # Ủy quyền gian hàng (chỉ dẫn 026): thêm MỘT shop mới mỗi sàn, chưa có đơn nào. Dữ liệu của shop mới luôn rỗng và
+    # nằm ngoài dữ liệu dựng từ CSV, nên không thể làm đổi số liệu Shop A/B/C.
+    ten_shopee_moi, id_shopee_moi = uy_quyen.SHOP_SHOPEE_MOI
+    ung_dung.state.cac_shop_shopee = {str(cau_hinh.SHOPEE_SHOP_ID): "Shop C", str(id_shopee_moi): ten_shopee_moi}
+    ten_tiktok_moi, cipher_tiktok_moi = uy_quyen.SHOP_TIKTOK_MOI
+    ung_dung.state.cac_shop_tiktok = {**data_builder.SHOP_CIPHER_TIKTOK, ten_tiktok_moi: cipher_tiktok_moi}
+    ung_dung.state.du_lieu_tiktok_theo_cipher[cipher_tiktok_moi] = {
+        "shop_cipher": cipher_tiktok_moi, "don_hang": {}, "finance": {}, "affiliate": {},
+    }
+    ung_dung.state.kho_phien_shopee = uy_quyen.KhoPhienUyQuyen()
+    ung_dung.state.kho_ma_shopee = uy_quyen.KhoMaUyQuyen(uy_quyen.SHOPEE_HAN_MA_GIAY)
+    ung_dung.state.kho_phien_tiktok = uy_quyen.KhoPhienUyQuyen()
+    ung_dung.state.kho_ma_tiktok = uy_quyen.KhoMaUyQuyen(uy_quyen.TIKTOK_HAN_MA_GIAY)
 
     ung_dung.include_router(shopee_routes.router)
     ung_dung.include_router(tiktok_routes.router)

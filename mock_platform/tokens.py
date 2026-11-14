@@ -78,6 +78,18 @@ class KhoToken:
         """Kiểm access_token có hiệu lực cho shop này lúc bay_gio. Hỏng → TokenKhongHopLe."""
         self._kiem(self._access, access_token, shop, bay_gio)
 
+    def shop_cua_access_token(self, access_token, bay_gio):
+        """Shop mà access_token này đang có hiệu lực cho (không biết shop trước, như `Get Authorized Shops`).
+
+        Trả: shop. Không có trong sổ → TokenKhongHopLe(token_sai); hết hạn → TokenKhongHopLe(token_het_han).
+        """
+        if access_token not in self._access:
+            raise TokenKhongHopLe(LY_DO_TOKEN_SAI)
+        shop, het_han = self._access[access_token]
+        if het_han is not None and bay_gio >= het_han:
+            raise TokenKhongHopLe(LY_DO_TOKEN_HET_HAN)
+        return shop
+
     def shop_cua_refresh_token(self, refresh_token):
         """Shop mà refresh_token này thuộc về, hoặc None nếu không có trong sổ.
 

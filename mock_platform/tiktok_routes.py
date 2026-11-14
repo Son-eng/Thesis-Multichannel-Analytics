@@ -20,11 +20,12 @@ import json
 import secrets
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import gay_loi
 import signature
 import tokens
+import uy_quyen
 
 router = APIRouter()
 
@@ -32,6 +33,12 @@ DUONG_DAN_ORDERS_SEARCH = "/order/202309/orders/search"
 DUONG_DAN_FINANCE = "/finance/202501/orders/{order_id}/statement_transactions"
 DUONG_DAN_REFRESH = "/api/v2/token/refresh"
 DUONG_DAN_AFFILIATE = "/affiliate_seller/202410/orders/search"
+# Ủy quyền gian hàng (chỉ dẫn 026). `/open/authorize`, `/api/v2/token/get`, `/authorization/202309/shops` theo
+# Pipeline/Tiktok (tiktok_auth.py, Authorization/Get Authorized Shops.md); `/mock/...` là của riêng bản giả lập.
+DUONG_DAN_TRANG_UY_QUYEN = "/open/authorize"
+DUONG_DAN_QUYET_DINH = "/mock/tiktok/quyet-dinh"
+DUONG_DAN_TOKEN_GET = "/api/v2/token/get"
+DUONG_DAN_SHOPS = "/authorization/202309/shops"
 
 # Tài liệu affiliate_seller/orders/search: "chỉ hỗ trợ tối đa 3 tháng dữ liệu cho
 # mỗi yêu cầu". "3 tháng" không nói rõ số ngày → GIẢ ĐỊNH 93 ngày (§16 mục 10).
@@ -45,6 +52,7 @@ MA_TOKEN_SAI = 9990003
 MA_TOKEN_HET_HAN = 9990004
 MA_THAM_SO_SAI = 9990005
 MA_REFRESH_SAI = 9990006
+MA_MA_UY_QUYEN_SAI = 9990007    # auth_code không có / đã dùng / hết hạn (GIẢ ĐỊNH: tài liệu không có mã riêng)
 # Mã THẬT (tài liệu bàn giao Pipeline): quá tải — dùng cho MOCK_FAULT_RATE.
 MA_QUA_TAI = 36009002
 
@@ -327,3 +335,121 @@ def refresh_token(request: Request):
     except tokens.TokenKhongHopLe:
         raise LoiTikTok(MA_REFRESH_SAI, "refresh_token không hợp lệ") from None
     return tra_loi_thanh_cong({"access_token": access_moi, "refresh_token": refresh_moi})
+
+
+# ---------------------------------------------------------------- ủy quyền gian hàng (chỉ dẫn 026)
+
+def _trang_loi(thong_diep):
+    return HTMLResponse(f"<!doctype html><meta charset=utf-8><p>{thong_diep}</p>", status_code=400)
+
+
+@router.get(DUONG_DAN_TRANG_UY_QUYEN)
+def trang_uy_quyen(request: Request):
+    """Trang ủy quyền gian hàng (HTML): `?service_id=…` — không ký (đã xác minh, tiktok_auth.py:92-99).
+
+    `state` KHÔNG có trong tài liệu luồng Shop; ở đây nhận `state` tùy chọn và trả lại nguyên vẹn khi chuyển về
+    (GIẢ ĐỊNH, ghi ở SPEC §16) để phần mềm chống giả mạo yêu cầu.
+    """
+    trang_thai = request.app.state
+    if request.query_params.get("service_id", "") != trang_thai.cau_hinh.TIKTOK_SERVICE_ID:
+        return _trang_loi("service_id không hợp lệ.")
+    phien = trang_thai.kho_phien_tiktok.mo(
+        int(trang_thai.dong_ho()), state=request.query_params.get("state", ""))
+    cac_shop = [(ten, ten) for ten in trang_thai.cac_shop_tiktok]
+    return HTMLResponse(uy_quyen.trang_uy_quyen(
+        "TikTok Shop", "Hệ thống Đa Kênh", cac_shop, phien, DUONG_DAN_QUYET_DINH, "shop"))
+
+
+@router.post(DUONG_DAN_QUYET_DINH)
+async def quyet_dinh_uy_quyen(request: Request):
+    """Đồng ý → về Redirect URL ĐÃ ĐĂNG KÝ kèm `code` (+ `state` nếu có); từ chối → kèm `error=access_denied` (GIẢ ĐỊNH).
+
+    TikTok không nhận địa chỉ chuyển về ở URL: dùng `TIKTOK_REDIRECT_URL` của cấu hình (như Redirect URL ở Partner Center).
+    """
+    trang_thai = request.app.state
+    bay_gio = int(trang_thai.dong_ho())
+    form = await request.form()
+    phien = str(form.get("phien", ""))
+    try:
+        thong_tin = trang_thai.kho_phien_tiktok.xem(phien, bay_gio)
+    except uy_quyen.PhienKhongHopLe:
+        return _trang_loi("Phiên ủy quyền không hợp lệ, đã dùng hoặc đã hết hạn. Hãy mở lại trang ủy quyền.")
+    dich = trang_thai.cau_hinh.TIKTOK_REDIRECT_URL
+    them = {"state": thong_tin["state"]} if thong_tin["state"] else {}
+    quyet_dinh = str(form.get("quyet_dinh", ""))
+    if quyet_dinh == "tu_choi":
+        trang_thai.kho_phien_tiktok.lay_mot_lan(phien, bay_gio)
+        return RedirectResponse(uy_quyen.noi_query(dich, {"error": "access_denied", **them}), status_code=303)
+    ten_shop = str(form.get("shop", ""))
+    if quyet_dinh != "dong_y" or ten_shop not in trang_thai.cac_shop_tiktok:
+        return _trang_loi("Chưa chọn gian hàng hợp lệ.")
+    trang_thai.kho_phien_tiktok.lay_mot_lan(phien, bay_gio)
+    ma = trang_thai.kho_ma_tiktok.cap_ma(bay_gio, shop_cipher=trang_thai.cac_shop_tiktok[ten_shop])
+    return RedirectResponse(uy_quyen.noi_query(dich, {"code": ma, **them}), status_code=303)
+
+
+@router.get(DUONG_DAN_TOKEN_GET)
+def doi_ma_lay_token(request: Request):
+    """Đổi `auth_code` lấy cặp token (máy chủ auth, không ký) — đã xác minh (tiktok_auth.py:406-417).
+
+    Query: app_key, app_secret, auth_code, `grant_type=authorized_code` (KHÔNG phải `authorization_code` như OAuth chuẩn).
+    auth_code dùng MỘT lần, hết hạn sau 30 phút (tài liệu bàn giao); khóa ứng dụng / grant_type sai thì KHÔNG tiêu mã.
+    Trường trả về: chỉ `access_token`, `refresh_token` như endpoint làm mới. Ủy quyền lại một shop đang có: cấp cặp token
+    MỚI, token cũ vẫn dùng tới hạn (GIẢ ĐỊNH, §16).
+    """
+    kiem_qua_tai(request)
+    trang_thai = request.app.state
+    cau_hinh = trang_thai.cau_hinh
+    app_key = lay_tham_so(request, "app_key")
+    app_secret = lay_tham_so(request, "app_secret")
+    auth_code = lay_tham_so(request, "auth_code")
+    if lay_tham_so(request, "grant_type") != "authorized_code":
+        raise LoiTikTok(MA_THAM_SO_SAI, "grant_type phải là authorized_code")
+    if app_key != cau_hinh.TIKTOK_APP_KEY or not signature.chu_ky_khop(app_secret, cau_hinh.TIKTOK_APP_SECRET):
+        raise LoiTikTok(MA_REFRESH_SAI, "app_key / app_secret không hợp lệ")
+
+    bay_gio = int(trang_thai.dong_ho())
+    try:
+        thong_tin = trang_thai.kho_ma_tiktok.lay_mot_lan(auth_code, bay_gio)
+    except uy_quyen.MaKhongHopLe:
+        raise LoiTikTok(MA_MA_UY_QUYEN_SAI, "auth_code không hợp lệ, đã dùng hoặc đã hết hạn") from None
+    access_moi, refresh_moi = secrets.token_hex(16), secrets.token_hex(16)
+    trang_thai.kho_token_tiktok.nap_san(thong_tin["shop_cipher"], access_moi, refresh_moi, bay_gio)
+    return tra_loi_thanh_cong({"access_token": access_moi, "refresh_token": refresh_moi})
+
+
+@router.get(DUONG_DAN_SHOPS)
+async def danh_sach_shop_da_uy_quyen(request: Request):
+    """Danh sách shop mà token này được ủy quyền (đã xác minh: `Authorization/Get Authorized Shops.md`).
+
+    Query chỉ có app_key, timestamp, sign (KHÔNG có shop_cipher — đó là việc endpoint này làm: cấp `cipher`); header
+    `x-tts-access-token`. Trả `data.shops[]` gồm id, name, region, seller_type, cipher, code. Mỗi token của bản giả lập
+    gắn với MỘT shop nên danh sách có đúng một phần tử.
+    """
+    kiem_qua_tai(request)
+    trang_thai = request.app.state
+    cau_hinh = trang_thai.cau_hinh
+    app_key = lay_tham_so(request, "app_key")
+    timestamp = lay_tham_so(request, "timestamp")
+    chu_ky = lay_tham_so(request, "sign")
+    if app_key != cau_hinh.TIKTOK_APP_KEY:
+        raise LoiTikTok(MA_THAM_SO_SAI, "app_key không hợp lệ")
+    bay_gio = int(trang_thai.dong_ho())
+    if not signature.thoi_gian_hop_le(timestamp, bay_gio):
+        raise LoiTikTok(MA_LECH_THOI_GIAN, "timestamp lệch quá 5 phút")
+    than = (await request.body()).decode("utf-8")
+    chu_ky_dung = signature.tinh_chu_ky_tiktok(cau_hinh.TIKTOK_APP_SECRET, request.url.path, dict(request.query_params), than)
+    if not signature.chu_ky_khop(chu_ky, chu_ky_dung):
+        raise LoiTikTok(MA_SAI_CHU_KY, "Sai chữ ký")
+
+    try:
+        shop_cipher = trang_thai.kho_token_tiktok.shop_cua_access_token(request.headers.get("x-tts-access-token", ""), bay_gio)
+    except tokens.TokenKhongHopLe as loi:
+        if loi.ly_do == tokens.LY_DO_TOKEN_HET_HAN:
+            raise LoiTikTok(MA_TOKEN_HET_HAN, "access_token đã hết hạn") from None
+        raise LoiTikTok(MA_TOKEN_SAI, "access_token không hợp lệ") from None
+    ten_shop = next(ten for ten, cipher in trang_thai.cac_shop_tiktok.items() if cipher == shop_cipher)
+    return tra_loi_thanh_cong({"shops": [{
+        "id": uy_quyen.ID_TIKTOK_GIA[ten_shop], "name": ten_shop, "region": "VN", "seller_type": "LOCAL",
+        "cipher": shop_cipher, "code": "MOCK" + ten_shop[-1],
+    }]})

@@ -21,11 +21,12 @@ import json
 import secrets
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import gay_loi
 import signature
 import tokens
+import uy_quyen
 
 router = APIRouter()
 
@@ -34,6 +35,12 @@ DUONG_DAN_ORDER_DETAIL = "/api/v2/order/get_order_detail"
 DUONG_DAN_ESCROW_BATCH = "/api/v2/payment/get_escrow_detail_batch"
 DUONG_DAN_REFRESH = "/api/v2/auth/access_token/get"
 DUONG_DAN_CONVERSION = "/api/v2/ams/get_conversion_report"
+# Ủy quyền gian hàng (chỉ dẫn 026). Hai đường dẫn đầu là của Shopee thật (Pipeline/Shopee/shopee_auth.py);
+# đường dẫn thứ ba là của riêng bản giả lập (nơi biểu mẫu "Đồng ý / Từ chối" gửi về).
+DUONG_DAN_AUTH_PARTNER = "/api/v2/shop/auth_partner"
+DUONG_DAN_TOKEN_GET = "/api/v2/auth/token/get"
+DUONG_DAN_QUYET_DINH = "/mock/shopee/quyet-dinh"
+LOI_MA_UY_QUYEN_SAI = "invalid_code"   # tên lỗi thấy ở KHAO_SAT_API_SHOPEE.md:193 khi gửi code giả
 
 # Giới hạn tham số theo tài liệu (§19.2).
 CUA_SO_TOI_DA_GIAY = 15 * 24 * 60 * 60
@@ -52,6 +59,13 @@ TRUONG_DON_TUY_CHON = ["item_list", "recipient_address"]
 # Đơn không trả được escrow trong lô. Giá trị `fail_error` do bản giả lập tự
 # đặt, cố ý có tiền tố "mock_" để không ai nhầm là mã thật (§16 mục 6).
 LOI_ESCROW_KHONG_CO = "mock_escrow_not_available"
+
+
+def du_lieu_cua_shop(trang_thai, shop_id):
+    """Dữ liệu đơn của một shop theo shop_id. Shop C có dữ liệu dựng từ CSV; shop mới ủy quyền (Shop D) luôn RỖNG."""
+    if str(shop_id) == str(trang_thai.cau_hinh.SHOPEE_SHOP_ID):
+        return trang_thai.du_lieu_shopee
+    return {"don_hang": {}, "escrow": {}, "affiliate": {}}
 
 
 class LoiShopee(Exception):
@@ -172,7 +186,7 @@ def get_order_list(request: Request):
     bắt đầu từ time_to + 1. Thứ tự trả về: theo trường thời gian rồi order_sn,
     để phân trang ổn định giữa các lần gọi.
     """
-    kiem_tham_so_chung(request, DUONG_DAN_ORDER_LIST, la_shop_api=True)
+    shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ORDER_LIST, la_shop_api=True)
 
     truong_thoi_gian = lay_tham_so(request, "time_range_field")
     if truong_thoi_gian not in TRUONG_LOC_THOI_GIAN:
@@ -195,7 +209,7 @@ def get_order_list(request: Request):
 
     loc_trang_thai = request.query_params.get("order_status")
     cac_don = [
-        don for don in request.app.state.du_lieu_shopee["don_hang"].values()
+        don for don in du_lieu_cua_shop(request.app.state, shop_id)["don_hang"].values()
         if tu_luc <= don[truong_thoi_gian] <= den_luc
         and (loc_trang_thai is None or don["order_status"] == loc_trang_thai)
     ]
@@ -223,7 +237,7 @@ def get_order_detail(request: Request):
     Mã đơn không tồn tại thì bỏ qua, không báo lỗi — tài liệu không mô tả,
     GIẢ ĐỊNH (§16 mục 8). Backend chỉ hỏi mã vừa lấy từ get_order_list.
     """
-    kiem_tham_so_chung(request, DUONG_DAN_ORDER_DETAIL, la_shop_api=True)
+    shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ORDER_DETAIL, la_shop_api=True)
 
     cac_ma_don = tach_danh_sach(lay_tham_so(request, "order_sn_list"))
     if len(cac_ma_don) > SO_MA_DON_TOI_DA:
@@ -231,7 +245,7 @@ def get_order_detail(request: Request):
     truong_xin_them = tach_danh_sach(request.query_params.get("response_optional_fields", ""))
     cac_truong = TRUONG_DON_MAC_DINH + [t for t in TRUONG_DON_TUY_CHON if t in truong_xin_them]
 
-    du_lieu_don = request.app.state.du_lieu_shopee["don_hang"]
+    du_lieu_don = du_lieu_cua_shop(request.app.state, shop_id)["don_hang"]
     danh_sach = [
         {truong: du_lieu_don[ma][truong] for truong in cac_truong}
         for ma in cac_ma_don
@@ -250,7 +264,7 @@ async def get_escrow_detail_batch(request: Request):
     {order_sn, fail_error, fail_message}, kèm `warning` ở cấp ngoài — tài liệu
     nói `warning` dùng khi "batch request có phần fail".
     """
-    kiem_tham_so_chung(request, DUONG_DAN_ESCROW_BATCH, la_shop_api=True)
+    shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ESCROW_BATCH, la_shop_api=True)
 
     than = await doc_body_json(request)
     cac_ma_don = than.get("order_sn_list")
@@ -261,7 +275,8 @@ async def get_escrow_detail_batch(request: Request):
 
     trang_thai = request.app.state
     chi_don_hoan_tat = trang_thai.cau_hinh.MOCK_ESCROW_MODE == "completed_only"
-    du_lieu_don = trang_thai.du_lieu_shopee["don_hang"]
+    du_shop = du_lieu_cua_shop(trang_thai, shop_id)
+    du_lieu_don = du_shop["don_hang"]
     ket_qua = []
     ma_don_loi = []
     for ma in cac_ma_don:
@@ -274,7 +289,7 @@ async def get_escrow_detail_batch(request: Request):
                 "fail_message": "Đơn chưa có escrow (bản giả lập)",
             })
         else:
-            ket_qua.append({"escrow_detail": trang_thai.du_lieu_shopee["escrow"][ma]})
+            ket_qua.append({"escrow_detail": du_shop["escrow"][ma]})
 
     canh_bao = f"Không có escrow cho {len(ma_don_loi)} đơn: {', '.join(ma_don_loi)}" if ma_don_loi else None
     return tra_loi_thanh_cong(ket_qua, canh_bao)
@@ -292,7 +307,7 @@ def get_conversion_report(request: Request):
     `page_no` bắt đầu từ 1, `page_size` 1–100, khoảng thời gian lấy cả hai đầu.
     KHÔNG tái hiện giới hạn "chỉ 3 tháng gần nhất" của sàn thật (§16 mục 10).
     """
-    kiem_tham_so_chung(request, DUONG_DAN_CONVERSION, la_shop_api=True)
+    shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_CONVERSION, la_shop_api=True)
 
     tu_luc = lay_so_nguyen(request, "place_order_time_start")
     den_luc = lay_so_nguyen(request, "place_order_time_end")
@@ -306,7 +321,7 @@ def get_conversion_report(request: Request):
         raise LoiShopee("error_param", "page_size phải trong khoảng 1–100")
 
     cac_don = sorted(
-        (thoi_diem_dat, ma) for ma, thoi_diem_dat in request.app.state.du_lieu_shopee["affiliate"].items()
+        (thoi_diem_dat, ma) for ma, thoi_diem_dat in du_lieu_cua_shop(request.app.state, shop_id)["affiliate"].items()
         if tu_luc <= thoi_diem_dat <= den_luc
     )
     vi_tri = (so_trang - 1) * so_moi_trang
@@ -351,4 +366,92 @@ async def refresh_access_token(request: Request):
         "access_token": access_moi,
         "refresh_token": refresh_moi,
         "expire_in": trang_thai.kho_token_shopee.han_access_giay,
+    })
+
+
+# ---------------------------------------------------------------- ủy quyền gian hàng (chỉ dẫn 026)
+
+def _trang_loi(thong_diep, ma_http=400):
+    return HTMLResponse(f"<!doctype html><meta charset=utf-8><p>{thong_diep}</p>", status_code=ma_http)
+
+
+@router.get(DUONG_DAN_AUTH_PARTNER)
+def trang_uy_quyen(request: Request):
+    """Trang ủy quyền gian hàng (HTML). Ký như Public API: `partner_id + path + timestamp`.
+
+    Tham số: partner_id, timestamp, sign, redirect (đã xác minh — shopee_auth.py:100-116). Sai tham số / chữ ký thì
+    trả lỗi JSON như mọi endpoint Shopee của bản giả lập (sàn thật hiện trang lỗi — không xác minh được khuôn).
+    """
+    _, bay_gio = kiem_tham_so_chung(request, DUONG_DAN_AUTH_PARTNER, la_shop_api=False)
+    redirect = lay_tham_so(request, "redirect")
+    trang_thai = request.app.state
+    phien = trang_thai.kho_phien_shopee.mo(bay_gio, redirect=redirect)
+    cac_shop = [(ten, shop_id) for shop_id, ten in trang_thai.cac_shop_shopee.items()]
+    return HTMLResponse(uy_quyen.trang_uy_quyen(
+        "Shopee", "Hệ thống Đa Kênh", cac_shop, phien, DUONG_DAN_QUYET_DINH, "shop_id"))
+
+
+@router.post(DUONG_DAN_QUYET_DINH)
+async def quyet_dinh_uy_quyen(request: Request):
+    """Chủ shop bấm Đồng ý / Từ chối. Đồng ý → về `redirect` kèm `code` + `shop_id` (đã xác minh: redirect chỉ có hai
+    tham số này, không có `state`); từ chối → về `redirect` kèm `error=access_denied` (GIẢ ĐỊNH: không có tài liệu).
+
+    Phiên dùng MỘT lần, hết hạn sau 10 phút. Query có sẵn trong `redirect` (ví dụ `?state=…` do phần mềm tự gắn để
+    chống giả mạo) được GIỮ, tham số của sàn nối thêm bằng `&` (GIẢ ĐỊNH: chưa xác minh sàn thật xử lý như vậy).
+    """
+    trang_thai = request.app.state
+    bay_gio = int(trang_thai.dong_ho())
+    form = await request.form()
+    phien = str(form.get("phien", ""))
+    quyet_dinh = str(form.get("quyet_dinh", ""))
+    try:
+        thong_tin = trang_thai.kho_phien_shopee.xem(phien, bay_gio)
+    except uy_quyen.PhienKhongHopLe:
+        return _trang_loi("Phiên ủy quyền không hợp lệ, đã dùng hoặc đã hết hạn. Hãy mở lại trang ủy quyền.")
+    redirect = thong_tin["redirect"]
+    if quyet_dinh == "tu_choi":
+        trang_thai.kho_phien_shopee.lay_mot_lan(phien, bay_gio)
+        return RedirectResponse(uy_quyen.noi_query(redirect, {"error": "access_denied"}), status_code=303)
+    shop_id = str(form.get("shop_id", ""))
+    if quyet_dinh != "dong_y" or shop_id not in trang_thai.cac_shop_shopee:
+        return _trang_loi("Chưa chọn gian hàng hợp lệ.")
+    trang_thai.kho_phien_shopee.lay_mot_lan(phien, bay_gio)
+    ma = trang_thai.kho_ma_shopee.cap_ma(bay_gio, shop_id=shop_id)
+    return RedirectResponse(uy_quyen.noi_query(redirect, {"code": ma, "shop_id": shop_id}), status_code=303)
+
+
+@router.post(DUONG_DAN_TOKEN_GET)
+async def doi_ma_lay_token(request: Request):
+    """Đổi `code` lấy cặp token (Public API: chữ ký `partner_id + path + timestamp`).
+
+    Body: code, partner_id, shop_id (tùy chọn) — đã xác minh (shopee_auth.py:134-153). Trường trả về
+    (access_token 4 giờ, refresh_token 30 ngày, expire_in, shop_id_list) đã xác minh; lớp bọc `response` là GIẢ ĐỊNH
+    giống endpoint làm mới (§16 mục 8). `code` dùng MỘT lần, hết hạn sau 10 phút; chữ ký/partner sai thì KHÔNG tiêu mã.
+    Ủy quyền lại một shop đang có: cấp cặp token MỚI, token cũ vẫn dùng tới hạn (GIẢ ĐỊNH, §16).
+    """
+    _, bay_gio = kiem_tham_so_chung(request, DUONG_DAN_TOKEN_GET, la_shop_api=False)
+    than = await doc_body_json(request)
+    for ten in ["code", "partner_id"]:
+        if than.get(ten) in (None, ""):
+            raise LoiShopee("error_param", f"Thiếu {ten} trong body")
+    trang_thai = request.app.state
+    if str(than["partner_id"]) != str(trang_thai.cau_hinh.SHOPEE_PARTNER_ID):
+        raise LoiShopee("error_auth", "partner_id không hợp lệ")
+
+    ma = str(than["code"])
+    try:
+        thong_tin = trang_thai.kho_ma_shopee.xem(ma, bay_gio)
+        if than.get("shop_id") not in (None, "") and str(than["shop_id"]) != thong_tin["shop_id"]:
+            raise uy_quyen.MaKhongHopLe()
+        trang_thai.kho_ma_shopee.lay_mot_lan(ma, bay_gio)
+    except uy_quyen.MaKhongHopLe:
+        raise LoiShopee(LOI_MA_UY_QUYEN_SAI, "code không hợp lệ, đã dùng hoặc đã hết hạn") from None
+
+    access_moi, refresh_moi = secrets.token_hex(16), secrets.token_hex(16)
+    trang_thai.kho_token_shopee.nap_san(thong_tin["shop_id"], access_moi, refresh_moi, bay_gio)
+    return tra_loi_thanh_cong({
+        "access_token": access_moi,
+        "refresh_token": refresh_moi,
+        "expire_in": trang_thai.kho_token_shopee.han_access_giay,
+        "shop_id_list": [int(thong_tin["shop_id"])],
     })
