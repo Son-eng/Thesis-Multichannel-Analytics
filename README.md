@@ -84,6 +84,12 @@ npm run dev
 
 Mở http://localhost:5173 và đăng nhập `admin` cùng mật khẩu `ADMIN_PASSWORD` đã đặt ở bước 2. Muốn thử vai trò "Người dùng" (không thấy mục Quản trị): vào **Người dùng** → thêm tài khoản vai trò Người dùng → đăng xuất → đăng nhập bằng tài khoản đó.
 
+### Thêm gian hàng mới (Kết nối gian hàng)
+
+Admin vào **Đồng bộ dữ liệu** → **Kết nối gian hàng mới** → chọn sàn (Shopee thì nhập thêm tên hiển thị của gian hàng) → trình duyệt sang **trang ủy quyền của sàn**; chủ shop đăng nhập ở đó và bấm **Đồng ý** → hệ thống nhận kết quả, lưu quyền truy cập và tự đồng bộ gian hàng đó. Doanh nghiệp không bao giờ nhìn thấy khóa ứng dụng. **Kết nối lại** (khi quyền sắp hết hạn hoặc đã mất) dùng đúng luồng này, bấm ở thẻ của từng gian hàng. Cần chạy với backend thật (`VITE_USE_MOCK=false`).
+
+Với máy chủ giả lập (bước 3), trang ủy quyền là trang giả do máy chủ giả lập dựng, có sẵn một gian hàng **mới chưa có đơn** để thử: Shopee `Shop D`, TikTok `Shop E`. Địa chỉ mặc định đã đúng cho máy chạy cục bộ; cần đổi khi chạy thật hoặc ở máy khác thì xem các biến `*_AUTH_PAGE_BASE_URL`, `PUBLIC_BACKEND_URL`, `FRONTEND_URL` ở cuối `backend\.env.example`. Gian hàng Shopee mới có ngăn thư mục riêng để thả tệp: `data/inbox/shopee/<tên gian hàng>/`.
+
 ## 3. Kiểm nhanh số liệu
 
 Trên dữ liệu mẫu, các số sau phải khớp (đã chốt ở `docs/SPEC.md` §17):

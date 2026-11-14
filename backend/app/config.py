@@ -97,6 +97,22 @@ class Settings(BaseSettings):
     TIKTOK_BASE_URL: str = "http://127.0.0.1:8001"
     TIKTOK_AUTH_BASE_URL: str = "http://127.0.0.1:8001"
 
+    # ---------------- Kết nối gian hàng bằng ủy quyền (chỉ dẫn 026, SPEC §22) ----------------
+    # Mặc định chạy được với máy chủ giả lập (cổng 8001). Địa chỉ dưới đây là địa chỉ TRÌNH DUYỆT mở được, khác với
+    # *_BASE_URL (backend gọi máy chủ-tới-máy chủ). Sàn thật: Shopee https://partner.shopeemobile.com,
+    # TikTok https://services.tiktokshop.com (Pipeline/Shopee/shopee_auth.py, Pipeline/Tiktok/tiktok_auth.py).
+    SHOPEE_AUTH_PAGE_BASE_URL: str = "http://localhost:8001"
+    TIKTOK_AUTH_PAGE_BASE_URL: str = "http://localhost:8001"
+    # `service_id` của app TikTok (gắn vào link ủy quyền; lấy ở Partner Center). Công khai như app_key, không phải bí mật.
+    TIKTOK_SERVICE_ID: str = "mock_service_id_GIA"
+    # Địa chỉ CÔNG KHAI của backend: sàn chuyển trình duyệt về `<địa chỉ này>/api/connections/<sàn>/callback`.
+    # Với TikTok, địa chỉ đó phải trùng Redirect URL đã đăng ký ở Partner Center.
+    PUBLIC_BACKEND_URL: str = "http://localhost:8000"
+    # Sau khi kết nối xong, chuyển trình duyệt về giao diện ở địa chỉ này.
+    FRONTEND_URL: str = "http://localhost:5173"
+    # Yêu cầu bắt đầu kết nối hết hạn sau N phút (mã ủy quyền của sàn sống 10 phút Shopee / 30 phút TikTok).
+    CONNECT_STATE_MINUTES: int = Field(default=10, gt=0)
+
     # Khóa ứng dụng — tên biến TRÙNG với mock_platform/.env (quy ước §20.4).
     # Bắt buộc, không có mặc định: thiếu khóa thì dừng ngay lúc khởi động.
     SHOPEE_PARTNER_ID: int

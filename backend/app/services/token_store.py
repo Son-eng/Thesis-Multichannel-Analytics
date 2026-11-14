@@ -116,6 +116,54 @@ def nap_san_tu_cau_hinh(cau_hinh, bay_gio=None):
         return so_dong_moi
 
 
+class TenGianHangDaDung(Exception):
+    """Tên gian hàng đã thuộc về MỘT GIAN HÀNG KHÁC (shop_ref khác) của cùng sàn — không ghi đè token của shop đó."""
+
+    def __init__(self, san, ten_shop):
+        super().__init__(f"Tên gian hàng '{ten_shop}' ({san}) đã dùng cho gian hàng khác")
+        self.san = san
+        self.ten_shop = ten_shop
+
+
+def ghi_ket_noi(san, ten_shop, shop_ref, ket_qua_token, bay_gio=None):
+    """Ghi token của gian hàng vừa ủy quyền (chỉ dẫn 026): THÊM shop mới, hoặc CẬP NHẬT khi là kết nối lại.
+
+    Nhận: san; ten_shop — tên đề xuất (Shopee: admin nhập; TikTok: tên từ sàn); shop_ref — Shopee shop_id (chuỗi) /
+    TikTok shop_cipher; ket_qua_token — dict sàn trả về {access_token, refresh_token[, expire_in]}; bay_gio.
+    Trả: (tên gian hàng đã ghi, la_ket_noi_lai). Nhận ra "kết nối lại" theo (sàn, shop_ref): shop đã có thì GIỮ TÊN CŨ
+    và chỉ thay token + hạn — không tạo dòng thứ hai. Shop mới mà tên trùng một shop khác → TenGianHangDaDung.
+    Token chỉ đi qua đây vào CSDL (không log, không trả ra ngoài) và được đăng ký cho bộ lọc log TRƯỚC khi ghi.
+    """
+    bay_gio = bay_gio or datetime.now().astimezone()
+    dang_ky_bi_mat(ket_qua_token["access_token"])
+    dang_ky_bi_mat(ket_qua_token["refresh_token"])
+    han_access, han_refresh = tinh_han_token(san, ket_qua_token, bay_gio)
+    with SessionLocal() as phien:
+        dong = phien.execute(
+            select(PlatformToken).where(PlatformToken.platform == san, PlatformToken.shop_ref == shop_ref).with_for_update()
+        ).scalar_one_or_none()
+        la_ket_noi_lai = dong is not None
+        if dong is None:
+            trung_ten = phien.execute(
+                select(PlatformToken.id).where(PlatformToken.platform == san, PlatformToken.shop_name == ten_shop)
+            ).first()
+            if trung_ten is not None:
+                raise TenGianHangDaDung(san, ten_shop)
+            dong = PlatformToken(platform=san, shop_name=ten_shop, shop_ref=shop_ref,
+                                 access_token=ket_qua_token["access_token"], refresh_token=ket_qua_token["refresh_token"],
+                                 access_expires_at=han_access, refresh_expires_at=han_refresh)
+            phien.add(dong)
+        else:
+            dong.access_token = ket_qua_token["access_token"]
+            dong.refresh_token = ket_qua_token["refresh_token"]
+            dong.access_expires_at = han_access
+            dong.refresh_expires_at = han_refresh
+            dong.updated_at = func.now()
+        ten_da_ghi = dong.shop_name
+        phien.commit()
+        return ten_da_ghi, la_ket_noi_lai
+
+
 def doc_token(san, ten_shop):
     """Dòng token của một shop (đối tượng PlatformToken đã tách khỏi phiên), hoặc None."""
     with SessionLocal() as phien:
