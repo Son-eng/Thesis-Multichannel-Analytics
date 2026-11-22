@@ -84,6 +84,8 @@ npm run dev
 
 Mở http://localhost:5173 và đăng nhập `admin` cùng mật khẩu `ADMIN_PASSWORD` đã đặt ở bước 2. Muốn thử vai trò "Người dùng" (không thấy mục Quản trị): vào **Người dùng** → thêm tài khoản vai trò Người dùng → đăng xuất → đăng nhập bằng tài khoản đó.
 
+**Chạy nhanh trên Windows (những lần sau):** double-click `chay.bat` ở thư mục gốc. Tệp này mở 3 cửa sổ: máy chủ giả lập 8001, backend 8000, giao diện 5173, rồi tự mở trình duyệt. Trước đó phải bật Docker (bước 1) và đã cài đặt xong theo các bước trên (`.venv`, `.env`, `npm ci`, tạo bảng và nạp dữ liệu mẫu). Tắt phần nào thì đóng cửa sổ đó.
+
 ### Thêm gian hàng mới (Kết nối gian hàng)
 
 Admin vào **Đồng bộ dữ liệu** → **Kết nối gian hàng mới** → chọn sàn (Shopee thì nhập thêm tên hiển thị của gian hàng) → trình duyệt sang **trang ủy quyền của sàn**; chủ shop đăng nhập ở đó và bấm **Đồng ý** → hệ thống nhận kết quả, lưu quyền truy cập và tự đồng bộ gian hàng đó. Doanh nghiệp không bao giờ nhìn thấy khóa ứng dụng. **Kết nối lại** (khi quyền sắp hết hạn hoặc đã mất) dùng đúng luồng này, bấm ở thẻ của từng gian hàng. Cần chạy với backend thật (`VITE_USE_MOCK=false`).
@@ -114,9 +116,9 @@ Backend có test chậm (đánh dấu `cham`, kéo toàn bộ dữ liệu qua m�
 
 **Đọc kết quả test cho đúng — bật Docker TRƯỚC khi chạy `pytest`** (`docker compose up -d`, chờ `healthy`):
 
-- Backend có **743 test**, trong đó 372 test cần PostgreSQL thật (đánh dấu `db`) và 43 test chậm (`cham`). Khi **đủ điều kiện** (Docker bật, đã nạp dữ liệu mẫu, máy có hai CSV gốc và `scripts/ten_that.local.json`) kết quả chuẩn là **`743 passed, 0 skipped`**; mock **150 passed**; frontend **186 passed** (tổng 1.079).
-- **Docker tắt thì KHÔNG chỉ là "bỏ qua": kết quả lẫn skip và đỏ.** Đo bằng cách trỏ `DATABASE_URL` vào một cổng không có CSDL (không tắt container): `394 passed, 167 skipped, 4 failed, 178 errors`, mất khoảng 24 phút vì chờ kết nối. Test nhóm `db` tự skip, nhưng nhiều test API (dashboard, cảnh báo, Excel, nhận định) báo `ERROR` ở bước dựng và vài test đồng bộ báo `FAILED`. Đừng chỉ nhìn màu: đọc dòng tổng kết `passed / skipped / failed / errors`.
-- Muốn chạy phần không cần CSDL: `python -m pytest -m "not db"` → **371 passed** (372 test `db` bị loại), khoảng 3 phút, kết quả giống nhau dù Docker bật hay tắt.
+- Backend có **773 test**, trong đó 386 test cần PostgreSQL thật (đánh dấu `db`) và 43 test chậm (`cham`). Khi **đủ điều kiện** (Docker bật, đã nạp dữ liệu mẫu, máy có hai CSV gốc và `scripts/ten_that.local.json`) kết quả chuẩn là **`773 passed, 0 skipped`**; mock **176 passed**; frontend **222 passed** (tổng 1.171).
+- **Docker tắt thì KHÔNG chỉ là "bỏ qua": kết quả lẫn skip và đỏ.** Đo bằng cách trỏ `DATABASE_URL` vào một cổng không có CSDL (không tắt container): `394 passed, 167 skipped, 4 failed, 178 errors` (đo khi backend còn 743 test, chưa đo lại), mất khoảng 24 phút vì chờ kết nối. Test nhóm `db` tự skip, nhưng nhiều test API (dashboard, cảnh báo, Excel, nhận định) báo `ERROR` ở bước dựng và vài test đồng bộ báo `FAILED`. Đừng chỉ nhìn màu: đọc dòng tổng kết `passed / skipped / failed / errors`.
+- Muốn chạy phần không cần CSDL: `python -m pytest -m "not db"` → **387 passed** (386 test `db` bị loại), khoảng 2–3 phút, kết quả giống nhau dù Docker bật hay tắt.
 - Trên máy **không có hai CSV gốc** hoặc `scripts/ten_that.local.json` (không nằm trong git vì chứa dữ liệu thật), 4 test đối chiếu với dữ liệu gốc (`test_du_lieu_mau.py`: `test_khong_cot_nao_con_ten_that` và `test_cot_khong_thay_ten_giong_het_file_goc`, mỗi test chạy cho 2 sàn) tự bỏ qua; tất cả test còn lại vẫn chạy trên hai tệp ẩn danh có trong git.
 - Một số test API còn tự bỏ qua khi bảng `orders` chưa nạp đủ dữ liệu mẫu (xem mục 2: nạp hai tệp mẫu trước khi chạy test).
 - Muốn biết vì sao từng test bị bỏ qua: `python -m pytest -rs` (kèm `-rsfE` để liệt kê cả test đỏ và lỗi).
