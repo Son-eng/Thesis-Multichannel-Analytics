@@ -1,25 +1,12 @@
-# ============================================================
-# Dữ liệu thật có PII — TUYỆT ĐỐI KHÔNG commit (SPEC §15.1)
-# ------------------------------------------------------------
-# 2 file CSV gốc chứa họ tên, SĐT, email, địa chỉ đến cấp
-# phường/xã của khách hàng thật, và tài khoản KOL.
-# Bài nộp cuối kỳ gồm thư mục Source/ gửi qua email cho khoa
-# -> nếu lỡ commit thì PII bị phát tán và KHÔNG thu hồi được
-# (file vẫn nằm trong git history dù sau đó có xóa).
-# ============================================================
+
+# Không commit vì dữ liệu nhạy cảm
 data/samples/Shopee*.csv
 data/samples/TikTok*.csv
 
-# Bản đã ẩn danh thì ngược lại: BẮT BUỘC commit để chạy test.
-# Dòng phủ định phải đặt SAU các dòng chặn ở trên mới có tác dụng.
+# Commit bản đã ẩn danh
 !data/samples/*_anonymized.csv
 
-# ------------------------------------------------------------
-# Thư mục nạp dữ liệu tự động (SPEC §2.4)
-# ------------------------------------------------------------
-# inbox/processed/failed chứa file gốc có PII thật — cùng loại rủi ro
-# như data/samples/. Chặn toàn bộ nội dung, chỉ giữ .gitkeep để git
-# lưu được cấu trúc thư mục (git không theo dõi thư mục rỗng).
+# Ẩn ttin nhạy cảm của khách hàng
 data/inbox/**
 data/processed/**
 data/failed/**
@@ -30,24 +17,14 @@ data/failed/**
 !data/processed/**/.gitkeep
 !data/failed/**/.gitkeep
 
-# ------------------------------------------------------------
-# Tên thật của doanh nghiệp / gian hàng (khóa luận mục 1.3.2)
-# ------------------------------------------------------------
-# Script ẩn danh cần biết tên thật mới thay được bằng tên giả, nhưng
-# repo nộp cho khoa không được chứa tên đó. Tên thật để trong file
-# *.local.json chỉ có trên máy sinh viên (scripts/ten_that.local.json).
+# Ẩn tên doanh nghiệp, gian hàng
 *.local.json
 
-# ------------------------------------------------------------
-# Bí mật cấu hình
-# ------------------------------------------------------------
 .env
 *.env
 !.env.example
 
-# ------------------------------------------------------------
 # Python
-# ------------------------------------------------------------
 __pycache__/
 *.py[cod]
 .venv/
@@ -56,17 +33,20 @@ venv/
 .coverage
 htmlcov/
 
-# ------------------------------------------------------------
 # Node / frontend
-# ------------------------------------------------------------
 node_modules/
 dist/
 .vite/
 
-# ------------------------------------------------------------
 # IDE và hệ điều hành
-# ------------------------------------------------------------
 .vscode/
 .idea/
 Thumbs.db
 desktop.ini
+
+# Tệp dữ liệu và ảnh thả tạm ở gốc repo (dữ liệu đơn hàng thật có PII, ảnh gốc chưa dùng) — không commit
+/*.csv
+/*.xlsx
+/Order.all.*
+/Shopee.png
+/TiktokShop.jpg

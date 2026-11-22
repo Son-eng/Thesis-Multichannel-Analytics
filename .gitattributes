@@ -1,13 +1,5 @@
-# Chuẩn hóa ký tự xuống dòng.
-# Lý do cần: máy đang làm là Windows (CRLF), nhưng bài nộp là file zip
-# gửi cho khoa và có thể được mở/chạy trên máy khác. Nếu không khai báo,
-# git tự đổi qua lại LF <-> CRLF và mọi file hiện "đã sửa" dù không sửa gì.
-#
-# eol=lf: lưu trong repo luôn là LF, thống nhất trên mọi máy.
+# Nhận biết file văn bản và lưu dạng LF, file ảnh là nhị phân thì giữ nguyên
 * text=auto eol=lf
 
-# CSV giữ nguyên byte, KHÔNG cho git đụng vào.
-# Lý do: file dữ liệu mẫu là đầu vào của unit test (§17). Nếu git đổi
-# xuống dòng thì kích thước file và cách pandas đọc có thể lệch,
-# làm test fail vì lý do không liên quan đến parser.
+# File CSV, -text là git k được đụng, giữ nguyên
 *.csv -text
