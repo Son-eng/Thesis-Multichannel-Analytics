@@ -7,6 +7,7 @@
 export const mau = {
   nenTrang: '#F3F4F8', // nền toàn trang (colorBgLayout)
   nenThe: '#FFFFFF', // nền thẻ, menu, thanh trên (colorBgContainer)
+  nenTheKinh: 'rgba(255, 255, 255, 0.92)', // nền kính mờ cho thanh trên nổi
   nenPhu: '#FAFAFC', // nền ô phụ (ô đồng bộ ở chân menu)
   nenHang: '#F7F8FB', // nền hàng tiêu đề bảng, nền mục menu khi rê chuột
   vienThe: '#E9EBF2', // viền thẻ (colorBorder)
@@ -52,6 +53,86 @@ export const san = {
 export const dangNhap = {
   duongA: '#FF6A3D',
   duongB: '#10B3A3',
+};
+
+/** Bảng màu trang đăng nhập phong cách mới (khung thẻ viền xanh, tranh minh họa bảng phân tích). */
+export const tranhDangNhap = {
+  nenTrang: '#F2F5FD', // nền ngoài toàn trang
+  nenThe: '#FFFFFF', // nền thẻ chính
+  vienThe: '#2860E1', // viền xanh đậm bo quanh thẻ
+  vienTheNhat: '#DCE5F7',
+  bongThe: '0 24px 64px rgba(35, 80, 200, 0.12)',
+  nutLogin: '#2B63E6', // nút xanh Login
+  nutLoginHover: '#1D52D0',
+  bongNut: '0 8px 24px rgba(43, 99, 230, 0.38)',
+  chuTieuDe: '#1C2336', // chữ Login đậm
+  chuMo: '#8792A6', // chữ phụ mờ
+  chuNhan: '#5F687A', // nhãn input
+  duongKe: '#E2E8F4', // gạch chân dưới input
+  duongKeHover: '#B9CBE8',
+  duongKeFocus: '#2860E1',
+  loiBg: '#FFF5F6',
+  loiBorder: '#F7D3D8',
+  loiChu: '#8E1B2E',
+  // Màu cho tranh minh họa dashboard
+  mayA: '#DCE8FC',
+  mayB: '#C5DCFA',
+  mayC: '#ACCCF7',
+  mayD: '#8EB6F2',
+  mayE: '#6E9EE8',
+  bangVien: '#BACFEF',
+  bangNen: '#FFFFFF',
+  bangDock: '#E7F0FA',
+  bangCham: '#77A3EA',
+  pieDam: '#3E6BC7',
+  pieVua: '#78A2EC',
+  pieNhat: '#BAD2F8',
+  cotThanhA: '#588AE8',
+  cotThanhB: '#8CB2F3',
+  cotThanhNhat: '#D1E2FA',
+  theMini: '#F2F6FD',
+  theMiniVien: '#CFDEF5',
+  // Nhân vật
+  toc: '#182136',
+  aoQuan: '#4973C8',
+  aoQuanDam: '#375EAD',
+  aoQuanSang: '#6A92DC',
+  giay: '#1A2338',
+  da: '#FCE7DA',
+  // Khối 3D
+  ho3D: '#1A2846',
+  ho3DVien: '#293E6B',
+  cot3DA: '#5C8CE8',
+  cot3DB: '#4275D6',
+  cot3DC: '#2A5CBE',
+  cot3DSang: '#88ACF3',
+  dongXuTop: '#B5D0F8',
+  dongXuCanh: '#5684DF',
+  dongXuDam: '#3765C4',
+  bongMo: 'rgba(28, 48, 88, 0.12)',
+  keSan: '#D5E3F7',
+  nenBlobA: '#D4E3FB',
+  nenBlobB: '#C2D7F8',
+  // Glassmorphism nổi cho 2 ô nhập liệu & các thành phần mới
+  glassNen: 'rgba(255, 255, 255, 0.85)',
+  glassVien: '#FFFFFF',
+  glassVienNgoai: '#D8E5F8',
+  glassBong: '0 8px 24px rgba(160, 188, 232, 0.28), inset 0 2px 3px rgba(255, 255, 255, 0.95)',
+  glassBongFocus: '0 8px 26px rgba(40, 96, 225, 0.32), inset 0 2px 3px rgba(255, 255, 255, 1)',
+  iconO: '#64748B',
+  iconOHover: '#2563EB',
+  checkboxVien: '#CBD5E1',
+  checkboxVienFocus: '#2563EB',
+  linkQuenMk: '#2563EB',
+  linkQuenMkHover: '#1D4ED8',
+  popupOverlay: 'rgba(15, 23, 42, 0.45)',
+  matBuonVang: '#FBBF24',
+  matBuonVien: '#F59E0B',
+  matBuonMat: '#78350F',
+  matBuonNuocMat: '#60A5FA',
+  nutPopup: '#2860E1',
+  nutPopupHover: '#1C4DC2',
+  muiTenNen: 'rgba(255, 255, 255, 0.22)',
 };
 
 /** Hai kênh bán trong bán nguyệt "Doanh thu theo kênh bán" (không phải màu sàn). */
@@ -116,12 +197,16 @@ export const coChu = {
 };
 
 /** Bo góc (px): thẻ / ô trạng thái / nút, ô chọn / nhãn viên. */
-export const boGoc = { the: 16, oTrangThai: 12, nut: 9, nhan: 6 };
+export const boGoc = { the: 16, oTrangThai: 12, nut: 9, nhan: 6, navNoi: 20 };
 
 /** Bóng thẻ dùng cho mọi thẻ. */
 export const bong = {
   the: '0 1px 2px rgba(20,24,40,.04), 0 6px 18px rgba(20,24,40,.03)',
   nutChon: '0 1px 2px rgba(20,24,40,.12)',
+  danhSachXo: '0 2px 4px rgba(20,24,40,.06), 0 12px 28px rgba(20,24,40,.12)', // danh sách xổ ra của ô chọn
+  navNoi: '0 10px 32px -4px rgba(20, 24, 40, 0.08), 0 4px 12px -2px rgba(20, 24, 40, 0.04)', // bóng đổ nổi cho thanh điều hướng dock
+  topbarNoi: '0 8px 24px -4px rgba(20, 24, 40, 0.06), 0 2px 8px -2px rgba(20, 24, 40, 0.03)', // bóng nổi cho thanh trên
+  mucNavActive: '0 2px 8px rgba(91, 75, 224, 0.12)', // bóng nhẹ cho mục menu đang chọn
 };
 
 /** Khoảng cách (px). */

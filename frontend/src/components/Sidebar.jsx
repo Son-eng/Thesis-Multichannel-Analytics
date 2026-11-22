@@ -6,21 +6,24 @@ import { chayDongBo, layTrangThaiDongBo } from '../api/sync.js';
 import { docLoi } from '../api/client.js';
 import { dinhDangThoiDiem } from '../utils/format.js';
 import Icon from './Icon.jsx';
+import logoShopee from '../assets/shopee.png';
+import logoTiktok from '../assets/tiktok.png';
 
 // Menu trắng bên trái (theo bản thiết kế): nhóm TỔNG QUAN, nhóm QUẢN TRỊ (chỉ admin thấy),
 // chân menu là ô "Tự đồng bộ mỗi N phút · Gần nhất ..." và nút "Đồng bộ ngay" (chỉ admin).
 
-function MucMenu({ den, children, chamMau }) {
+function MucMenu({ den, children, bieuTuongSan }) {
   return (
     <NavLink
       to={den}
       className="nav"
       style={({ isActive }) => ({
         background: isActive ? chuDao.nhat : 'transparent',
+        color: isActive ? chuDao.chinh : mau.chuPhu,
         fontWeight: isActive ? 600 : 400,
       })}
     >
-      {chamMau ? <span style={{ width: 9, height: 9, borderRadius: 3, background: chamMau, margin: '0 3px' }} /> : null}
+      {bieuTuongSan ? <img src={bieuTuongSan} alt="" width={20} height={20} style={{ flex: 'none', margin: '0 -1px' }} /> : null}
       {children}
     </NavLink>
   );
@@ -107,20 +110,23 @@ export default function Sidebar({ trangThai, lamMoi }) {
   return (
     <nav
       aria-label="Điều hướng chính"
+      className="thanh-nav-noi"
       style={{
-        flex: `1 1 ${khoangCach.rongMenu}px`,
-        maxWidth: khoangCach.rongMenu,
+        position: 'sticky',
+        top: 14,
+        alignSelf: 'flex-start',
+        height: 'calc(100vh - 28px)',
+        maxHeight: 'calc(100vh - 28px)',
+        flex: `0 0 ${khoangCach.rongMenu}px`,
+        width: khoangCach.rongMenu,
+        margin: '14px 10px 14px 14px',
         boxSizing: 'border-box',
-        background: mau.nenThe,
-        borderRight: `1px solid ${mau.vienThe}`,
-        padding: '18px 14px',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
+        overflowY: 'auto',
+        zIndex: 50,
       }}
     >
       {boThongBao}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 14px', borderBottom: `1px solid ${mau.vienTrong}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 14px', borderBottom: `1px solid ${mau.vienTrong}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
             <rect x="2" y="6" width="9" height="16" rx="3" fill={chuDao.chinh} />
@@ -133,8 +139,8 @@ export default function Sidebar({ trangThai, lamMoi }) {
       </div>
 
       <div className="nhom">TỔNG QUAN</div>
-      <MucMenu den="/dashboard/shopee" chamMau={san.shopee.chinh}>Shopee</MucMenu>
-      <MucMenu den="/dashboard/tiktok" chamMau={san.tiktok.chinh}>TikTok Shop</MucMenu>
+      <MucMenu den="/dashboard/shopee" bieuTuongSan={logoShopee}>Shopee</MucMenu>
+      <MucMenu den="/dashboard/tiktok" bieuTuongSan={logoTiktok}>TikTok Shop</MucMenu>
       <MucMenu den="/compare">
         <Icon ten="compare" />
         Đối chiếu hai sàn
@@ -166,7 +172,7 @@ export default function Sidebar({ trangThai, lamMoi }) {
         </>
       ) : null}
 
-      <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ marginTop: 'auto', paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: `1px solid ${mau.vienThe}`, borderRadius: boGoc.oTrangThai, background: mau.nenPhu }}>
           <span style={{ width: 32, height: 32, borderRadius: boGoc.nut, background: canhBao.nenOChay, color: canhBao.chuOChay, display: 'grid', placeItems: 'center', flex: 'none' }}>
             <Icon ten="sync" />
@@ -181,7 +187,7 @@ export default function Sidebar({ trangThai, lamMoi }) {
           </div>
         </div>
         {laAdmin ? (
-          <button type="button" className="nut" onClick={dongBoNgay} disabled={dangChayCaHai}>
+          <button type="button" className="nut" onClick={dongBoNgay} disabled={dangChayCaHai} style={{ width: '100%', height: 36, borderRadius: boGoc.nut }}>
             Đồng bộ ngay
           </button>
         ) : null}

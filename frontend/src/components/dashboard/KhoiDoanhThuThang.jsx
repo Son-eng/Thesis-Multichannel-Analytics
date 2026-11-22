@@ -79,6 +79,7 @@ export default function KhoiDoanhThuThang({ san, muc, thamSo, khoang, kyDangChon
                 kyDangChon={kyDangChon}
                 canhBaoTheoKy={canhBaoTheoKy}
                 ariaLabel={`Doanh thu theo ${DON_VI_KY[muc]}, tách theo mã sản phẩm`}
+                donVi={DON_VI_KY[muc]}
               />
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px 16px', marginTop: 6, fontSize: coChu.ratNho, color: mau.chuNhan }}>
                 {danhSachLop.map((l) => (

@@ -13,9 +13,9 @@ export default function AppLayout() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', fontFamily: font.chu, background: mau.nenTrang }}>
       <Sidebar trangThai={trangThai} lamMoi={lamMoi} />
-      <div style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar />
-        <main style={{ padding: `24px ${khoangCach.leNgang}px 48px`, boxSizing: 'border-box' }}>
+        <main style={{ padding: `18px ${khoangCach.leNgang}px 48px`, boxSizing: 'border-box' }}>
           <div style={{ maxWidth: khoangCach.toiDaNoiDung, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: khoangCach.giuaKhoi }}>
             <Outlet context={{ trangThaiDongBo: trangThai, lamMoiDongBo: lamMoi }} />
           </div>

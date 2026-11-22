@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { mau, chuDao, coChu, khoangCach } from '../theme/tokens.js';
+import { mau, chuDao, coChu, boGoc, bong, khoangCach } from '../theme/tokens.js';
 import { useAuth, NHAN_VAI_TRO } from '../context/AuthContext.jsx';
 import Icon from './Icon.jsx';
 
@@ -35,7 +35,7 @@ export default function Topbar() {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: `12px ${khoangCach.leNgang}px`, background: mau.nenThe, borderBottom: `1px solid ${mau.vienThe}` }}>
+    <header className="thanh-topbar-noi" aria-label="Thanh điều hướng trên">
       <div style={{ fontSize: coChu.nho, color: mau.chuMo }}>
         {nhom}
         <span aria-hidden="true" style={{ margin: '0 6px' }}>/</span>
@@ -56,6 +56,6 @@ export default function Topbar() {
           </button>
         </div>
       ) : null}
-    </div>
+    </header>
   );
 }

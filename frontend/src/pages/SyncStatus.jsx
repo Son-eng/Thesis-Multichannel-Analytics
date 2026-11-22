@@ -141,6 +141,80 @@ function HopKetNoiMoi({ moHop, dong }) {
   );
 }
 
+/**
+ * Thanh trượt danh sách gian hàng (slider hai chiều).
+ * Giữ toàn bộ thẻ gian hàng trên một hàng ngang duy nhất, cuộn mượt sang hai bên
+ * kèm 2 nút điều hướng chuyển động trước / sau và đếm số lượng gian hàng.
+ */
+function ThanhTruotGianHang({ children, soLuong = 0 }) {
+  const vungCuonRef = useRef(null);
+  const [coTheLui, setCoTheLui] = useState(false);
+  const [coTheTien, setCoTheTien] = useState(false);
+
+  const kiemTraCuon = () => {
+    const el = vungCuonRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCoTheLui(scrollLeft > 6);
+    setCoTheTien(scrollLeft + clientWidth < scrollWidth - 6);
+  };
+
+  useEffect(() => {
+    kiemTraCuon();
+    const el = vungCuonRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', kiemTraCuon, { passive: true });
+    window.addEventListener('resize', kiemTraCuon);
+    return () => {
+      el.removeEventListener('scroll', kiemTraCuon);
+      window.removeEventListener('resize', kiemTraCuon);
+    };
+  }, [soLuong]);
+
+  const cuonSang = (khoangCachCuon) => {
+    const el = vungCuonRef.current;
+    if (!el) return;
+    el.scrollBy({ left: khoangCachCuon, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="thanh-truot-gian-hang-khung">
+      <div className="thanh-truot-gian-hang-dau">
+        <div className="thanh-truot-gian-hang-tieu-de">
+          <span>Gian hàng đã kết nối</span>
+          <span className="thanh-truot-so-luong">{soLuong}</span>
+        </div>
+        <div className="thanh-truot-gian-hang-nut-nhom">
+          <button
+            type="button"
+            className="thanh-truot-nut-bam"
+            onClick={() => cuonSang(-312)}
+            disabled={!coTheLui}
+            aria-label="Cuộn sang trái"
+            title="Xem các gian hàng trước"
+          >
+            <Icon ten="chevronLeft" kichThuoc={14} />
+          </button>
+          <button
+            type="button"
+            className="thanh-truot-nut-bam"
+            onClick={() => cuonSang(312)}
+            disabled={!coTheTien}
+            aria-label="Cuộn sang phải"
+            title="Xem các gian hàng tiếp theo"
+          >
+            <Icon ten="chevronRight" kichThuoc={14} />
+          </button>
+        </div>
+      </div>
+
+      <div ref={vungCuonRef} className="thanh-truot-gian-hang-chua">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function TheGianHang({ shop, dangChay, laAdmin, khiKetNoiLai, loiKetNoi }) {
   const tt = trangThaiGianHang(shop, dangChay);
   const mauSan = san[shop.platform].chinh;
@@ -148,7 +222,7 @@ function TheGianHang({ shop, dangChay, laAdmin, khiKetNoiLai, loiKetNoi }) {
   const hanDen = shop.refresh_expires_at || shop.access_expires_at;
   const sapHet = shop.token_status !== 'ok';
   return (
-    <Card aria-label={`Gian hàng ${shop.shop_name}`} data-testid={`shop-${shop.shop_name}`} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <Card aria-label={`Gian hàng ${shop.shop_name}`} data-testid={`shop-${shop.shop_name}`} style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: coChu.ratNho, fontWeight: 600 }}>
           <span style={{ width: 9, height: 9, borderRadius: 3, background: mauSan }} />
@@ -328,20 +402,25 @@ export default function SyncStatus() {
         </div>
       ) : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: khoangCach.giuaThe }}>
+      <ThanhTruotGianHang soLuong={trangThai ? trangThai.shops.length : 0}>
         {trangThai
           ? trangThai.shops.map((s) => (
-              <TheGianHang
-                key={`${s.platform}-${s.shop_name}`}
-                shop={s}
-                dangChay={trangThai.platforms[s.platform].running}
-                laAdmin={laAdmin}
-                khiKetNoiLai={ketNoiLai}
-                loiKetNoi={loiKetNoiLai[`${s.platform}-${s.shop_name}`]}
-              />
+              <div key={`${s.platform}-${s.shop_name}`} className="thanh-truot-gian-hang-item">
+                <TheGianHang
+                  shop={s}
+                  dangChay={trangThai.platforms[s.platform].running}
+                  laAdmin={laAdmin}
+                  khiKetNoiLai={ketNoiLai}
+                  loiKetNoi={loiKetNoiLai[`${s.platform}-${s.shop_name}`]}
+                />
+              </div>
             ))
-          : [0, 1, 2].map((i) => <Card key={i} style={{ height: 170 }} />)}
-      </div>
+          : [0, 1, 2].map((i) => (
+              <div key={i} className="thanh-truot-gian-hang-item">
+                <Card style={{ height: 170 }} />
+              </div>
+            ))}
+      </ThanhTruotGianHang>
 
       <Card aria-label="Lịch sử đưa dữ liệu vào" style={{ padding: '18px 20px 8px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>

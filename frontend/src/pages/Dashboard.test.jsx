@@ -21,7 +21,6 @@ function mo(duongDan) {
   );
 }
 
-/** Chờ thẻ doanh thu có số (đã tải xong), trả về thẻ. */
 async function theDoanhThu() {
   const the = await screen.findByTestId('the-doanh-thu');
   await waitFor(() => expect(the).not.toBeEmptyDOMElement());
@@ -35,7 +34,6 @@ describe('thẻ chỉ số', () => {
     await waitFor(() => expect(within(the).getAllByText('Không đủ dữ liệu để so sánh', { exact: false }).length).toBeGreaterThan(0));
     expect(the.textContent).not.toContain('%');
     expect(the.textContent).not.toContain('100');
-    // Số doanh thu vẫn hiện (kỳ này có dữ liệu).
     expect(the.textContent).toContain('1.068.925.905');
   });
 

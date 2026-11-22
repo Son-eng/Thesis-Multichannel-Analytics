@@ -26,6 +26,8 @@ const DUONG_VE = {
   key: 'M10.5 6.5a3 3 0 1 1-2.1-2.9M8.4 6.6 2 13v1.5h2V13h1.5v-1.5H7',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 9h6l.5-9',
   plus: 'M8 3v10M3 8h10',
+  chevronLeft: 'M10 3.5 5.5 8l4.5 4.5',
+  chevronRight: 'M6 3.5 10.5 8 6 12.5',
 };
 
 /**
