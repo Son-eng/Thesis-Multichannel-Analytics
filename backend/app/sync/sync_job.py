@@ -1,22 +1,4 @@
-"""Một lượt đồng bộ API cho MỘT (sàn, shop) — SPEC §18.2, §20.
-
-Luồng (đúng 8 bước §18.2):
-    1. giành khóa pg_advisory_lock theo (sàn, shop); đang có lượt chạy → bỏ lượt, không đợi
-    2. tạo dòng sync_runs 'running' (commit ngay để trang trạng thái thấy lượt đang chạy)
-    3. nạp sẵn token từ .env nếu thiếu; token sắp hết hạn → làm mới và ghi ngay (token_store)
-    4. xác định cửa sổ kéo (§20.3)
-    5. connector kéo JSON thô (§20.2)
-    6. chuẩn hóa thành cột chuẩn (§21) — dùng chung cleaners với đường file
-    7. loader.upsert_don_hang + cập nhật sync_runs 'success' trong CÙNG MỘT giao dịch
-    8. nhả khóa
-
-Lỗi ở bất kỳ bước nào → dòng sync_runs 'failed' kèm error_message, dữ liệu đơn
-hàng không đổi (giao dịch ở bước 7 chưa commit thì rollback). Lỗi của một shop
-không ảnh hưởng shop khác: mỗi lượt độc lập, scheduler bắt lỗi từng lượt.
-
-Token KHÔNG BAO GIỜ được ghi ra file hay log: mọi thông báo lỗi đi qua
-`lam_sach_thong_diep` trước khi vào sync_runs hoặc logger.
-"""
+"""Một lượt đồng bộ API cho một (sàn, shop); token không bao giờ được ghi ra file hay log."""
 
 import logging
 import time
@@ -40,31 +22,22 @@ logger = logging.getLogger(__name__)
 GIO_VN = timezone(timedelta(hours=7))
 SAN_HOP_LE = (token_store.SAN_SHOPEE, token_store.SAN_TIKTOK)
 
-# Token còn dưới ngần này thì làm mới TRƯỚC khi kéo (§18.2 bước 3).
+# Token còn ít hơn ngần này thì làm mới trước khi kéo.
 NGUONG_LAM_MOI_TOKEN = timedelta(minutes=5)
 SO_LAN_GHI_LAI_TOKEN = 3
 CHO_GHI_LAI_TOKEN_GIAY = 1.0
 DO_DAI_TOI_DA_LOI = 2000
 
-# classid của khóa advisory — mỗi sàn một giá trị, objid là mã băm tên shop.
+# classid của khóa advisory, mỗi sàn một giá trị; objid là mã băm tên shop.
 CLASSID_KHOA = {token_store.SAN_SHOPEE: 1, token_store.SAN_TIKTOK: 2}
-
-# Mẫu giá trị bí mật có thể lọt vào thông báo lỗi: định nghĩa MỘT lần ở core/log_filter.py (dùng chung với bộ lọc log).
 
 
 class LoiCanUyQuyenLai(Exception):
-    """Quyền truy cập của shop không còn dùng được — người dùng phải ủy quyền lại (§20.1)."""
+    """Quyền truy cập của shop không còn dùng được, người dùng phải ủy quyền lại."""
 
-
-# ---------------------------------------------------------------- Khóa chống chạy chồng
 
 class KhoaLuot:
-    """Khóa advisory của một (sàn, shop), giữ trên MỘT kết nối riêng cho tới khi nhả.
-
-    pg_advisory_lock cấp theo PHIÊN kết nối: kết nối nào giữ khóa thì chỉ kết
-    nối đó nhả được, và khóa tự mất nếu tiến trình chết (khác file .sync.lock
-    của Pipeline — không bao giờ còn "file khóa cũ nằm lại", §20.4).
-    """
+    """Khóa advisory theo phiên kết nối: tự mất nếu tiến trình chết, không để lại khóa cũ."""
 
     def __init__(self, san, ten_shop):
         self.san = san
@@ -73,7 +46,6 @@ class KhoaLuot:
         self._giu = False
 
     def thu_giu(self):
-        """Thử giành khóa, KHÔNG đợi. Trả True nếu giành được."""
         kq = self._ket_noi.execute(
             text("SELECT pg_try_advisory_lock(:a, :b)"),
             {"a": CLASSID_KHOA[self.san], "b": zlib.crc32(self.ten_shop.encode("utf-8")) & 0x7FFFFFFF},
@@ -82,7 +54,6 @@ class KhoaLuot:
         return self._giu
 
     def nha(self):
-        """Nhả khóa (nếu đang giữ) và đóng kết nối. Gọi nhiều lần vẫn an toàn."""
         if self._ket_noi.closed:
             return
         try:
@@ -97,7 +68,6 @@ class KhoaLuot:
 
 
 def thu_giu_khoa(san, ten_shop):
-    """KhoaLuot đã giành được, hoặc None nếu (sàn, shop) đang có lượt chạy."""
     khoa = KhoaLuot(san, ten_shop)
     if khoa.thu_giu():
         return khoa
@@ -105,14 +75,8 @@ def thu_giu_khoa(san, ten_shop):
     return None
 
 
-# ---------------------------------------------------------------- Tiện ích
-
 def lam_sach_thong_diep(thong_diep, cac_gia_tri_bi_mat=()):
-    """Che mọi giá trị bí mật trong thông báo lỗi trước khi ghi vào sync_runs / log.
-
-    Nhận: chuỗi; các giá trị token đang biết (che nguyên văn dù không có mẫu `khóa=`).
-    Trả: chuỗi đã che, cắt tối đa DO_DAI_TOI_DA_LOI ký tự.
-    """
+    """Che mọi giá trị bí mật trong thông báo lỗi trước khi ghi vào sync_runs hay log."""
     thong_diep = MAU_BI_MAT.sub(lambda m: f"{m.group(1)}=***", str(thong_diep))
     for gia_tri in cac_gia_tri_bi_mat:
         if gia_tri:
@@ -121,22 +85,12 @@ def lam_sach_thong_diep(thong_diep, cac_gia_tri_bi_mat=()):
 
 
 def sang_utc(thoi_diem):
-    """Cột timestamp của CSDL không có múi giờ và phiên chạy UTC (database.py) → gắn UTC khi đọc."""
+    """Cột timestamp không có múi giờ và phiên chạy UTC nên gắn UTC khi đọc."""
     return thoi_diem if thoi_diem.tzinfo else thoi_diem.replace(tzinfo=timezone.utc)
 
 
 def tinh_cua_so(phien, san, ten_shop, bay_gio):
-    """Cửa sổ kéo của lượt này (§20.3).
-
-    Nhận: phiên CSDL; sàn; tên shop; bay_gio — datetime có múi giờ.
-    Trả: dict {tu, den (datetime có múi giờ), truong ("create_time" | "update_time"), loai}.
-    - Chưa có lượt 'success' đường API nào cho (sàn, shop) → backfill: từ
-      SYNC_BACKFILL_FROM (0h giờ VN) đến bây giờ, lọc theo create_time.
-    - Đã có: định kỳ — từ bây giờ − SYNC_LOOKBACK_DAYS, lọc theo update_time
-      (đơn đổi trạng thái gần đây đều được kéo lại rồi upsert cập nhật).
-    - Lượt thành công gần nhất cũ hơn SYNC_LOOKBACK_DAYS (bị gián đoạn) →
-      cửa sổ tự mở rộng về mốc đó (window_to của lượt đó) để không sót dữ liệu.
-    """
+    """Lần đầu thì backfill theo create_time; các lần sau kéo lại vài ngày gần nhất theo update_time, bị gián đoạn lâu thì tự mở rộng để không sót."""
     luot_cuoi = phien.execute(
         select(func.max(SyncRun.window_to)).where(
             SyncRun.platform == san, SyncRun.shop_name == ten_shop,
@@ -154,7 +108,6 @@ def tinh_cua_so(phien, san, ten_shop, bay_gio):
 
 
 def liet_ke_shop(phien, san=None):
-    """Tên các shop có trong platform_tokens (thứ tự ổn định), có thể lọc theo sàn."""
     cau_hoi = select(PlatformToken.platform, PlatformToken.shop_name).order_by(
         PlatformToken.platform, PlatformToken.shop_name)
     if san is not None:
@@ -162,14 +115,7 @@ def liet_ke_shop(phien, san=None):
     return [tuple(dong) for dong in phien.execute(cau_hoi).all()]
 
 
-# ---------------------------------------------------------------- sync_runs
-
 def tao_luot_chay(phien, san, ten_shop, trigger_type="schedule", triggered_by=None):
-    """Ghi dòng sync_runs 'running' và COMMIT ngay. Trả id.
-
-    Commit ngay (không đợi hết lượt) để GET /api/sync/status thấy lượt đang
-    chạy; nếu lượt hỏng giữa chừng thì dòng này còn đó để chuyển sang 'failed'.
-    """
     dong = SyncRun(platform=san, shop_name=ten_shop, source="api", trigger_type=trigger_type,
                    triggered_by=triggered_by)
     phien.add(dong)
@@ -178,7 +124,7 @@ def tao_luot_chay(phien, san, ten_shop, trigger_type="schedule", triggered_by=No
 
 
 def ghi_that_bai(run_id, loi, cac_gia_tri_bi_mat, thong_ke):
-    """Chuyển dòng sync_runs sang 'failed' trong phiên RIÊNG (giao dịch chính đã rollback)."""
+    """Chuyển dòng sync_runs sang 'failed' trong phiên riêng (giao dịch chính đã rollback)."""
     thong_diep = lam_sach_thong_diep(f"{type(loi).__name__}: {loi}", cac_gia_tri_bi_mat)
     logger.error("Lượt đồng bộ %s thất bại: %s", run_id, thong_diep)
     try:
@@ -190,14 +136,11 @@ def ghi_that_bai(run_id, loi, cac_gia_tri_bi_mat, thong_ke):
             dong.finished_at = func.clock_timestamp()
             phien.commit()
     except Exception as loi_ghi:
-        # CSDL hỏng đúng lúc ghi lỗi: không còn cách nào ghi nhận, chỉ để lại log (đã che bí mật).
+        # CSDL hỏng đúng lúc ghi lỗi thì chỉ còn log.
         logger.exception("Không ghi được trạng thái 'failed' cho sync_runs %s (%s)", run_id, type(loi_ghi).__name__)
 
 
-# ---------------------------------------------------------------- Token
-
 def tao_client(san, dong_token):
-    """Connector của một shop từ dòng platform_tokens (đoạn nối mẫu §20.1)."""
     if san == token_store.SAN_SHOPEE:
         return ShopeeClient(settings.SHOPEE_BASE_URL, settings.SHOPEE_PARTNER_ID, settings.SHOPEE_PARTNER_KEY,
                             int(dong_token.shop_ref), dong_token.access_token)
@@ -206,14 +149,7 @@ def tao_client(san, dong_token):
 
 
 def lam_moi_va_xu_ly_loi_ghi(san, ten_shop, client, ham_ngu=time.sleep):
-    """Làm mới token + ghi CSDL; xử lý `LoiGhiTokenSauLamMoi` theo §20.1.
-
-    Trả: access_token MỚI.
-    Sàn đã cấp token mới mà commit lỗi → thử ghi lại token mới vài lần, mỗi lần
-    trong phiên CSDL MỚI, có chờ giữa các lần. Vẫn không được → đánh dấu hết
-    quyền (token_status = "expired") và ném LoiCanUyQuyenLai. Token không bao
-    giờ ra file hay log.
-    """
+    """Commit token mới lỗi thì thử ghi lại vài lần; vẫn không được thì đánh dấu hết quyền."""
     try:
         return token_store.lam_moi_va_ghi(san, ten_shop, client.goi_lam_moi_token)["access_token"]
     except token_store.LoiGhiTokenSauLamMoi as loi:
@@ -233,28 +169,20 @@ def lam_moi_va_xu_ly_loi_ghi(san, ten_shop, client, ham_ngu=time.sleep):
 
 
 def kiem_con_quyen(dong_token, bay_gio):
-    """refresh_token hết hạn → không còn cách tự làm mới: báo ủy quyền lại, không gọi sàn vô ích."""
+    """refresh_token hết hạn thì báo ủy quyền lại, không gọi sàn vô ích."""
     if dong_token.refresh_expires_at is not None and sang_utc(dong_token.refresh_expires_at) <= bay_gio:
         raise LoiCanUyQuyenLai(
             f"Cần ủy quyền lại {dong_token.platform}/{dong_token.shop_name}: refresh_token đã hết hạn.")
 
 
-# ---------------------------------------------------------------- Một lượt
-
 def chuan_hoa(san, ket_qua_keo, ten_shop):
-    """Chuẩn hóa kết quả kéo của đúng sàn → (DataFrame cột chuẩn, 5 bộ đếm)."""
     if san == token_store.SAN_SHOPEE:
         return shopee_api_transform.chuan_hoa_api_shopee(ket_qua_keo, ten_shop)
     return tiktok_api_transform.chuan_hoa_api_tiktok(ket_qua_keo, ten_shop)
 
 
 def thuc_hien_luot(run_id, san, ten_shop, cua_so=None, bay_gio=None, ham_ngu=time.sleep):
-    """Phần việc của một lượt (bước 3–7); lỗi gì cũng được ghi vào dòng sync_runs `run_id`.
-
-    Nhận: cua_so — dict {tu, den, truong} để ép cửa sổ (test, chạy lại tay);
-    None thì tính theo §20.3.
-    Không ném lỗi ra ngoài: mọi lỗi thành dòng 'failed'.
-    """
+    """Phần việc của một lượt; lỗi gì cũng được ghi vào dòng sync_runs `run_id`."""
     bay_gio = bay_gio or datetime.now(timezone.utc)
     thong_ke = {"api_calls": 0}
     cac_bi_mat = []
@@ -284,8 +212,7 @@ def thuc_hien_luot(run_id, san, ten_shop, cua_so=None, bay_gio=None, ham_ngu=tim
 
         bang_chuan, bo_dem = chuan_hoa(san, ket_qua, ten_shop)
 
-        # Bước 7: upsert + cập nhật sync_runs 'success' trong MỘT giao dịch — dữ
-        # liệu đơn hàng và nhật ký cùng thành công hoặc cùng mất (§18.2).
+        # Upsert và cập nhật sync_runs trong một giao dịch để cùng thành công hoặc cùng mất.
         with SessionLocal() as phien:
             so_dong_moi, so_dong_cap_nhat = loader.upsert_don_hang(phien, san, bang_chuan, None)
             dong = phien.get(SyncRun, run_id)
@@ -305,15 +232,6 @@ def thuc_hien_luot(run_id, san, ten_shop, cua_so=None, bay_gio=None, ham_ngu=tim
 
 def dong_bo_mot_shop(san, ten_shop, trigger_type="schedule", triggered_by=None, cua_so=None,
                      khoa=None, run_id=None, bay_gio=None, ham_ngu=time.sleep):
-    """Một lượt đồng bộ cho một (sàn, shop). Trả run_id, hoặc None nếu lượt bị bỏ.
-
-    Nhận:
-        trigger_type — "schedule" (lịch) hoặc "manual" (nút "Đồng bộ ngay").
-        khoa, run_id — nơi gọi (endpoint POST) đã giành khóa và tạo dòng
-            sync_runs sẵn (để trả run_ids ngay); None thì tự làm.
-    Bỏ lượt (None) khi (sàn, shop) đang có lượt chạy: không đợi, không chạy chồng.
-    Khóa luôn được nhả, kể cả khi lỗi.
-    """
     if san not in SAN_HOP_LE:
         raise ValueError(f"Sàn không hợp lệ: {san!r}")
     if khoa is None:
@@ -332,7 +250,6 @@ def dong_bo_mot_shop(san, ten_shop, trigger_type="schedule", triggered_by=None, 
 
 
 def dang_chay(san, ten_shop):
-    """Có lượt đang chạy cho (sàn, shop) không (thăm dò khóa rồi nhả ngay)."""
     khoa = thu_giu_khoa(san, ten_shop)
     if khoa is None:
         return True
@@ -341,11 +258,6 @@ def dang_chay(san, ten_shop):
 
 
 def don_dep_luot_treo(phien):
-    """Chuyển các dòng 'running' đường API còn sót (máy chủ tắt giữa lượt) sang 'failed'.
-
-    Gọi lúc khởi động ứng dụng: lúc đó chắc chắn chưa có lượt nào đang chạy.
-    Trả: số dòng đã dọn.
-    """
     luot_treo = phien.execute(
         select(SyncRun).where(SyncRun.source == "api", SyncRun.status == "running")).scalars().all()
     for dong in luot_treo:

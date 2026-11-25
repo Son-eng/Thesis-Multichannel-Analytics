@@ -1,14 +1,4 @@
-"""Cảnh báo biến động doanh thu (SPEC §9, §12.1.1.8).
-
-Quy tắc: cảnh báo khi doanh thu kỳ hiện tại GIẢM từ `ALERT_DROP_THRESHOLD_PCT`% trở lên so với kỳ liền trước
-(`pct_change <= −ngưỡng`). Ngưỡng đọc từ cấu hình, không hard-code. Ba trường hợp KHÔNG BAO GIỜ cảnh báo:
-- không tồn tại kỳ trước (§9.3b);
-- kỳ trước bằng 0 (§7.3, `previous_zero`) — không chia cho 0, không coi là "giảm 100%";
-- kỳ này không có dòng nào (`no_data`) — kỳ trống không phải kỳ sụt giảm.
-Kỳ chưa đầy đủ so với kỳ trước ĐÃ CẮT cùng số ngày (§9.2); mức ngày không cắt (§9.3a).
-
-Quyết định dựa trên `pct_change` CHƯA làm tròn (−29,96 làm tròn thành −30,0 sẽ kích hoạt oan).
-"""
+"""Cảnh báo khi doanh thu giảm từ ngưỡng (mặc định 30%) trở lên so với kỳ trước; không cảnh báo khi không có kỳ trước, kỳ trước bằng 0 hoặc kỳ này trống."""
 
 from datetime import timedelta
 
@@ -18,22 +8,18 @@ from app.config import settings
 
 
 def nguong_giam():
-    """Ngưỡng giảm (số dương, %) từ cấu hình — đọc mỗi lần gọi để test đổi được."""
     return float(settings.ALERT_DROP_THRESHOLD_PCT)
 
 
 def co_canh_bao(pct_tho, nguong=None):
-    """Cảnh báo khi `pct_tho` (% thay đổi, chưa làm tròn) ≤ −ngưỡng. `pct_tho` None → không bao giờ cảnh báo."""
+    """So bằng pct_change chưa làm tròn: -29,96 làm tròn thành -30,0 sẽ cảnh báo oan."""
     nguong = nguong_giam() if nguong is None else float(nguong)
     return pct_tho is not None and pct_tho <= -nguong
 
 
 def liet_ke_canh_bao(phien, san, muc, shop_name=None, product_code=None):
-    """Mọi kỳ bị cảnh báo của sàn theo mức `muc`, trên toàn bộ dữ liệu (sắp theo kỳ tăng dần).
-
-    Trả: dict đúng khuôn §12.1.1.8 — platform, granularity, threshold_pct (âm), items[].
-    """
-    # Import trong hàm: kpi_service dùng `co_canh_bao` của module này nên import ở đầu file sẽ vòng.
+    """Mọi kỳ bị cảnh báo của sàn theo mức `muc`, trên toàn bộ dữ liệu (sắp theo kỳ tăng dần)."""
+    # Import trong hàm vì kpi_service cũng import module này.
     from app.services import kpi_service as kpi
 
     nguong = nguong_giam()
@@ -52,7 +38,6 @@ def liet_ke_canh_bao(phien, san, muc, shop_name=None, product_code=None):
     doanh_thu_ngay = {ngay: int(tien) for ngay, _, tien in cac_dong}
 
     def tong(tu, den):
-        """(số dòng, doanh thu) của [tu, den]."""
         so, tien, ngay = 0, 0, tu
         while ngay <= den:
             so += so_dong_ngay.get(ngay, 0)
@@ -66,11 +51,11 @@ def liet_ke_canh_bao(phien, san, muc, shop_name=None, product_code=None):
         ma_ky = kpi.ky_chua_ngay(muc, dau)[2]
         ky = kpi.xac_dinh_ky(muc, ma_ky, ngay_min, ngay_max)
         dau = kpi.ky_ke_tiep(muc, dau)
-        if ky["truoc"] is None:                                      # không có kỳ trước → không cảnh báo
+        if ky["truoc"] is None:
             continue
         so_dong, tien = tong(ky["dau"], ky["den"])
         _, tien_truoc = tong(ky["truoc"]["dau"], ky["truoc"]["den"])
-        if so_dong == 0 or tien_truoc == 0:                          # kỳ trống / kỳ trước bằng 0 → không cảnh báo
+        if so_dong == 0 or tien_truoc == 0:
             continue
         if co_canh_bao(kpi.thay_doi_phan_tram_tho(tien, tien_truoc), nguong):
             ket_qua["items"].append({

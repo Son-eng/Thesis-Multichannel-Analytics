@@ -1,12 +1,8 @@
-"""Test cho status_mapper.py — đủ mọi giá trị ở SPEC §6.1, §6.2, §6.4 và nhánh unknown (§6.3)."""
-
 import numpy as np
 import pytest
 
 from app.etl.status_mapper import gom_nhom_trang_thai_api, gom_nhom_trang_thai_file
 
-
-# ---------- Đường FILE ----------
 
 @pytest.mark.parametrize(
     "trang_thai_goc, nhom",
@@ -26,7 +22,6 @@ def test_file_shopee_chuoi_co_dinh(trang_thai_goc, nhom):
 
 @pytest.mark.parametrize("ngay", ["2026-08-05", "2026-08-15", "2027-01-31"])
 def test_file_shopee_nguoi_mua_xac_nhan_co_nhung_ngay(ngay):
-    # Ngày 2027 không có trong dữ liệu mẫu: chứng minh không hard-code từng chuỗi.
     trang_thai = ("Người mua xác nhận đã nhận được hàng, tuy nhiên Người mua vẫn có thể "
                   f"gửi yêu cầu Trả hàng/Hoàn tiền tới ngày {ngay}.")
     assert gom_nhom_trang_thai_file(trang_thai, "shopee") == "completed"
@@ -34,7 +29,6 @@ def test_file_shopee_nguoi_mua_xac_nhan_co_nhung_ngay(ngay):
 
 @pytest.mark.parametrize("trang_thai_rong", [np.nan, None, "", "   "])
 def test_file_shopee_rong_la_unknown(trang_thai_rong):
-    # 19 dòng Shopee thật có trạng thái rỗng (§6.3).
     assert gom_nhom_trang_thai_file(trang_thai_rong, "shopee") == "unknown"
 
 
@@ -65,20 +59,18 @@ def test_file_khoang_trang_hai_dau_van_khop():
     assert gom_nhom_trang_thai_file(" Đã hủy ", "tiktok") == "cancelled"
 
 
-# ---------- Đường API (§6.4) ----------
-
 @pytest.mark.parametrize(
     "ma, nhom",
     [
         ("COMPLETED", "completed"),
-        ("TO_RETURN", "completed"),          # chốt 12/10, không có trong dữ liệu mẫu
+        ("TO_RETURN", "completed"),
         ("TO_CONFIRM_RECEIVE", "delivered"),
         ("SHIPPED", "shipping"),
         ("UNPAID", "pending"),
         ("READY_TO_SHIP", "pending"),
         ("PROCESSED", "pending"),
-        ("IN_CANCEL", "pending"),            # chốt 12/10, không có trong dữ liệu mẫu
-        ("INVOICE_PENDING", "pending"),      # không có trong dữ liệu mẫu
+        ("IN_CANCEL", "pending"),
+        ("INVOICE_PENDING", "pending"),
         ("CANCELLED", "cancelled"),
     ],
 )
@@ -116,5 +108,4 @@ def test_api_rong_la_unknown(ma_rong):
 
 
 def test_api_ma_cua_san_nay_khong_lan_sang_san_kia():
-    # DELIVERED chỉ có ở TikTok; Shopee dùng TO_CONFIRM_RECEIVE.
     assert gom_nhom_trang_thai_api("DELIVERED", "shopee") == "unknown"

@@ -1,11 +1,3 @@
-"""Test endpoint dashboard và đối chiếu (SPEC §7, §8, §9.2–§9.4, §12.1.0–§12.1.2, §17).
-
-Chạy trên dữ liệu mẫu ĐÃ NẠP trong CSDL thật (chỉ đọc, không ghi). Chưa nạp đủ thì test tự skip kèm lý do.
-Hai nguồn đáp án:
-- số cố định chép nguyên từ SPEC §17 / §9.4 / §12.1;
-- đối chiếu ĐỘC LẬP: parser đọc file mẫu (pandas) → tính lại cùng chỉ số → so với kết quả SQL của kpi_service.
-"""
-
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +24,7 @@ KHOA_METRICS = {"revenue", "order_count", "order_count_all", "quantity_sold", "a
 KHOA_KPI = {"platform", "granularity", "period", "status", "current", "previous", "period_complete", "data_max_date",
             "metrics", "previous_full", "alert", "data_quality", "daily"}
 
-DOANH_THU_THANG_TIKTOK = {                                                  # §17.3
+DOANH_THU_THANG_TIKTOK = {
     "2026-01": 963328583, "2026-02": 1056998596, "2026-03": 1459153482, "2026-04": 1014538449,
     "2026-05": 800122017, "2026-06": 566274001, "2026-07": 814595996, "2026-08": 863491460}
 
@@ -48,7 +40,6 @@ def du_lieu_mau_da_nap():
 @pytest.fixture(scope="module")
 def client(du_lieu_mau_da_nap):
     ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False)
-    # Người dùng giả (test chỉ-đọc, không ghi CSDL); việc đòi đăng nhập kiểm ở test_auth_api.
     ung_dung.dependency_overrides[yeu_cau_dang_nhap] = lambda: User(id=-1, username="nguoi_thu", role="user")
     with TestClient(ung_dung) as c:
         yield c
@@ -56,7 +47,6 @@ def client(du_lieu_mau_da_nap):
 
 @pytest.fixture(scope="module")
 def bang_file():
-    """Đáp án độc lập: bảng chuẩn do parser tạo từ file mẫu ẩn danh."""
     shopee, _ = shopee_parser.chuan_hoa_file_shopee(THU_MUC_MAU / "shopee_orders_anonymized.csv", "Shop C")
     tiktok, _ = tiktok_parser.chuan_hoa_file_tiktok(THU_MUC_MAU / "tiktok_orders_anonymized.csv")
     for bang in (shopee, tiktok):
@@ -71,8 +61,6 @@ def lay(client, duong_dan, **tham_so):
     return phan_hoi.json()
 
 
-# ---------------------------------------------------------------- /filters
-
 def test_filters_dung_khuon_va_so_that(client):
     shopee = lay(client, "/api/shopee/filters")
     assert set(shopee) == {"platform", "shops", "product_codes", "data_min_date", "data_max_date"}
@@ -83,8 +71,6 @@ def test_filters_dung_khuon_va_so_that(client):
     assert tiktok["shops"] == ["Shop A", "Shop B"] and len(tiktok["product_codes"]) == 13
     assert (tiktok["data_min_date"], tiktok["data_max_date"]) == ("2026-01-01", "2026-08-23")
 
-
-# ---------------------------------------------------------------- /kpi — số §17.2, §9.4
 
 @pytest.mark.parametrize("san, doanh_thu, don_hop_le, tong_don, so_luong, aov", [
     ("shopee", 1908961059, 1165, 1761, 1182, 1638593),
@@ -138,7 +124,7 @@ def test_kpi_shopee_thang_7_la_thang_dau_nen_khong_co_ky_truoc(client):
 def test_kpi_insufficient_data_khi_khong_ton_tai_ky_truoc(client, san, muc, ma_ky):
     du_lieu = lay(client, f"/api/{san}/kpi", granularity=muc, period=ma_ky)
     assert du_lieu["status"] == "insufficient_data" and du_lieu["previous"] is None
-    assert du_lieu["metrics"]["revenue"]["value"] is not None                    # kỳ này vẫn có số
+    assert du_lieu["metrics"]["revenue"]["value"] is not None
     for ten in ("revenue", "order_count", "order_count_all", "quantity_sold", "aov"):
         chi_so = du_lieu["metrics"][ten]
         assert (chi_so["previous"], chi_so["pct_change"], chi_so["previous_zero"]) == (None, None, False)
@@ -160,12 +146,6 @@ def test_kpi_no_data_khong_bao_gio_la_0(client):
 
 
 def test_kpi_tieu_chi_chat_luong_du_lieu(client):
-    """Số dòng/ doanh thu `unknown` phải bằng đúng số đếm trực tiếp trong CSDL; ở dữ liệu nạp từ tệp thì là số §17.
-
-    Đường API không bao giờ sinh `unknown` (§6.4: Shopee API luôn có trạng thái), nên sau khi lịch đồng bộ ghi đè
-    dữ liệu mẫu bằng dữ liệu API (đã gặp khi làm theo README: backend tự đồng bộ ngay lúc khởi động) con số này là 0.
-    Vì vậy kiểm theo trạng thái thực của CSDL thay vì ép cứng 19.
-    """
     with SessionLocal() as phien:
         tat_ca_tu_tep = phien.execute(text("SELECT bool_and(data_source = 'file') FROM orders WHERE platform = 'shopee'")).scalar_one()
         so_dong, doanh_thu = phien.execute(text(
@@ -174,7 +154,7 @@ def test_kpi_tieu_chi_chat_luong_du_lieu(client):
     shopee = lay(client, "/api/shopee/kpi", granularity="year", period="2026")["data_quality"]
     assert shopee == {"rows_status_unknown": so_dong, "revenue_status_unknown": int(doanh_thu), "rows_nmv_provisional": 0}
     if tat_ca_tu_tep:
-        assert (so_dong, int(doanh_thu)) == (19, 29814813)                       # §17.2, §17.6
+        assert (so_dong, int(doanh_thu)) == (19, 29814813)
     tiktok = lay(client, "/api/tiktok/kpi", granularity="year", period="2026")["data_quality"]
     assert tiktok == {"rows_status_unknown": 0, "revenue_status_unknown": 0, "rows_nmv_provisional": None}
 
@@ -201,7 +181,7 @@ def test_kpi_daily_dai_dung_so_ngay_va_cong_lai_bang_doanh_thu(client):
     assert (daily[-1]["date"], daily[-1]["previous_date"]) == ("2026-08-16", "2026-07-16")
     assert sum(d["current"] for d in daily) == du_lieu["metrics"]["revenue"]["value"]
     assert sum(d["previous"] for d in daily) == du_lieu["metrics"]["revenue"]["previous"]
-    assert all(isinstance(d["current"], int) for d in daily)                        # ngày không đơn là 0 chứ không null
+    assert all(isinstance(d["current"], int) for d in daily)
 
 
 def test_kpi_tung_chi_so_dung_khuon(client):
@@ -220,10 +200,8 @@ def test_kpi_loc_theo_shop_va_ma_san_pham_cong_lai_bang_tong(client):
     cac_ma = lay(client, "/api/tiktok/filters")["product_codes"]
     theo_ma = [lay(client, "/api/tiktok/kpi", granularity="year", period="2026", product_code=m)["metrics"]["revenue"]["value"]
                for m in cac_ma]
-    assert sum(theo_ma) == tong                                                      # dữ liệu mẫu không có dòng thiếu mã
+    assert sum(theo_ma) == tong
 
-
-# ---------------------------------------------------------------- đối chiếu độc lập với parser (pandas)
 
 @pytest.mark.parametrize("san", ["shopee", "tiktok"])
 def test_doi_chieu_pandas_moi_thang_doanh_thu_don_va_ty_le(client, bang_file, san):
@@ -257,7 +235,7 @@ def test_by_affiliate_khop_dong_va_doanh_thu_cua_duong_file(client, bang_file, s
         assert du_lieu[khoa]["order_count"] == phan["order_id"].nunique()
     assert du_lieu["affiliate"]["revenue"] + du_lieu["self_sold"]["revenue"] == int(hop_le["nmv_after_tax"].sum())
     assert du_lieu["affiliate"]["share_pct"] + du_lieu["self_sold"]["share_pct"] == pytest.approx(100, abs=0.11)
-    # Số dòng affiliate của đường file (tất cả trạng thái) khớp CSDL: 771 / 4.297.
+    # Số dòng affiliate của đường file khớp CSDL: 771 / 4.297.
     with SessionLocal() as phien:
         so_dong = phien.execute(text("SELECT count(*) FROM orders WHERE platform = :p AND is_affiliate"), {"p": san}).scalar_one()
     assert so_dong == int(bang["is_affiliate"].sum()) == {"shopee": 771, "tiktok": 4297}[san]
@@ -294,10 +272,8 @@ def test_by_hour_du_24_phan_tu_va_khop_pandas(client, bang_file, san):
         assert m["order_count"] == theo_gio.get(m["label"], 0), m["label"]
     assert sum(m["order_count"] for m in cac_muc) == hop_le["order_id"].nunique()
     assert sum(m["revenue"] for m in cac_muc) == int(hop_le["nmv_after_tax"].sum())
-    assert sum(m["share_pct"] for m in cac_muc) == pytest.approx(100, abs=1.3)        # 24 giá trị làm tròn 1 chữ số
+    assert sum(m["share_pct"] for m in cac_muc) == pytest.approx(100, abs=1.3)
 
-
-# ---------------------------------------------------------------- /revenue-trend
 
 def test_revenue_trend_tiktok_khop_17_3_va_by_product_cong_dung(client):
     du_lieu = lay(client, "/api/tiktok/revenue-trend", granularity="month")
@@ -341,8 +317,6 @@ def test_revenue_trend_theo_ngay_va_cat_theo_khoang(client):
     assert sum(m["revenue"] for m in du_lieu["items"]) == thang["items"][0]["revenue"]
 
 
-# ---------------------------------------------------------------- /top-products
-
 def test_top_products_tiktok_2026_07_so_that_muc_10(client):
     du_lieu = lay(client, "/api/tiktok/top-products", period="2026-07", limit=2)
     assert set(du_lieu) == {"platform", "period", "status", "items"} and du_lieu["status"] == "ok"
@@ -382,8 +356,6 @@ def test_top_products_no_data(client):
     du_lieu = lay(client, "/api/shopee/top-products", period="2026-03")
     assert du_lieu["status"] == "no_data" and du_lieu["items"] == []
 
-
-# ---------------------------------------------------------------- /api/compare/platforms
 
 def test_compare_chi_co_hai_khoa_san_khong_co_total(client):
     du_lieu = lay(client, "/api/compare/platforms", granularity="month", period="2026-08")
@@ -431,8 +403,6 @@ def test_compare_by_product_khop_doanh_thu_cua_san(client):
         assert sum(m["revenue"] for m in du_lieu[san]["by_product"]) == du_lieu[san]["metrics"]["revenue"]["value"]
 
 
-# ---------------------------------------------------------------- lỗi tham số, CORS, quy tắc §7.4
-
 @pytest.mark.parametrize("duong_dan, tham_so", [
     ("/api/shopee/kpi", {"granularity": "month", "period": "2026-Q3"}),
     ("/api/shopee/kpi", {"granularity": "year", "period": "2026-08"}),
@@ -465,7 +435,6 @@ def test_cors_cho_phep_origin_cua_vite_va_chan_origin_la(client):
 
 
 def test_khong_sql_nao_cong_thang_cot_muc_don():
-    """§7.4: `order_amount` (mức đơn của TikTok) chỉ được xuất hiện ở hằng số khai báo, không ở câu SQL nào."""
     ma_nguon = Path(kpi_service.__file__).read_text(encoding="utf-8")
     assert kpi_service.ORDER_LEVEL_COLUMNS == {"shopee": [], "tiktok": ["order_amount"]}
     assert ma_nguon.count("order_amount") == 1
@@ -478,8 +447,6 @@ def test_moi_sum_trong_sql_chi_tren_cot_muc_dong():
     cot_sum = set(re.findall(r"SUM\((\w+)\)", ma_nguon))
     assert cot_sum <= {"nmv_after_tax", "quantity"}
 
-
-# ---------------------------------------------------------------- hàm thuần (không cần CSDL)
 
 def test_lam_tron_nua_len_va_thay_doi_phan_tram():
     assert kpi_service.lam_tron_1(0.25) == 0.3 and kpi_service.lam_tron_1(-0.25) == -0.3
@@ -508,11 +475,10 @@ def test_xac_dinh_ky_cat_cung_so_ngay_cac_muc():
     from datetime import date
     ky = kpi_service.xac_dinh_ky("month", "2026-08", date(2026, 7, 1), date(2026, 8, 16))
     assert (ky["den"], ky["day_du"], ky["truoc"]["den"]) == (date(2026, 8, 16), False, date(2026, 7, 16))
-    # Kỳ trước ngắn hơn: 31/03 chưa đủ → tháng 2 chỉ có 28 ngày, phải kẹp ở cuối tháng 2.
     ky = kpi_service.xac_dinh_ky("month", "2026-03", date(2026, 1, 1), date(2026, 3, 30))
     assert ky["truoc"]["den"] == date(2026, 2, 28)
     ky = kpi_service.xac_dinh_ky("quarter", "2026-Q3", date(2026, 1, 1), date(2026, 8, 23))
-    assert (ky["truoc"]["ky"], ky["truoc"]["den"], ky["day_du"]) == ("2026-Q2", date(2026, 5, 24), False)   # 01/07→23/08 = 54 ngày; 01/04 + 53 ngày
+    assert (ky["truoc"]["ky"], ky["truoc"]["den"], ky["day_du"]) == ("2026-Q2", date(2026, 5, 24), False)
     ky = kpi_service.xac_dinh_ky("day", "2026-08-16", date(2026, 7, 1), date(2026, 8, 16))
     assert (ky["day_du"], ky["truoc"]["dau"], ky["truoc"]["den"]) == (True, date(2026, 8, 15), date(2026, 8, 15))
     ky = kpi_service.xac_dinh_ky("year", "2026", date(2026, 1, 1), date(2026, 8, 23))
@@ -527,8 +493,6 @@ def test_co_canh_bao_dung_nguong_va_khong_bao_gio_voi_none():
 
 
 def test_moi_cau_sql_doc_bang_orders_deu_loc_theo_san():
-    """Từ khi gộp CSDL (08/11/2026) quên điều kiện `platform` là cộng gộp hai sàn mà không báo lỗi:
-    mọi câu SQL có `FROM orders` trong kpi_service và alert_service phải có `platform = :platform` hoặc `{loc}` (đã chứa nó)."""
     import re
     from app.services import alert_service
     for module in (kpi_service, alert_service):
@@ -538,6 +502,5 @@ def test_moi_cau_sql_doc_bang_orders_deu_loc_theo_san():
         assert cac_cau_doc_orders, module.__name__
         for cau in cac_cau_doc_orders:
             assert "platform = :platform" in cau or "{loc}" in cau, f"{module.__name__}: thiếu điều kiện sàn:\n{cau}"
-    # _loc luôn đặt điều kiện sàn trước các bộ lọc khác.
     menh_de, tham_so = kpi_service._loc("tiktok", "Shop A", "M15")
     assert menh_de.startswith(" AND platform = :platform") and tham_so == {"platform": "tiktok", "shop_name": "Shop A", "product_code": "M15"}

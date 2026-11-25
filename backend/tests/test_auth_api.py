@@ -1,10 +1,3 @@
-"""Test đăng nhập, phân quyền và quản lý người dùng (SPEC §11, §12.1.4.1–§12.1.4.2).
-
-CSDL thật trong giao dịch rollback (người dùng tạo trong test tự biến mất). Token là JWT thật; bcrypt hạ còn 4 vòng
-(conftest). Điểm cần chứng minh: sai tên và sai mật khẩu giống hệt nhau, mọi endpoint đòi token, endpoint quản trị
-đòi admin, mật khẩu chỉ lưu dạng băm và không bao giờ trả ra.
-"""
-
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -32,8 +25,7 @@ def client(phien_test, ket_noi_test, tao_phien_test, monkeypatch):
     ket_noi_test.execute(text("DELETE FROM platform_tokens"))
     monkeypatch.setattr(token_store, "SessionLocal", tao_phien_test)
     token_store.nap_san_tu_cau_hinh(settings)
-    # Hàm chạy nền giả PHẢI nhả khóa advisory mà POST /api/sync đã giành, nếu không khóa treo đến hết phiên
-    # pytest và làm hỏng các test đồng bộ chạy sau (đã gặp ở lần chạy đủ đầu tiên của chỉ dẫn 017).
+    # Hàm chạy nền giả phải nhả khóa advisory, nếu không khóa treo đến hết phiên pytest.
     ung_dung = tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False,
                             ham_chay_nen=lambda cac_shop, cac_khoa, cac_run_id: [k.nha() for k in cac_khoa])
     ung_dung.dependency_overrides[lay_phien_db] = lambda: phien_test
@@ -44,8 +36,6 @@ def client(phien_test, ket_noi_test, tao_phien_test, monkeypatch):
 def dang_nhap(client, ten, mat_khau):
     return client.post("/api/auth/login", json={"username": ten, "password": mat_khau})
 
-
-# ---------------------------------------------------------------- đăng nhập
 
 def test_dang_nhap_dung_tra_token_va_thong_tin_khong_co_bam(client, tao_nguoi):
     nguoi = tao_nguoi("nguyen.van.a", "user", "mat-khau-dung-1")
@@ -67,7 +57,6 @@ def test_sai_mat_khau_va_sai_ten_dang_nhap_cung_mot_phan_hoi(client, tao_nguoi):
 
 
 def test_ten_khong_ton_tai_van_ton_mot_lan_kiem_bcrypt(client, monkeypatch):
-    """Chống dò tên: nhánh "không có người dùng" vẫn chạy một lần kiểm bcrypt như nhánh có người dùng."""
     da_goi = []
     monkeypatch.setattr(security, "kiem_gia_de_dong_deu_thoi_gian", lambda mk: da_goi.append(mk))
     dang_nhap(client, "ten_khong_co", "abc12345")
@@ -99,8 +88,6 @@ def test_mat_khau_luu_dang_bam_khong_phai_ban_ro(client, tao_nguoi, ket_noi_test
     assert security.kiem_mat_khau("mat-khau-ro-123", chuoi_bam) and not security.kiem_mat_khau("mat-khau-khac-1", chuoi_bam)
 
 
-# ---------------------------------------------------------------- token
-
 def test_token_dung_khoa_khac_het_han_va_gia_deu_bi_tu_choi(client, tao_nguoi):
     nguoi = tao_nguoi("nguoi.dung", "user")
     bay_gio = datetime.now(timezone.utc)
@@ -130,15 +117,13 @@ def test_doi_vai_tro_co_hieu_luc_ngay_voi_token_dang_dung(client, tao_nguoi, phi
     assert client.get("/api/users", headers=tieu_de).status_code == 200
     nguoi.role = "user"
     phien_test.flush()
-    assert client.get("/api/users", headers=tieu_de).status_code == 403          # token cũ, vai trò mới
+    assert client.get("/api/users", headers=tieu_de).status_code == 403
 
 
 def test_khong_co_token_hoac_sai_kieu_bearer_la_401(client):
     assert client.get("/api/auth/me").status_code == 401
     assert client.get("/api/auth/me", headers={"Authorization": "Basic YWJjOmRlZg=="}).status_code == 401
 
-
-# ---------------------------------------------------------------- mọi endpoint đòi đăng nhập / quản trị đòi admin
 
 DOC = [("GET", "/api/shopee/filters"), ("GET", "/api/tiktok/kpi"), ("GET", "/api/shopee/revenue-trend"),
        ("GET", "/api/tiktok/top-products"), ("GET", "/api/shopee/by-affiliate"), ("GET", "/api/tiktok/by-province"),
@@ -181,14 +166,12 @@ def test_admin_bam_nut_dong_bo_ghi_triggered_by(client, tao_nguoi, ket_noi_test)
     assert cac_nguoi == [admin.id]
 
 
-# ---------------------------------------------------------------- admin đầu tiên từ .env
-
 def test_tao_admin_dau_tien_chi_khi_bang_trong(phien_test, ket_noi_test):
     ket_noi_test.execute(text("DELETE FROM users"))
     assert user_service.tao_admin_dau_tien(phien_test, "admin.dau", "mat-khau-admin-1") is True
     dong = ket_noi_test.execute(text("SELECT username, role, password_hash FROM users")).one()
     assert dong[:2] == ("admin.dau", "admin") and dong[2].startswith("$2b$") and "mat-khau-admin-1" not in dong[2]
-    assert user_service.tao_admin_dau_tien(phien_test, "admin.hai", "mat-khau-admin-2") is False      # đã có người dùng
+    assert user_service.tao_admin_dau_tien(phien_test, "admin.hai", "mat-khau-admin-2") is False
     assert ket_noi_test.execute(text("SELECT count(*) FROM users")).scalar_one() == 1
 
 
@@ -207,13 +190,11 @@ def test_mat_khau_admin_qua_ngan_dung_som_va_khong_vao_log(phien_test, ket_noi_t
     assert "mat-khau-bi-mat-123" not in caplog.text
 
 
-# ---------------------------------------------------------------- hàm bảo mật thuần
-
 def test_mat_khau_hop_le_va_qua_dai_khong_lam_bcrypt_ne_loi():
     assert security.mat_khau_hop_le("1234567") is not None and security.mat_khau_hop_le("12345678") is None
     assert security.mat_khau_hop_le("a" * 72) is None and security.mat_khau_hop_le("a" * 73) is not None
-    assert security.mat_khau_hop_le("ư" * 37) is not None                        # 74 byte UTF-8 dù chỉ 37 ký tự
-    assert security.kiem_mat_khau("a" * 100, security.bam_mat_khau("a" * 20)) is False   # không ném ValueError
+    assert security.mat_khau_hop_le("ư" * 37) is not None
+    assert security.kiem_mat_khau("a" * 100, security.bam_mat_khau("a" * 20)) is False
     assert security.kiem_mat_khau("x", "khong-phai-chuoi-bam") is False
 
 

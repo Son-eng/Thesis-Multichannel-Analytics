@@ -1,7 +1,4 @@
-"""Xuất báo cáo: GET /api/export/{platform}/excel, GET /api/export/{platform}/pdf (UC13, SPEC §12.1.4.4).
-
-Cùng query với dashboard (§12.1.0.3). Cần đăng nhập (mọi vai trò). PDF để hướng phát triển → 501.
-"""
+"""Xuất báo cáo: GET /api/export/{platform}/excel, GET /api/export/{platform}/pdf."""
 
 from typing import Literal
 

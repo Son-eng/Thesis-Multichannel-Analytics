@@ -1,14 +1,4 @@
-"""Tính KPI cho dashboard (SPEC §7, §8, §9.2–§9.3, §12.1.0–§12.1.2).
-
-Mọi truy vấn số liệu nằm ở đây; router chỉ gọi hàm rồi trả JSON. Quy tắc cứng:
-- Doanh thu = SUM(nmv_after_tax) trên dòng HỢP LỆ (không hủy, không hoàn) — §7.1.
-- Đếm đơn luôn `COUNT(DISTINCT order_id)`, không `COUNT(*)` (bảng ở mức dòng).
-- Cột MỨC ĐƠN (`ORDER_LEVEL_COLUMNS`) không bao giờ bị SUM thẳng theo dòng (§7.4); hiện không
-  KPI nào dùng chúng, và test khẳng định không có câu lệnh SQL nào của module này chứa chúng.
-- Cắt cùng số ngày theo MAX(order_date) của TỪNG sàn (không dùng NOW()), mức ngày không cắt (§9.2–§9.3a).
-- Thiếu số liệu là `None` (JSON null), không bao giờ thành 0; kỳ trước bằng 0 → `previous_zero` (§12.1.0.2).
-- Nhóm theo `product_code`, không theo `sku` (§7.3).
-"""
+"""Tính KPI: doanh thu là SUM(nmv_after_tax) trên dòng không hủy, không hoàn; đếm đơn bằng COUNT(DISTINCT order_id)."""
 
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -17,10 +7,10 @@ from sqlalchemy import text
 
 from app.services.alert_service import co_canh_bao, nguong_giam
 
-# Từ 08/11/2026 mọi sàn nằm chung MỘT bảng `orders` (SPEC §3); MỌI truy vấn ở đây phải lọc `platform = :platform`.
+# Mọi sàn chung một bảng orders nên truy vấn nào cũng phải lọc platform.
 SAN_HOP_LE = ("shopee", "tiktok")
 
-# Cột MỨC ĐƠN theo sàn: giá trị lặp lại trên mọi dòng của một đơn → CẤM SUM theo dòng (§7.4).
+# Cột mức đơn lặp lại trên mọi dòng của đơn, không được SUM theo dòng.
 ORDER_LEVEL_COLUMNS = {"shopee": [], "tiktok": ["order_amount"]}
 
 HOP_LE = "order_status <> 'cancelled' AND is_returned = FALSE"
@@ -28,38 +18,30 @@ SO_MA_SAN_PHAM_TOP = 4
 
 
 class KyKhongHopLe(ValueError):
-    """`period` không đúng định dạng của `granularity`."""
+    """(giữ một dòng)"""
 
-
-# ---------------------------------------------------------------- làm tròn
 
 def lam_tron_1(so):
-    """Làm tròn nửa lên đến 1 chữ số thập phân, trả float (§12.1.0: tỷ lệ, % đã nhân 100)."""
     return float(Decimal(str(so)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
 def phan_tram(tu, mau):
-    """tu/mau×100 làm tròn 1 chữ số; mẫu số 0 hoặc None → None."""
     if tu is None or not mau:
         return None
     return lam_tron_1(Decimal(tu) * 100 / Decimal(mau))
 
 
 def thay_doi_phan_tram(gia_tri, truoc):
-    """(gia_tri−truoc)/truoc×100, làm tròn 1 chữ số; truoc None hoặc 0 → None (không chia cho 0)."""
     if gia_tri is None or truoc is None or truoc == 0:
         return None
     return lam_tron_1((Decimal(gia_tri) - Decimal(truoc)) * 100 / Decimal(truoc))
 
 
 def thay_doi_phan_tram_tho(gia_tri, truoc):
-    """Như `thay_doi_phan_tram` nhưng KHÔNG làm tròn — dùng để quyết định cảnh báo (tránh −29,96 → −30,0)."""
     if gia_tri is None or truoc is None or truoc == 0:
         return None
     return float((Decimal(gia_tri) - Decimal(truoc)) * 100 / Decimal(truoc))
 
-
-# ---------------------------------------------------------------- kỳ thời gian
 
 def _cong_thang(ngay, so_thang):
     thang_goc = ngay.year * 12 + (ngay.month - 1) + so_thang
@@ -68,7 +50,6 @@ def _cong_thang(ngay, so_thang):
 
 
 def ky_chua_ngay(muc, ngay):
-    """Kỳ (mức `muc`) chứa `ngay` → (ngày đầu, ngày cuối, mã kỳ)."""
     if muc == "day":
         return ngay, ngay, ngay.isoformat()
     if muc == "month":
@@ -82,7 +63,6 @@ def ky_chua_ngay(muc, ngay):
 
 
 def doc_ma_ky(muc, ma_ky):
-    """Mã kỳ → ngày đầu kỳ. Sai định dạng → KyKhongHopLe."""
     try:
         if muc == "day":
             return date.fromisoformat(ma_ky)
@@ -104,7 +84,6 @@ def doc_ma_ky(muc, ma_ky):
 
 
 def ky_truoc_cua(muc, dau_ky):
-    """Ngày đầu của kỳ liền trước."""
     if muc == "day":
         return dau_ky - timedelta(days=1)
     return _cong_thang(dau_ky, {"month": -1, "quarter": -3, "year": -12}[muc])
@@ -117,19 +96,13 @@ def ky_ke_tiep(muc, dau_ky):
 
 
 def xac_dinh_ky(muc, ma_ky, ngay_min, ngay_max):
-    """Dựng thông tin kỳ hiện tại và kỳ trước (đã cắt cùng số ngày nếu kỳ chưa đầy đủ).
-
-    Nhận: mức; mã kỳ (None → kỳ chứa `ngay_max`); [ngay_min, ngay_max] = khoảng dữ liệu CỦA SÀN.
-    Trả: dict — ky, dau, cuoi, den (ngày cuối thực tế của kỳ hiện tại), day_du,
-         truoc: {ky, dau, cuoi_day_du, den} hoặc None nếu KHÔNG tồn tại kỳ trước (§9.3b).
-    Kỳ trước tồn tại khi nó nằm TRỌN trong khoảng dữ liệu (ngày đầu kỳ trước ≥ ngay_min).
-    """
+    """Kỳ chưa đầy đủ thì cắt kỳ trước về cùng số ngày, mốc là MAX(order_date) của từng sàn chứ không dùng NOW()."""
     if ma_ky is None:
         dau, cuoi, ma_ky = ky_chua_ngay(muc, ngay_max)
     else:
         dau = doc_ma_ky(muc, ma_ky)
         dau, cuoi, ma_ky = ky_chua_ngay(muc, dau)
-    # Mức ngày: một ngày luôn "đầy đủ"; không cắt (§9.3a).
+    # Mức ngày luôn đầy đủ, không cắt.
     day_du = True if muc == "day" else ngay_max >= cuoi
     den = cuoi if (day_du or ngay_max < dau) else ngay_max
 
@@ -142,13 +115,7 @@ def xac_dinh_ky(muc, ma_ky, ngay_min, ngay_max):
     return {"ky": ma_ky, "dau": dau, "cuoi": cuoi, "den": den, "day_du": day_du, "truoc": truoc}
 
 
-# ---------------------------------------------------------------- truy vấn
-
 def _loc(san, shop_name, product_code):
-    """Mệnh đề lọc + tham số: LUÔN có điều kiện sàn; `shop_name`, `product_code` không bắt buộc.
-
-    Chuỗi trả về bắt đầu bằng " AND ..." nên chỉ nối vào sau một WHERE đã có.
-    """
     menh_de, tham_so = " AND platform = :platform", {"platform": san}
     if shop_name:
         menh_de += " AND shop_name = :shop_name"
@@ -160,14 +127,12 @@ def _loc(san, shop_name, product_code):
 
 
 def khoang_du_lieu(phien, san):
-    """(ngày nhỏ nhất, ngày lớn nhất) của TOÀN BẢNG của sàn — không áp bộ lọc (§9.2). Bảng rỗng → (None, None)."""
     dong = phien.execute(text("SELECT MIN(order_date), MAX(order_date) FROM orders WHERE platform = :platform"),
                          {"platform": san}).one()
     return dong[0], dong[1]
 
 
 def danh_sach_loc(phien, san):
-    """Dữ liệu cho `/filters` (§12.1.1.1)."""
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
     cac_shop = phien.execute(text("SELECT DISTINCT shop_name FROM orders WHERE platform = :platform ORDER BY shop_name"),
                              {"platform": san}).scalars().all()
@@ -180,11 +145,7 @@ def danh_sach_loc(phien, san):
 
 
 def so_lieu_khoang(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=None):
-    """Các con số gốc của khoảng ngày [tu_ngay, den_ngay] (cả hai đầu) — MỘT câu SQL.
-
-    Trả dict: so_dong, revenue, order_count, order_count_all, quantity, cancelled_orders, returned_orders,
-    affiliate_revenue, rows_unknown, revenue_unknown, rows_provisional (None với TikTok).
-    """
+    """Các con số gốc của khoảng ngày [tu_ngay, den_ngay], tính bằng một câu SQL."""
     loc, tham_so = _loc(san, shop_name, product_code)
     cot_tam_tinh = ("COUNT(*) FILTER (WHERE nmv_is_provisional)" if san == "shopee" else "NULL")
     dong = phien.execute(text(f"""
@@ -208,15 +169,8 @@ def so_lieu_khoang(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=N
     return ket_qua
 
 
-# ---------------------------------------------------------------- khối chỉ số
-
 def chi_so_so(gia_tri, truoc, co_ky_truoc, truoc_khong_xac_dinh=False):
-    """Một chỉ số có `pct_change` — khuôn §12.1.0.2.
-
-    co_ky_truoc — có tồn tại kỳ trước không. truoc_khong_xac_dinh — kỳ trước tồn tại nhưng chỉ số
-    không tính được (vd AOV khi kỳ trước không có đơn): previous = null, previous_zero = true.
-    """
-    if gia_tri is None:                                   # kỳ này không có dữ liệu
+    if gia_tri is None:
         return {"value": None, "previous": truoc if co_ky_truoc else None, "pct_change": None, "previous_zero": False}
     if not co_ky_truoc:
         return {"value": gia_tri, "previous": None, "pct_change": None, "previous_zero": False}
@@ -228,7 +182,6 @@ def chi_so_so(gia_tri, truoc, co_ky_truoc, truoc_khong_xac_dinh=False):
 
 
 def chi_so_ty_le(tu_nay, mau_nay, tu_truoc, mau_truoc, co_ky_truoc):
-    """Một tỷ lệ (%) kèm `change_pp` (điểm %). Kỳ trước 0 đơn → previous/change_pp = null."""
     gia_tri = phan_tram(tu_nay, mau_nay)
     truoc = phan_tram(tu_truoc, mau_truoc) if co_ky_truoc else None
     if gia_tri is None or truoc is None:
@@ -242,7 +195,6 @@ def _aov(so):
 
 
 def dung_metrics(hien_tai, truoc, co_du_lieu):
-    """Khối `metrics` của §12.1.1.2. `truoc` là số liệu kỳ trước hoặc None nếu không tồn tại kỳ trước."""
     co_truoc = truoc is not None
 
     def lay(khoa):
@@ -258,7 +210,7 @@ def dung_metrics(hien_tai, truoc, co_du_lieu):
     aov_truoc = _aov(truoc) if co_truoc else None
     metrics["aov"] = chi_so_so(aov_nay, aov_truoc, co_truoc,
                                truoc_khong_xac_dinh=co_truoc and aov_truoc is None)
-    if aov_nay is None and co_du_lieu:                     # kỳ này có dòng nhưng không đơn hợp lệ nào: AOV không tính được
+    if aov_nay is None and co_du_lieu:                     # kỳ này có dòng nhưng không có đơn hợp lệ nên AOV không tính được
         metrics["aov"] = {"value": None, "previous": aov_truoc, "pct_change": None, "previous_zero": False}
 
     if not co_du_lieu:
@@ -276,7 +228,6 @@ def dung_metrics(hien_tai, truoc, co_du_lieu):
 
 
 def doanh_thu_theo_ngay(phien, san, tu_ngay, den_ngay, shop_name=None, product_code=None):
-    """{ngày: doanh thu hợp lệ} trong khoảng; ngày không có dòng hợp lệ không có khóa."""
     loc, tham_so = _loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
         SELECT order_date, SUM(nmv_after_tax) FROM orders
@@ -286,7 +237,6 @@ def doanh_thu_theo_ngay(phien, san, tu_ngay, den_ngay, shop_name=None, product_c
 
 
 def dung_daily(phien, san, ky, shop_name, product_code):
-    """Mảng `daily` của §12.1.1.2: mỗi ngày của kỳ hiện tại đến `den`, kèm ngày cùng vị trí của kỳ trước."""
     hien_tai = doanh_thu_theo_ngay(phien, san, ky["dau"], ky["den"], shop_name, product_code)
     truoc = ky["truoc"]
     truoc_theo_ngay = (doanh_thu_theo_ngay(phien, san, truoc["dau"], truoc["den"], shop_name, product_code)
@@ -302,14 +252,13 @@ def dung_daily(phien, san, ky, shop_name, product_code):
             "day_index": chi_so + 1, "date": ngay.isoformat(),
             "previous_date": ngay_truoc.isoformat() if ngay_truoc else None,
             "current": hien_tai.get(ngay, 0),
-            # Ngày của kỳ trước không tồn tại (kỳ trước ngắn hơn) → null, không phải 0.
+            # Ngày không có ở kỳ trước (kỳ trước ngắn hơn) là null, không phải 0.
             "previous": truoc_theo_ngay.get(ngay_truoc, 0) if ngay_truoc else None,
         })
     return ket_qua
 
 
 def kpi(phien, san, muc, ma_ky, shop_name=None, product_code=None):
-    """Toàn bộ khối `/api/{platform}/kpi` (§12.1.1.2)."""
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
     if ngay_max is None:
         ngay_min = ngay_max = date.today()
@@ -349,7 +298,7 @@ def kpi(phien, san, muc, ma_ky, shop_name=None, product_code=None):
         "daily": None,
     }
     if not ky["day_du"] and truoc_ky is not None and co_du_lieu:
-        # Doanh thu NGUYÊN kỳ trước và mức thay đổi nếu so nguyên kỳ — chỉ để minh họa vì sao phải cắt (§9.4).
+        # Doanh thu nguyên kỳ trước, chỉ để minh họa vì sao phải cắt cùng số ngày.
         nguyen = so_lieu_khoang(phien, san, truoc_ky["dau"], truoc_ky["cuoi_day_du"], shop_name, product_code)
         ket_qua["previous_full"] = {"period": truoc_ky["ky"], "revenue": nguyen["revenue"],
                                     "pct_change_if_used": thay_doi_phan_tram(hien_tai["revenue"], nguyen["revenue"])}
@@ -358,18 +307,11 @@ def kpi(phien, san, muc, ma_ky, shop_name=None, product_code=None):
     return ket_qua
 
 
-# ---------------------------------------------------------------- các endpoint còn lại
-
 def _trang_thai_don_gian(so_dong):
     return "ok" if so_dong else "no_data"
 
 
 def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_code=None):
-    """`/revenue-trend` (§12.1.1.3). Mặc định cả khoảng dữ liệu của sàn.
-
-    Dòng được cắt đúng [tu_ngay, den_ngay]. Kỳ nằm trong khoảng hỏi mà không có dòng nào → phần tử có
-    revenue/order_count/by_product = null (không phải 0).
-    """
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
     if ngay_max is None:
         return {"platform": san, "granularity": muc, "top_product_codes": [], "items": []}
@@ -378,7 +320,7 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
     loc, tham_so = _loc(san, shop_name, product_code)
     tham_so_khoang = {"tu": tu_ngay, "den": den_ngay, **tham_so}
 
-    # Gộp theo (ngày, mã) rồi chia vào kỳ ở Python: cùng một cách chia kỳ cho mọi mức.
+    # Gộp theo (ngày, mã) rồi chia kỳ ở Python để mọi mức dùng cùng một cách chia.
     cac_dong = phien.execute(text(f"""
         SELECT order_date, product_code,
                COUNT(*) AS so_dong,
@@ -390,7 +332,7 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
         SELECT order_date, COUNT(DISTINCT order_id) FROM orders
         WHERE order_date BETWEEN :tu AND :den AND {HOP_LE} {loc} GROUP BY order_date
     """), tham_so_khoang).all()
-    # order_date là ngày đặt của đơn nên một đơn chỉ nằm ở một ngày: cộng số đơn theo ngày vào kỳ là đúng.
+    # Một đơn chỉ thuộc một ngày đặt nên cộng số đơn theo ngày vào kỳ là đúng.
     don_theo_ngay = {ngay: so for ngay, so in don_hop_le}
 
     tong_theo_ma = {}
@@ -420,7 +362,7 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
         by_product = None
         if co_dong:
             by_product = [{"product_code": ma, "revenue": ky["by"].get(ma, 0)} for ma in top]
-            # Phần còn lại gồm mã ngoài top VÀ dòng chưa có mã → tổng các phần tử bằng đúng doanh thu kỳ.
+            # Phần còn lại gồm mã ngoài top và dòng chưa có mã, để tổng bằng đúng doanh thu kỳ.
             by_product.append({"product_code": None, "revenue": ky["revenue"] - sum(p["revenue"] for p in by_product)})
         items.append({"period": ky["period"],
                       "revenue": ky["revenue"] if co_dong else None,
@@ -431,7 +373,7 @@ def revenue_trend(phien, san, muc, tu_ngay, den_ngay, shop_name=None, product_co
 
 
 def top_products(phien, san, muc, ma_ky, limit, sort_by, shop_name=None, product_code=None):
-    """`/top-products` (§12.1.1.4): nhóm theo product_code, kèm % thay đổi so với kỳ trước (đã cắt)."""
+    """Nhóm theo product_code, kèm % thay đổi so với kỳ trước đã cắt."""
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
     if ngay_max is None:
         ngay_min = ngay_max = date.today()
@@ -467,13 +409,11 @@ def top_products(phien, san, muc, ma_ky, limit, sort_by, shop_name=None, product
         khoa_sap = lambda m: (-m["quantity"], -m["revenue"])
     else:
         khoa_sap = lambda m: (-m["revenue"], -m["quantity"])
-    # Sắp ổn định: cùng giá trị thì theo mã (mã None cuối).
     cac_muc.sort(key=lambda m: (khoa_sap(m), m["product_code"] is None, m["product_code"] or ""))
     return {"platform": san, "period": ky["ky"], "status": trang_thai, "items": cac_muc[:limit]}
 
 
 def _ky_don_gian(phien, san, muc, ma_ky):
-    """Kỳ hiện tại cho các endpoint không cần kỳ trước."""
     ngay_min, ngay_max = khoang_du_lieu(phien, san)
     if ngay_max is None:
         ngay_min = ngay_max = date.today()
@@ -481,7 +421,7 @@ def _ky_don_gian(phien, san, muc, ma_ky):
 
 
 def by_affiliate(phien, san, muc, ma_ky, shop_name=None, product_code=None):
-    """`/by-affiliate` (§12.1.1.5): doanh thu và số đơn hợp lệ của hai nhánh; tổng hai nhánh = doanh thu sàn."""
+    """Doanh thu và số đơn hợp lệ của hai nhánh affiliate; tổng hai nhánh bằng doanh thu sàn."""
     ky, _ = _ky_don_gian(phien, san, muc, ma_ky)
     loc, tham_so = _loc(san, shop_name, product_code)
     so_dong = so_lieu_khoang(phien, san, ky["dau"], ky["den"], shop_name, product_code)["so_dong"]
@@ -502,7 +442,6 @@ def by_affiliate(phien, san, muc, ma_ky, shop_name=None, product_code=None):
 
 
 def thong_ke_theo_tinh(phien, san, ky, shop_name=None, product_code=None):
-    """Danh sách tỉnh (đã sắp, nhóm "Khác" cuối) — dùng chung cho `/by-province` và compare."""
     loc, tham_so = _loc(san, shop_name, product_code)
     cac_dong = phien.execute(text(f"""
         SELECT COALESCE(province, 'Khác'), COUNT(DISTINCT order_id), SUM(nmv_after_tax) FROM orders
@@ -517,7 +456,6 @@ def thong_ke_theo_tinh(phien, san, ky, shop_name=None, product_code=None):
 
 
 def by_province(phien, san, muc, ma_ky, shop_name=None, product_code=None):
-    """`/by-province` (§12.1.1.6)."""
     ky, _ = _ky_don_gian(phien, san, muc, ma_ky)
     so_dong = so_lieu_khoang(phien, san, ky["dau"], ky["den"], shop_name, product_code)["so_dong"]
     if not so_dong:
@@ -547,7 +485,6 @@ def thong_ke_theo_gio(phien, san, ky, shop_name=None, product_code=None):
 
 
 def by_hour(phien, san, muc, ma_ky, shop_name=None, product_code=None):
-    """`/by-hour` (§12.1.1.7): luôn đủ 24 phần tử khi có dữ liệu."""
     ky, _ = _ky_don_gian(phien, san, muc, ma_ky)
     so_dong = so_lieu_khoang(phien, san, ky["dau"], ky["den"], shop_name, product_code)["so_dong"]
     if not so_dong:
@@ -557,11 +494,7 @@ def by_hour(phien, san, muc, ma_ky, shop_name=None, product_code=None):
 
 
 def so_sanh_hai_san(phien, muc, ma_ky):
-    """`/api/compare/platforms` (§12.1.2). Chỉ hai khóa sàn, KHÔNG có tổng.
-
-    Không có `period`: dùng kỳ chứa ngày dữ liệu mới nhất của CẢ HAI sàn, để hai sàn so cùng một kỳ.
-    Mỗi sàn cắt cùng số ngày theo MAX(order_date) của chính sàn đó.
-    """
+    """Không cộng gộp hai sàn; dùng kỳ chứa ngày dữ liệu mới nhất của cả hai sàn để so cùng một kỳ."""
     if ma_ky is None:
         ngay_moi_nhat = [khoang_du_lieu(phien, san)[1] for san in SAN_HOP_LE]
         ngay_moi_nhat = [n for n in ngay_moi_nhat if n]

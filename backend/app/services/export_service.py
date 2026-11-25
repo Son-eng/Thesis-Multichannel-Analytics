@@ -1,11 +1,4 @@
-"""Xuất báo cáo Excel (UC13, SPEC §12.1.4.4).
-
-KHÔNG tính lại số liệu: mọi con số lấy từ `kpi_service` (cùng hàm mà dashboard dùng) nên file Excel và màn hình
-luôn khớp nhau. Mỗi khối dashboard là một sheet. Quy tắc trình bày:
-- Thiếu số liệu → ô để TRỐNG kèm chú thích ở cột "Ghi chú" ("Không có dữ liệu", …), không bao giờ ghi 0.
-- Tiền là số nguyên (đồng); tỷ lệ và % thay đổi giữ đúng giá trị JSON (34.6 nghĩa là 34,6%), chỉ khác định dạng hiển thị.
-- Dòng ghi chú cuối sheet "Tổng quan": doanh thu là NMV sau thuế, đã loại hủy và hoàn, chưa phải lợi nhuận.
-"""
+"""Xuất Excel: số liệu lấy từ kpi_service nên luôn khớp dashboard; thiếu số liệu để ô trống, không ghi 0."""
 
 from datetime import date, datetime
 from io import BytesIO
@@ -40,29 +33,17 @@ DINH_DANG_DIEM = '+0.0" điểm %";-0.0" điểm %";0.0" điểm %"'
 
 MAU_TIEU_DE = PatternFill("solid", start_color="E8EEF7", end_color="E8EEF7")
 
-# Ký tự đầu khiến Excel/LibreOffice coi ô chuỗi là CÔNG THỨC (chèn công thức / CSV injection): = + - @ và tab, xuống dòng.
+# Ký tự đầu khiến Excel coi ô là công thức (CSV injection).
 DAU_HIEU_CONG_THUC = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 
 def trung_hoa_cong_thuc(gia_tri):
-    """Chuỗi bắt đầu bằng = + - @ (hoặc tab/xuống dòng) → thêm `'` ở đầu để Excel coi là văn bản, không chạy công thức.
-
-    Chỉ đụng tới giá trị KIỂU CHUỖI. Số (kể cả số âm), None, ngày giữ nguyên.
-    Cần vì tên gian hàng (tham số truy vấn, cột `Shop` của tệp TikTok), tên sản phẩm, tỉnh... do người dùng/dữ liệu ngoài
-    quyết định, mà openpyxl ghi chuỗi bắt đầu bằng "=" thành CÔNG THỨC thật.
-    """
     if isinstance(gia_tri, str) and gia_tri.startswith(DAU_HIEU_CONG_THUC):
         return "'" + gia_tri
     return gia_tri
 
 
 def trung_hoa_toan_bo_o(so_lam_viec):
-    """Áp `trung_hoa_cong_thuc` cho MỌI ô chuỗi của sổ làm việc, ngay trước khi lưu.
-
-    Làm một lượt cuối thay vì rải ở từng chỗ ghi ô (hơn 60 chỗ) để chỗ ghi mới thêm sau này cũng tự được che; báo cáo này
-    không bao giờ cố ý ghi công thức nên không có ô công thức hợp lệ nào bị phá. Ô đã bị openpyxl nhận là công thức
-    (data_type 'f') cũng được trả về dạng văn bản.
-    """
     for sheet in so_lam_viec.worksheets:
         for hang in sheet.iter_rows():
             for o in hang:
@@ -74,7 +55,6 @@ def trung_hoa_toan_bo_o(so_lam_viec):
 
 
 def _ngay_vn(chuoi_iso):
-    """'2026-08-16' → '16/08/2026'."""
     return date.fromisoformat(chuoi_iso).strftime("%d/%m/%Y")
 
 
@@ -92,7 +72,6 @@ def _chinh_do_rong(sheet, do_rong):
 
 
 def _ghi_chu_thay_doi(chi_so):
-    """Chú thích cho một chỉ số có pct_change (khuôn §12.1.0.2); chuỗi rỗng nếu so sánh bình thường."""
     if chi_so["value"] is None:
         return GHI_CHU_KHONG_DU_LIEU
     if chi_so["pct_change"] is None and not chi_so["previous_zero"] and chi_so["previous"] is None:
@@ -142,7 +121,7 @@ def _dung_tong_quan(sheet, kpi, bo_loc):
         sheet.cell(row=hang, column=1, value=nhan)
         for cot, gia_tri, kieu in ((2, chi_so["value"], dinh_dang), (3, chi_so["previous"], dinh_dang),
                                    (4, chi_so["pct_change"], DINH_DANG_THAY_DOI)):
-            o = sheet.cell(row=hang, column=cot, value=gia_tri)       # None → ô trống, không phải 0
+            o = sheet.cell(row=hang, column=cot, value=gia_tri)       # None thành ô trống, không phải 0
             o.number_format = kieu
         sheet.cell(row=hang, column=5, value=_ghi_chu_thay_doi(chi_so))
         hang += 1
@@ -271,10 +250,6 @@ def _dung_kenh_ban(sheet, du_lieu):
 
 
 def tao_bao_cao_excel(phien, san, muc, ma_ky, shop_name=None, product_code=None):
-    """Dựng file Excel của một sàn, một kỳ. Trả (bytes, mã kỳ thực tế).
-
-    Mọi số liệu gọi từ `kpi_service` với cùng tham số của dashboard. Mã kỳ sai định dạng → KyKhongHopLe.
-    """
     kpi = kpi_service.kpi(phien, san, muc, ma_ky, shop_name, product_code)
     ky = kpi["period"]
     xu_huong = kpi_service.revenue_trend(phien, san, muc, None, None, shop_name, product_code)

@@ -1,8 +1,3 @@
-"""Test đơn vị `app/etl/tiktok_api_transform.py` (SPEC §21.2) — JSON dựng tay, không mạng, không CSDL.
-
-So khớp toàn bộ với đường file nằm ở test_khu_hoi_tiktok.py (§21.5).
-"""
-
 import pandas as pd
 
 from app.etl import tiktok_api_transform
@@ -39,7 +34,6 @@ def test_dung_va_du_cot_chuan():
 
 
 def test_gop_line_item_cung_sku_thanh_mot_dong():
-    """3 line item cùng sku_id (đã tách từ 1 dòng SL 3, phần dư dồn line item đầu, §19.4) → 1 dòng SL 3."""
     ba_line_item = [line_item(giam_nguoi_ban="100002", stt=0), line_item(giam_nguoi_ban="100000", stt=1),
                     line_item(giam_nguoi_ban="100000", stt=2)]
     bang, _ = chuan_hoa([don(cac_line_item=ba_line_item)])
@@ -56,7 +50,6 @@ def test_hai_sku_khac_nhau_hai_dong_order_amount_muc_don():
     hai = [line_item(sku_id="111", seller_sku="BU01"), line_item(sku_id="222", seller_sku="M15")]
     bang, _ = chuan_hoa([don(cac_line_item=hai, tong_tien="2600000")])
     assert sorted(bang["sku"]) == ["BU01", "M15"]
-    # MỨC ĐƠN (§7.4): cùng giá trị trên mọi dòng của đơn — không chia, không cộng.
     assert list(bang["order_amount"]) == [2_600_000, 2_600_000]
 
 
@@ -83,24 +76,23 @@ def test_don_khong_co_finance_thi_khong_hoan():
 def test_sku_lam_sach_tinh_thoi_gian_trang_thai():
     bang, _ = chuan_hoa([don(trang_thai="IN_TRANSIT")])
     dong = bang.iloc[0]
-    assert dong["sku"] == "BU01"                                        # bỏ dấu nháy (§5.2)
+    assert dong["sku"] == "BU01"
     assert dong["product_code"] == "BU01"
     assert dong["order_created_at"] == pd.Timestamp("2026-01-01 09:00:00")
     assert dong["order_date"] == pd.Timestamp("2026-01-01")
     assert dong["hour_bucket"] == "9H - 10H"
     assert (dong["order_status_raw"], dong["order_status"]) == ("IN_TRANSIT", "shipping")
-    assert (dong["province"], dong["province_raw"]) == ("Hồ Chí Minh", "Hồ Chí Minh")   # cấp L1, không lấy L0
+    assert (dong["province"], dong["province_raw"]) == ("Hồ Chí Minh", "Hồ Chí Minh")
     assert dong["data_source"] == "api"
 
 
 def test_returned_quantity_khong_co_nguon_api_va_chua_co_affiliate_thi_false():
     bang, _ = chuan_hoa([don()], {"O1": {"sku_transactions": [giao_dich("111", "-1000000")]}})
-    assert bang.iloc[0]["returned_quantity"] == 0       # §21.2 không ánh xạ
-    assert not bang.iloc[0]["is_affiliate"]             # không có phần "affiliate" = không có thông tin
+    assert bang.iloc[0]["returned_quantity"] == 0
+    assert not bang.iloc[0]["is_affiliate"]
 
 
 def test_is_affiliate_theo_tung_sku_co_trong_skus():
-    """Cờ theo (đơn, sku_id): đơn có 2 SKU mà chỉ 1 SKU nằm trong skus[] → chỉ SKU đó True."""
     hai = [line_item(sku_id="111", seller_sku="BU01"), line_item(sku_id="222", seller_sku="M15")]
     bang, _ = tiktok_api_transform.chuan_hoa_api_tiktok({
         "don_hang": [don("O1", cac_line_item=hai), don("O2")], "finance": {},

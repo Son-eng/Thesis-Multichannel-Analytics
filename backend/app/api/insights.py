@@ -1,12 +1,4 @@
-"""Nhận định bằng LLM: POST /api/insights/generate (UC12, SPEC §10, §12.1.4.3).
-
-Cần đăng nhập (mọi vai trò). Lỗi LLM → 503 `llm_unavailable`; các endpoint khác của dashboard không bị ảnh hưởng.
-
-Giới hạn tần suất (chốt 11/11/2026, chỉ dẫn 021 C.1): mỗi người dùng cách nhau tối thiểu KHOANG_NGHI_TOI_THIEU_GIAY giây
-giữa hai lần gọi; gọi sớm hơn → 429 `too_many_requests` kèm `retry_after_seconds` và header `Retry-After`. Đây là bộ đếm
-TRONG BỘ NHỚ MỘT TIẾN TRÌNH — đủ cho demo một máy chủ, KHÔNG phải giải pháp phân tán (nhiều tiến trình/máy chủ mỗi nơi
-đếm riêng, khởi động lại thì xóa). Lần thử lại nội bộ của chốt chặn số liệu (insight_service) không tính là gọi thêm.
-"""
+"""Sinh nhận định bằng LLM, giới hạn tần suất đếm trong bộ nhớ của một tiến trình."""
 
 import math
 import threading
@@ -24,19 +16,18 @@ from app.services import insight_service, kpi_service
 
 router = APIRouter(prefix="/api/insights", tags=["insights"], dependencies=[Depends(yeu_cau_dang_nhap)])
 
-# Khoảng nghỉ tối thiểu giữa hai lần gọi của CÙNG một người dùng (giây). 0 = tắt giới hạn (test đặt 0).
+# Khoảng nghỉ tối thiểu giữa hai lần gọi của một người dùng (giây), 0 là tắt.
 KHOANG_NGHI_TOI_THIEU_GIAY = 10
 
-# Đồng hồ đơn điệu, tách thành biến để test giả lập thời gian mà không phải ngủ thật.
+# Tách ra biến để test giả lập thời gian.
 dong_ho = time.monotonic
 
-# {id người dùng: thời điểm gọi gần nhất}. Khóa để kiểm-rồi-ghi là một bước nguyên tử khi nhiều luồng cùng gọi.
+# Khóa để bước kiểm rồi ghi là nguyên tử khi nhiều luồng cùng gọi.
 _lan_goi_cuoi = {}
 _khoa = threading.Lock()
 
 
 def kiem_tan_suat(ma_nguoi_dung):
-    """Cho phép hay chưa. Trả 0 nếu được gọi (và ghi nhận lần gọi này), hoặc số giây còn phải chờ (làm tròn lên)."""
     if KHOANG_NGHI_TOI_THIEU_GIAY <= 0:
         return 0
     bay_gio = dong_ho()
@@ -45,7 +36,7 @@ def kiem_tan_suat(ma_nguoi_dung):
         if lan_truoc is not None and bay_gio - lan_truoc < KHOANG_NGHI_TOI_THIEU_GIAY:
             return max(1, math.ceil(KHOANG_NGHI_TOI_THIEU_GIAY - (bay_gio - lan_truoc)))
         _lan_goi_cuoi[ma_nguoi_dung] = bay_gio
-        # Dọn các mục đã quá hạn để từ điển không phình dần theo số người dùng.
+        # Dọn mục quá hạn để từ điển không phình theo số người dùng.
         for ma, thoi_diem in list(_lan_goi_cuoi.items()):
             if bay_gio - thoi_diem >= KHOANG_NGHI_TOI_THIEU_GIAY:
                 del _lan_goi_cuoi[ma]

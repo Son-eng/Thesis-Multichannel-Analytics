@@ -1,20 +1,4 @@
-"""Connector cho luồng ỦY QUYỀN gian hàng của hai sàn (chỉ dẫn 026, SPEC §22).
-
-CHỈ nói chuyện HTTP, không biết CSDL (cùng nguyên tắc với hai client đồng bộ, §20.1): dựng địa chỉ trang ủy quyền,
-đổi mã ủy quyền lấy token, lấy danh sách shop TikTok. Việc ghi `platform_tokens` là của `services/ket_noi_gian_hang.py`.
-
-Khuôn đã xác minh ở giai đoạn 0 (báo cáo 026 mục a, nguồn trong `Pipeline/`):
-- Shopee: trang `GET {SHOPEE_AUTH_PAGE_BASE_URL}/api/v2/shop/auth_partner?partner_id&timestamp&sign&redirect`
-  (ký như Public API: `partner_id + path + timestamp`); sàn chuyển về `redirect` kèm `code` + `shop_id`;
-  đổi mã bằng `POST /api/v2/auth/token/get` (body `code`, `partner_id`, `shop_id`).
-- TikTok: trang `GET {TIKTOK_AUTH_PAGE_BASE_URL}/open/authorize?service_id=…` (không ký); sàn chuyển về Redirect URL
-  đã đăng ký kèm `code`; đổi mã bằng `GET /api/v2/token/get` (`app_key`, `app_secret`, `auth_code`,
-  `grant_type=authorized_code`); danh sách shop bằng `GET /authorization/202309/shops` (header `x-tts-access-token`).
-Chưa xác minh (GIẢ ĐỊNH, ghi ở SPEC §16): sàn có trả lại `state` / nối `&code=` vào redirect đã có query hay không.
-
-Khóa ứng dụng (partner_key, app_secret) chỉ dùng để ký / gọi máy chủ-tới-máy chủ; URL đưa cho trình duyệt chỉ chứa
-`partner_id`, `timestamp`, `sign` (chữ ký, không phải khóa) và `service_id` — những thứ sàn yêu cầu công khai.
-"""
+"""Connector luồng ủy quyền gian hàng: dựng URL trang ủy quyền, đổi mã lấy token; URL cho trình duyệt không chứa khóa ứng dụng."""
 
 import hashlib
 import hmac
@@ -46,7 +30,6 @@ def _ky_tiktok(app_secret, duong_dan, tham_so, than=""):
 
 
 def tao_url_uy_quyen_shopee(cau_hinh, redirect, bay_gio=None):
-    """Địa chỉ trang ủy quyền Shopee (đã ký) để mở bằng trình duyệt; `redirect` là nơi sàn chuyển về."""
     timestamp = int(bay_gio if bay_gio is not None else time.time())
     tham_so = {
         "partner_id": cau_hinh.SHOPEE_PARTNER_ID,
@@ -58,18 +41,14 @@ def tao_url_uy_quyen_shopee(cau_hinh, redirect, bay_gio=None):
 
 
 def tao_url_uy_quyen_tiktok(cau_hinh, state):
-    """Địa chỉ trang ủy quyền TikTok. `state` là mã chống giả mạo do ta tự gắn (chưa xác minh sàn thật trả lại)."""
+    """state do ta tự gắn để chống giả mạo; chưa xác minh sàn thật có trả lại hay không."""
     tham_so = {"service_id": cau_hinh.TIKTOK_SERVICE_ID, "state": state}
     return f"{cau_hinh.TIKTOK_AUTH_PAGE_BASE_URL.rstrip('/')}{DUONG_DAN_TIKTOK_TRANG}?{urlencode(tham_so)}"
 
 
 def doi_ma_shopee(cau_hinh, code, shop_id, so_lan_gui_toi_da=http_retry.SO_LAN_GUI_TOI_DA,
                   cho_co_ban_giay=http_retry.CHO_CO_BAN_GIAY, ham_ngu=time.sleep):
-    """Đổi `code` (một lần, sống 10 phút) lấy token Shopee.
-
-    Trả: dict `{access_token, refresh_token, expire_in, shop_id_list}` (trong `response`, cùng khuôn endpoint làm mới).
-    Lỗi: LoiApiShopee (sàn từ chối, ví dụ `invalid_code`), http_retry.LoiHetLanThuLai (quá tải mãi).
-    """
+    """Mã ủy quyền chỉ dùng một lần và sống 10 phút."""
     def gui():
         timestamp = int(time.time())
         tham_so = {
@@ -91,15 +70,12 @@ def doi_ma_shopee(cau_hinh, code, shop_id, so_lan_gui_toi_da=http_retry.SO_LAN_G
 
 def doi_ma_tiktok(cau_hinh, auth_code, so_lan_gui_toi_da=http_retry.SO_LAN_GUI_TOI_DA,
                   cho_co_ban_giay=http_retry.CHO_CO_BAN_GIAY, ham_ngu=time.sleep):
-    """Đổi `auth_code` (một lần, sống 30 phút) lấy token TikTok. Trả dict `data` {access_token, refresh_token}.
-
-    Lỗi: LoiApiTikTok (sàn từ chối), http_retry.LoiHetLanThuLai.
-    """
+    """Mã ủy quyền chỉ dùng một lần và sống 30 phút."""
     def gui():
         return http.get(DUONG_DAN_TIKTOK_DOI_MA, params={
             "app_key": cau_hinh.TIKTOK_APP_KEY, "app_secret": cau_hinh.TIKTOK_APP_SECRET,
             "auth_code": auth_code,
-            # Đúng là 'authorized_code' — KHÔNG phải 'authorization_code' như OAuth chuẩn (Pipeline/Tiktok/tiktok_auth.py).
+            # TikTok dùng 'authorized_code', không phải 'authorization_code' như OAuth chuẩn.
             "grant_type": "authorized_code",
         })
 
@@ -113,10 +89,7 @@ def doi_ma_tiktok(cau_hinh, auth_code, so_lan_gui_toi_da=http_retry.SO_LAN_GUI_T
 
 def lay_shop_tiktok(cau_hinh, access_token, so_lan_gui_toi_da=http_retry.SO_LAN_GUI_TOI_DA,
                     cho_co_ban_giay=http_retry.CHO_CO_BAN_GIAY, ham_ngu=time.sleep):
-    """Các shop mà token này được ủy quyền: list `{id, name, region, seller_type, cipher, code}`.
-
-    Cần `cipher` (= shop_ref trong platform_tokens) và `name` — hai thứ chỉ có sau khi ủy quyền.
-    """
+    """Cần cipher và name, hai thứ chỉ có sau khi ủy quyền."""
     def gui():
         tham_so = {"app_key": cau_hinh.TIKTOK_APP_KEY, "timestamp": str(int(time.time()))}
         tham_so["sign"] = _ky_tiktok(cau_hinh.TIKTOK_APP_SECRET, DUONG_DAN_TIKTOK_SHOPS, tham_so)

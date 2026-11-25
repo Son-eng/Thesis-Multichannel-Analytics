@@ -1,12 +1,3 @@
-"""Test thử lại có thời gian chờ tăng dần — `app/connectors/http_retry.py` (SPEC §20.1).
-
-Hai nhóm:
-- Đơn vị: phản hồi dựng sẵn qua httpx2.MockTransport, đồng hồ ngủ giả (ghi lại
-  số giây đáng lẽ phải ngủ) — chạy tức thì, kiểm đúng số lần và thời gian chờ.
-- Socket thật: gọi máy chủ giả lập đang chạy trong thread (fixture
-  bat_may_chu_gia_lap), có MOCK_FAULT_RATE — kiểm cả đường mạng thật.
-"""
-
 import hashlib
 import hmac
 import json
@@ -20,7 +11,6 @@ from app.config import settings
 
 
 def tao_client_gia(cac_phan_hoi):
-    """httpx2.Client trả lần lượt các phản hồi cho sẵn; phần tử là Exception thì ném ra."""
     hang_doi = list(cac_phan_hoi)
 
     def xu_ly(yeu_cau):
@@ -32,8 +22,6 @@ def tao_client_gia(cac_phan_hoi):
 
 
 class DongHoNgu:
-    """Thay time.sleep: ghi lại số giây được yêu cầu ngủ, không ngủ thật."""
-
     def __init__(self):
         self.cac_lan = []
 
@@ -52,8 +40,6 @@ def thanh_cong_shopee():
 def goi(client, phan_loai, ngu, **them):
     return http_retry.goi_co_thu_lai(lambda: client.get("/x"), phan_loai, ham_ngu=ngu, **them)
 
-
-# ---------- Đơn vị ----------
 
 def test_thanh_cong_ngay_khong_ngu():
     ngu = DongHoNgu()
@@ -75,7 +61,7 @@ def test_het_so_lan_thi_bo_cuoc():
         goi(tao_client_gia([qua_tai_shopee()] * 5), http_retry.phan_loai_shopee, ngu)
     assert loi.value.so_lan_gui == 5
     assert loi.value.lan_cuoi.status_code == 429
-    assert ngu.cac_lan == [1.0, 2.0, 4.0, 8.0]          # lần cuối không ngủ
+    assert ngu.cac_lan == [1.0, 2.0, 4.0, 8.0]
 
 
 def test_so_lan_va_thoi_gian_cho_cau_hinh_duoc():
@@ -87,7 +73,6 @@ def test_so_lan_va_thoi_gian_cho_cau_hinh_duoc():
 
 
 def test_shopee_nhan_dien_qua_tai_bang_body_du_http_200():
-    """Kiểm cả mã HTTP lẫn body (§20.1): error_rate_limit trong body HTTP 200 cũng là quá tải."""
     ngu = DongHoNgu()
     qua_tai_200 = httpx2.Response(200, json={"error": "error_rate_limit"})
     goi(tao_client_gia([qua_tai_200, thanh_cong_shopee()]), http_retry.phan_loai_shopee, ngu)
@@ -139,7 +124,6 @@ def test_body_khong_phai_json_khong_van_loi_khong_thu_lai():
 
 
 def test_moi_lan_thu_goi_lai_ham_gui():
-    """Mỗi lần thử gọi lại gui_yeu_cau → nơi gọi ký lại được với timestamp mới."""
     so_lan_goi = []
     client = tao_client_gia([qua_tai_shopee(), thanh_cong_shopee()])
 
@@ -150,14 +134,11 @@ def test_moi_lan_thu_goi_lai_ham_gui():
     assert len(so_lan_goi) == 2
 
 
-# ---------- Socket thật: máy chủ giả lập có MOCK_FAULT_RATE ----------
-
 DUONG_DAN_DETAIL = "/api/v2/order/get_order_detail"
 DUONG_DAN_SEARCH = "/order/202309/orders/search"
 
 
 def gui_shopee_da_ky(client, duong_dan, tham_so_rieng):
-    """Yêu cầu Shopee ký đúng thuật toán (connector đầy đủ làm ở bước 9b). Ký lại mỗi lần gọi."""
     timestamp = int(time.time())
     chuoi = f"{settings.SHOPEE_PARTNER_ID}{duong_dan}{timestamp}{settings.SHOPEE_ACCESS_TOKEN}{settings.SHOPEE_SHOP_ID}"
     chu_ky = hmac.new(settings.SHOPEE_PARTNER_KEY.encode(), chuoi.encode(), hashlib.sha256).hexdigest()
@@ -168,7 +149,6 @@ def gui_shopee_da_ky(client, duong_dan, tham_so_rieng):
 
 
 def gui_tiktok_da_ky(client):
-    """POST orders/search của Shop A, body serialize một lần dùng cho cả ký lẫn gửi (bước 9c làm đầy đủ)."""
     than = json.dumps({}, separators=(",", ":"))
     tham_so = {"app_key": settings.TIKTOK_APP_KEY, "timestamp": str(int(time.time())),
                "shop_cipher": settings.TIKTOK_SHOP_A_CIPHER, "page_size": "1"}
@@ -181,7 +161,6 @@ def gui_tiktok_da_ky(client):
 
 
 def dem_lan_gui(ham_gui):
-    """Bọc hàm gửi để đếm số lần thật sự gửi qua mạng."""
     so_lan = []
 
     def gui():
@@ -199,7 +178,6 @@ def test_socket_that_khong_loi(bat_may_chu_gia_lap):
 
 
 def test_socket_that_co_qua_tai_van_lay_duoc_ket_qua(bat_may_chu_gia_lap):
-    """MOCK_FAULT_RATE = 0,5: cả 2 sàn vẫn lấy được kết quả, và thật sự đã phải thử lại."""
     may_chu = bat_may_chu_gia_lap(MOCK_FAULT_RATE=0.5, MOCK_FAULT_SEED=2026)
     tong_lan_shopee, tong_lan_tiktok = 0, 0
     with httpx2.Client(base_url=may_chu.url) as client:
@@ -213,7 +191,6 @@ def test_socket_that_co_qua_tai_van_lay_duoc_ket_qua(bat_may_chu_gia_lap):
             phan_hoi = http_retry.goi_co_thu_lai(gui, http_retry.phan_loai_tiktok, so_lan_toi_da=10, ham_ngu=DongHoNgu())
             assert phan_hoi.json()["code"] == 0
             tong_lan_tiktok += len(so_lan)
-    # 20 kết quả mỗi sàn mà gửi nhiều hơn 20 lần → đã gặp quá tải và thử lại.
     assert tong_lan_shopee > 20 and tong_lan_tiktok > 20
 
 

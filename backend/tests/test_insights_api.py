@@ -1,10 +1,3 @@
-"""Test nhận định LLM (UC12, SPEC §10, §12.1.4.3). KHÔNG gọi Gemini thật: `httpx2.MockTransport` giả phản hồi.
-
-Dữ liệu mẫu đã nạp trong CSDL thật (chỉ đọc). Điểm cần chứng minh: dữ liệu gửi đi đúng §10 (số tổng hợp, không dữ
-liệu dòng), chốt chặn số lạ hoạt động (gọi lại một lần rồi 503), mọi lỗi mạng/khóa/hạn mức → 503 `llm_unavailable`,
-khóa không bao giờ ra log hay phản hồi.
-"""
-
 import json
 
 import httpx2
@@ -38,8 +31,6 @@ def du_lieu_mau_da_nap():
 
 @pytest.fixture(autouse=True)
 def tat_gioi_han_tan_suat(monkeypatch):
-    """Các test ở đây gọi endpoint liên tiếp nhiều lần với cùng một người dùng giả: tắt giới hạn tần suất (C.1) để
-    kiểm đúng logic nhận định. Chính giới hạn được kiểm ở test_insights_tan_suat.py."""
     from app.api import insights as api_insights
     monkeypatch.setattr(api_insights, "KHOANG_NGHI_TOI_THIEU_GIAY", 0)
 
@@ -58,8 +49,6 @@ def phan_hoi_gemini(van_ban, ly_do="STOP"):
 
 
 class Gia:
-    """Máy chủ Gemini giả: ghi lại mọi yêu cầu, trả lần lượt các phản hồi cho sẵn (hoặc ném lỗi)."""
-
     def __init__(self, *cac_phan_hoi):
         self.cac_phan_hoi = list(cac_phan_hoi)
         self.cac_yeu_cau = []
@@ -83,8 +72,6 @@ def goi(ung_dung, gia, **body):
                                                            "period": "2026-08", **body})
 
 
-# ---------------------------------------------------------------- đường thành công và dữ liệu gửi đi
-
 def test_phan_hoi_tot_tra_200_dung_khuon(ung_dung):
     gia = Gia((200, phan_hoi_gemini(VAN_BAN_TOT)))
     phan_hoi = goi(ung_dung, gia)
@@ -104,7 +91,7 @@ def test_yeu_cau_gui_den_gemini_dung_dia_chi_va_khoa_nam_trong_tieu_de(ung_dung)
     assert yeu_cau.method == "POST"
     assert str(yeu_cau.url) == "https://generativelanguage.googleapis.com/v1beta/models/mo-hinh-thu:generateContent"
     assert yeu_cau.headers["x-goog-api-key"] == KHOA_GIA
-    assert KHOA_GIA not in str(yeu_cau.url) and "key=" not in str(yeu_cau.url)         # khóa KHÔNG nằm trong URL
+    assert KHOA_GIA not in str(yeu_cau.url) and "key=" not in str(yeu_cau.url)
 
 
 def test_cau_hinh_sinh_van_ban_va_muc_suy_nghi(ung_dung, monkeypatch):
@@ -112,8 +99,8 @@ def test_cau_hinh_sinh_van_ban_va_muc_suy_nghi(ung_dung, monkeypatch):
     goi(ung_dung, gia)
     cau_hinh = gia.body()["generationConfig"]
     assert cau_hinh == {"maxOutputTokens": 4096, "thinkingConfig": {"thinkingLevel": "LOW"}}
-    assert "temperature" not in cau_hinh                       # đã bị bỏ qua ở Gemini 3.6 trở lên
-    monkeypatch.setattr(settings, "GEMINI_THINKING_LEVEL", "")   # model cũ không có thinkingLevel
+    assert "temperature" not in cau_hinh
+    monkeypatch.setattr(settings, "GEMINI_THINKING_LEVEL", "")
     gia2 = Gia((200, phan_hoi_gemini(VAN_BAN_TOT)))
     goi(ung_dung, gia2)
     assert gia2.body()["generationConfig"] == {"maxOutputTokens": 4096}
@@ -136,10 +123,8 @@ def test_du_lieu_gui_di_dung_so_lieu_10_va_khong_co_du_lieu_dong(ung_dung):
     top = json_gui["top_products"]
     assert 1 <= len(top) <= 5 and set(top[0]) == {"product_code", "revenue", "change_pct"}
     assert [m["revenue"] for m in top] == sorted((m["revenue"] for m in top), reverse=True)
-    # Không gửi dữ liệu dòng, sku thô, mã đơn, thông tin khách hàng.
     for cam in ("sku", "order_id", "buyer", "phone", "address", "recipient", "customer", "province"):
         assert cam not in noi_dung.lower(), cam
-    # Câu lệnh: các quy tắc bắt buộc của SPEC §10.
     for ve in ("KHÔNG tự tính số mới", "KHÔNG suy đoán nguyên nhân", "tính đến ngày", "pct_change", "null", "product_code", "tối đa 5 câu"):
         assert ve in lenh, ve
 
@@ -160,18 +145,16 @@ def test_ky_khong_co_du_lieu_khong_goi_llm(ung_dung):
     assert gia.cac_yeu_cau == []
 
 
-# ---------------------------------------------------------------- chốt chặn số lạ
-
 def test_so_la_thi_goi_lai_mot_lan_roi_503(ung_dung, caplog):
     gia = Gia((200, phan_hoi_gemini("Doanh thu đạt 850 triệu, tăng 40%.")))
     with caplog.at_level("WARNING"):
         phan_hoi = goi(ung_dung, gia)
     assert phan_hoi.status_code == 503
     assert phan_hoi.json() == {"detail": {"code": "llm_unavailable", "message": "Nhận định chứa số không có trong dữ liệu"}}
-    assert len(gia.cac_yeu_cau) == 2                                                  # đúng một lần gọi lại
+    assert len(gia.cac_yeu_cau) == 2
     lan_hai = gia.body(1)["contents"][0]["parts"][0]["text"]
-    assert "850" in lan_hai and "KHÔNG có trong số liệu" in lan_hai                   # báo cho model biết số nào lạ
-    assert caplog.text.count("bị chặn vì số không có trong dữ liệu") == 2             # ghi số lần bị chặn vào log
+    assert "850" in lan_hai and "KHÔNG có trong số liệu" in lan_hai
+    assert caplog.text.count("bị chặn vì số không có trong dữ liệu") == 2
 
 
 def test_lan_dau_so_la_lan_hai_tot_thi_200(ung_dung, caplog):
@@ -183,19 +166,18 @@ def test_lan_dau_so_la_lan_hai_tot_thi_200(ung_dung, caplog):
 
 
 def test_tu_tinh_chenh_lech_cung_bi_chan(ung_dung):
-    """840.035.154 − 624.277.755 = 215.757.399: model tự tính số mới → bị chặn dù phép tính đúng."""
     gia = Gia((200, phan_hoi_gemini("Doanh thu tăng 215.757.399 đ so với kỳ trước.")))
     assert goi(ung_dung, gia).status_code == 503
 
 
 @pytest.mark.parametrize("van_ban", [
-    "Doanh thu đạt 840 triệu đồng.",                                    # làm tròn theo triệu
-    "Doanh thu đạt 0,84 tỷ đồng, tăng 34,6%.",                          # làm tròn theo tỷ + phần trăm
-    "Doanh thu tăng khoảng 35% so với kỳ trước.",                       # làm tròn phần trăm về số nguyên
-    "Doanh thu tăng 34.6% so với kỳ trước.",                            # dấu chấm thập phân
-    "Tính đến ngày 16/08/2026, doanh thu tháng 8 so với tháng 7.",      # ngày, tháng, năm
-    "Kỳ 2026-08 so với 2026-07; sản phẩm M15 và BU01.",                 # mã kỳ, mã sản phẩm
-    "Doanh thu đạt 840.035.154 đ.",                                     # số đầy đủ kiểu Việt
+    "Doanh thu đạt 840 triệu đồng.",
+    "Doanh thu đạt 0,84 tỷ đồng, tăng 34,6%.",
+    "Doanh thu tăng khoảng 35% so với kỳ trước.",
+    "Doanh thu tăng 34.6% so với kỳ trước.",
+    "Tính đến ngày 16/08/2026, doanh thu tháng 8 so với tháng 7.",
+    "Kỳ 2026-08 so với 2026-07; sản phẩm M15 và BU01.",
+    "Doanh thu đạt 840.035.154 đ.",
 ])
 def test_cach_viet_lam_tron_hop_ly_duoc_chap_nhan(ung_dung, van_ban):
     gia = Gia((200, phan_hoi_gemini(van_ban)))
@@ -205,18 +187,16 @@ def test_cach_viet_lam_tron_hop_ly_duoc_chap_nhan(ung_dung, van_ban):
 
 
 @pytest.mark.parametrize("van_ban", [
-    "Doanh thu đạt 850 triệu đồng.",       # lệch quá nửa triệu
-    "Doanh thu đạt 840.035.155 đ.",        # lệch 1 đồng ở số viết đủ
-    "Doanh thu tăng 34,7%.",               # lệch 0,1 điểm
-    "Doanh thu tăng 36%.",                 # làm tròn sai
+    "Doanh thu đạt 850 triệu đồng.",
+    "Doanh thu đạt 840.035.155 đ.",
+    "Doanh thu tăng 34,7%.",
+    "Doanh thu tăng 36%.",
     "Có 7 sản phẩm bán chạy nhất 99 ngày.",
 ])
 def test_so_sai_bi_chan(ung_dung, van_ban):
     gia = Gia((200, phan_hoi_gemini(van_ban)))
     assert goi(ung_dung, gia).status_code == 503, van_ban
 
-
-# ---------------------------------------------------------------- lỗi Gemini → 503 llm_unavailable
 
 @pytest.mark.parametrize("phan_hoi_loi, thong_diep", [
     ((429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "message": "quota"}}), "Đã hết hạn mức gọi Gemini, thử lại sau"),
@@ -229,7 +209,7 @@ def test_loi_http_cua_gemini_la_503(ung_dung, phan_hoi_loi, thong_diep):
     phan_hoi = goi(ung_dung, Gia(phan_hoi_loi))
     assert phan_hoi.status_code == 503
     assert phan_hoi.json() == {"detail": {"code": "llm_unavailable", "message": thong_diep}}
-    assert "quota" not in phan_hoi.text and "boom" not in phan_hoi.text                # không lộ nội dung lỗi của bên thứ ba
+    assert "quota" not in phan_hoi.text and "boom" not in phan_hoi.text
 
 
 @pytest.mark.parametrize("loi", [httpx2.ConnectError("mạng đứt"), httpx2.ReadTimeout("quá hạn")])
@@ -271,8 +251,6 @@ def test_loi_llm_khong_lam_hong_khoi_khac_cua_dashboard(ung_dung):
         assert client.get("/api/shopee/kpi", params={"period": "2026-08"}).status_code == 200
 
 
-# ---------------------------------------------------------------- khóa không bao giờ lộ
-
 @pytest.mark.parametrize("cach", ["tot", "so_la", "loi_mang", "loi_429", "dinh_dang"])
 def test_khoa_khong_xuat_hien_trong_log_va_phan_hoi(ung_dung, caplog, cach):
     gia = {"tot": Gia((200, phan_hoi_gemini(VAN_BAN_TOT))),
@@ -284,11 +262,9 @@ def test_khoa_khong_xuat_hien_trong_log_va_phan_hoi(ung_dung, caplog, cach):
         phan_hoi = goi(ung_dung, gia)
     assert KHOA_GIA not in phan_hoi.text
     assert KHOA_GIA not in caplog.text
-    assert KHOA_GIA not in repr(settings) and KHOA_GIA not in str(settings)           # SecretStr che khóa
+    assert KHOA_GIA not in repr(settings) and KHOA_GIA not in str(settings)
     assert KHOA_GIA not in json.dumps(phan_hoi.json(), ensure_ascii=False)
 
-
-# ---------------------------------------------------------------- quyền, tham số
 
 def test_phai_dang_nhap(du_lieu_mau_da_nap):
     with TestClient(tao_ung_dung(chay_lich=False, khoi_dong_csdl=False, chay_watcher=False)) as client:
@@ -304,8 +280,6 @@ def test_tham_so_sai_422(ung_dung, body, ma):
         assert client.post("/api/insights/generate", json=body).status_code == ma
 
 
-# ---------------------------------------------------------------- hàm thuần
-
 def test_doc_so_cac_cach_viet():
     assert insight_service.doc_so("840.035.154") == (840035154.0, 0)
     assert insight_service.doc_so("34,6") == (34.6, 1)
@@ -318,8 +292,8 @@ def test_doc_so_cac_cach_viet():
 def test_tim_so_la_thuan():
     du_lieu = {"revenue": 840035154, "pct_change": -21.4, "period": "2026-08", "top_products": [{"product_code": "M3 Plus", "revenue": 5}]}
     f = insight_service.tim_so_la
-    assert f("Doanh thu 840 triệu giảm 21,4% so với kỳ trước.", du_lieu) == []                # dấu âm không cần có trong văn bản
-    assert f("Tháng 8/2026, M3 Plus đứng thứ 1.", du_lieu) == []                               # kỳ, mã sản phẩm, thứ hạng
+    assert f("Doanh thu 840 triệu giảm 21,4% so với kỳ trước.", du_lieu) == []
+    assert f("Tháng 8/2026, M3 Plus đứng thứ 1.", du_lieu) == []
     assert f("Doanh thu 900 triệu.", du_lieu) == ["900"]
     assert f("Giảm 22%.", du_lieu) == ["22"]
     assert f("", du_lieu) == []

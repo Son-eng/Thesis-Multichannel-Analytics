@@ -1,12 +1,3 @@
-"""Test connector Shopee với máy chủ giả lập qua SOCKET THẬT (SPEC §20.1–§20.3, §21.5).
-
-Mọi test gọi mock đang chạy trong thread (fixture bat_may_chu_gia_lap), như
-connector sẽ gọi sàn thật. Số kỳ vọng: 1.761 đơn / 1.774 dòng (§17.1), và tập
-đơn tính thẳng từ dữ liệu mà chính máy chủ giả lập đang phục vụ.
-
-Test có marker `db` (cuối file) nối connector với token_store và CSDL thật.
-"""
-
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -19,13 +10,13 @@ from app.connectors.shopee_client import CUA_SO_TOI_DA_GIAY, LoiApiShopee, Shope
 from app.services import token_store
 
 GIO_VN = timezone(timedelta(hours=7))
-TU_LUC = int(datetime(2026, 7, 1, tzinfo=GIO_VN).timestamp())      # đầu dữ liệu Shopee
-DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())    # sau mọi create_time / update_time
+TU_LUC = int(datetime(2026, 7, 1, tzinfo=GIO_VN).timestamp())
+DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())
 MUOI_LAM_NGAY = 15 * 86400
 
 
 def khong_ngu(so_giay):
-    """Thay time.sleep trong http_retry: test có quá tải không phải ngủ thật."""
+    """(giữ một dòng)"""
 
 
 def tao_client(may_chu, **them):
@@ -36,13 +27,10 @@ def tao_client(may_chu, **them):
 
 
 def don_cua_mock(may_chu):
-    """Dữ liệu đơn mà máy chủ giả lập đang phục vụ: {order_sn: đơn}."""
     return may_chu.ung_dung.state.du_lieu_shopee["don_hang"]
 
 
 class SoTokenTrongBoNho:
-    """Thay token_store trong test không cần CSDL: giữ refresh_token hiện tại, đếm số lần làm mới."""
-
     def __init__(self, client):
         self.client = client
         self.refresh_token = settings.SHOPEE_REFRESH_TOKEN
@@ -55,14 +43,12 @@ class SoTokenTrongBoNho:
         return moi["access_token"]
 
 
-# ---------- Chia cửa sổ (đơn vị) ----------
-
 def test_chia_cua_so_lien_tiep_khong_chong_khong_ho():
     cac_cua_so = chia_cua_so(0, 40 * 86400)
     assert cac_cua_so == [(0, MUOI_LAM_NGAY), (MUOI_LAM_NGAY + 1, 2 * MUOI_LAM_NGAY + 1),
                           (2 * MUOI_LAM_NGAY + 2, 40 * 86400)]
     for (_, cuoi_truoc), (dau_sau, _) in zip(cac_cua_so, cac_cua_so[1:]):
-        assert dau_sau == cuoi_truoc + 1                      # [from, to] cả 2 đầu → sau = to + 1
+        assert dau_sau == cuoi_truoc + 1
     assert all(cuoi - dau <= CUA_SO_TOI_DA_GIAY for dau, cuoi in cac_cua_so)
 
 
@@ -71,8 +57,6 @@ def test_chia_cua_so_bien():
     assert chia_cua_so(0, MUOI_LAM_NGAY) == [(0, MUOI_LAM_NGAY)]
     assert chia_cua_so(10, 9) == []
 
-
-# ---------- Kéo đủ dữ liệu ----------
 
 def test_keo_du_1761_don_1774_dong(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap()
@@ -93,33 +77,24 @@ def test_keo_theo_update_time_mac_dinh_cung_du(bat_may_chu_gia_lap):
 
 
 def test_ranh_gioi_cua_so_khong_sot_khong_trung(bat_may_chu_gia_lap):
-    """§20.2 — BẮT BUỘC: có đơn nằm ĐÚNG mốc nối giữa 2 cửa sổ.
-
-    Chọn một đơn X, đặt khoảng kéo [X − 15 ngày, X + 15 ngày]: cửa sổ đầu kết
-    thúc đúng tại create_time của X, cửa sổ sau bắt đầu ngay sau đó. Chia sai
-    (cửa sổ sau bắt đầu tại `to` thay vì `to + 1`) thì X bị kéo 2 lần → fail.
-    """
     may_chu = bat_may_chu_gia_lap()
     cac_don = don_cua_mock(may_chu)
     don_x = next(don for don in cac_don.values() if don["create_time"] > TU_LUC + 20 * 86400)
     moc = don_x["create_time"]
     tu_luc, den_luc = moc - MUOI_LAM_NGAY, moc + MUOI_LAM_NGAY
-    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc          # đúng là đơn nằm trên mốc nối
+    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc
 
     with tao_client(may_chu) as client:
         ma_don = client.lay_ma_don(tu_luc, den_luc, truong_thoi_gian="create_time")
     mong_doi = {ma for ma, don in cac_don.items() if tu_luc <= don["create_time"] <= den_luc}
     so_don_tren_moc = sum(don["create_time"] == moc for don in cac_don.values())
     assert so_don_tren_moc >= 1
-    assert ma_don.count(don_x["order_sn"]) == 1               # không trùng ở mốc
-    assert len(ma_don) == len(set(ma_don))                    # không trùng ở đâu cả
-    assert set(ma_don) == mong_doi                            # không sót
+    assert ma_don.count(don_x["order_sn"]) == 1
+    assert len(ma_don) == len(set(ma_don))
+    assert set(ma_don) == mong_doi
 
-
-# ---------- Escrow ----------
 
 def test_escrow_completed_only_tra_ve_don_khong_co_escrow(bat_may_chu_gia_lap):
-    """Đơn không có escrow vẫn được trả về (phần tử fail_error) để bước 10 tính NMV tạm tính (§7.5)."""
     may_chu = bat_may_chu_gia_lap(MOCK_ESCROW_MODE="completed_only")
     with tao_client(may_chu) as client:
         ket_qua = client.keo_don(TU_LUC, DEN_LUC, truong_thoi_gian="create_time")
@@ -131,8 +106,6 @@ def test_escrow_completed_only_tra_ve_don_khong_co_escrow(bat_may_chu_gia_lap):
     assert all(phan.get("fail_error") for phan in ket_qua["escrow"] if "escrow_detail" not in phan)
 
 
-# ---------- Token ----------
-
 @pytest.mark.cham
 def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_SHOPEE_ACCESS_TTL_SECONDS=2)
@@ -141,10 +114,10 @@ def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
         client.khi_can_lam_moi = so.khi_can_lam_moi
         ma_lan_1 = client.lay_ma_don(TU_LUC, TU_LUC + 86400, "create_time")
         assert so.so_lan == 0
-        time.sleep(3)                                          # token hết hạn
+        time.sleep(3)
         ma_lan_2 = client.lay_ma_don(TU_LUC, TU_LUC + 86400, "create_time")
         assert so.so_lan == 1 and ma_lan_2 == ma_lan_1
-        time.sleep(3)                                          # hết hạn lần nữa → dùng refresh MỚI
+        time.sleep(3)
         assert client.lay_ma_don(TU_LUC, TU_LUC + 86400, "create_time") == ma_lan_1
         assert so.so_lan == 2
 
@@ -187,8 +160,6 @@ def test_sai_khoa_bao_error_sign_khong_lam_moi(bat_may_chu_gia_lap):
     assert so_lan == []
 
 
-# ---------- Quá tải ----------
-
 def test_qua_tai_30_phan_tram_van_keo_du(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_FAULT_RATE=0.3, MOCK_FAULT_SEED=9)
     with tao_client(may_chu, so_lan_gui_toi_da=10) as client:
@@ -204,12 +175,9 @@ def test_qua_tai_mai_thi_bao_het_lan_thu(bat_may_chu_gia_lap):
             client.lay_chi_tiet(["X"])
 
 
-# ---------- Nối với token_store và CSDL thật ----------
-
 @pytest.mark.cham
 @pytest.mark.db
 def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi_test, tao_phien_test, monkeypatch):
-    """Cách sync_job (bước 11) sẽ nối: khi_can_lam_moi → token_store.lam_moi_va_ghi(…, client.goi_lam_moi_token)."""
     ket_noi_test.execute(text("DELETE FROM platform_tokens"))
     monkeypatch.setattr(token_store, "SessionLocal", tao_phien_test)
     token_store.nap_san_tu_cau_hinh(settings)
@@ -227,8 +195,6 @@ def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi
     assert dong["refresh_token"] != settings.SHOPEE_REFRESH_TOKEN
 
 
-# ---------- Báo cáo affiliate (bước 16) ----------
-
 @pytest.mark.cham
 def test_keo_don_kem_bao_cao_affiliate_du_764_don(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap()
@@ -237,12 +203,10 @@ def test_keo_don_kem_bao_cao_affiliate_du_764_don(bat_may_chu_gia_lap):
     ma_affiliate = [muc["order_sn"] for muc in ket_qua["affiliate"]]
     assert len(ma_affiliate) == len(set(ma_affiliate)) == 764
     assert set(ma_affiliate) == set(may_chu.ung_dung.state.du_lieu_shopee["affiliate"])
-    # Mỗi đơn affiliate thuộc đúng tập đơn vừa kéo.
     assert set(ma_affiliate) <= {don["order_sn"] for don in ket_qua["don_hang"]}
 
 
 def test_lay_don_affiliate_ranh_gioi_cua_so(bat_may_chu_gia_lap):
-    """§20.2: đơn affiliate nằm ĐÚNG mốc nối giữa 2 cửa sổ — đúng 1 lần (Shopee: cửa sổ sau = to + 1)."""
     may_chu = bat_may_chu_gia_lap()
     affiliate = may_chu.ung_dung.state.du_lieu_shopee["affiliate"]
     ma_x, moc = next((ma, tg) for ma, tg in sorted(affiliate.items(), key=lambda m: m[1]) if tg > TU_LUC + 20 * 86400)

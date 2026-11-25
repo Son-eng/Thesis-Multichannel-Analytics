@@ -1,8 +1,3 @@
-"""Test đơn vị `app/etl/shopee_api_transform.py` (SPEC §21.1, §7.5) — JSON dựng tay, không mạng, không CSDL.
-
-So khớp toàn bộ với đường file nằm ở test_khu_hoi_shopee.py (test khứ hồi §21.5).
-"""
-
 import pandas as pd
 
 from app.etl import shopee_api_transform
@@ -46,7 +41,6 @@ def test_nmv_co_escrow_la_gia_goc_nhan_sl_tru_tro_gia():
 
 
 def test_khong_co_escrow_thi_tam_tinh_bang_gia_uu_dai():
-    """Phần tử lỗi {order_sn, fail_error} của escrow lô (§16 mục 6) → NMV tạm tính (§7.5)."""
     loi = {"order_sn": "A1", "fail_error": "mock_escrow_not_available", "fail_message": ""}
     bang, _ = chuan_hoa([don()], [loi])
     dong = bang.iloc[0]
@@ -66,14 +60,13 @@ def test_escrow_ghep_dung_tung_mat_hang_theo_item_model():
 
 def test_sku_du_phong_va_bo_dem():
     cac_mat_hang = [
-        mat_hang(item_sku="", model_sku="M21 live", item_id=1),       # dự phòng
-        mat_hang(item_sku="  ", model_sku="", item_id=2, model_id=20),  # cả hai rỗng → UNKNOWN
+        mat_hang(item_sku="", model_sku="M21 live", item_id=1),
+        mat_hang(item_sku="  ", model_sku="", item_id=2, model_id=20),
     ]
     bang, bo_dem = chuan_hoa([don(cac_mat_hang=cac_mat_hang, trang_thai="MA_LA")], [])
     assert list(bang["sku"]) == ["M21 live", "UNKNOWN"]
     assert bo_dem["rows_sku_fallback"] == 1 and bo_dem["rows_sku_unknown"] == 1
-    assert bo_dem["rows_status_unknown"] == 2                     # mã trạng thái lạ → unknown
-    # "M21 live" có trong product_map (SKU điền tay, §5.4); chỉ "UNKNOWN" không tra được.
+    assert bo_dem["rows_status_unknown"] == 2
     assert list(bang["product_code"].isna()) == [False, True]
     assert bo_dem["rows_product_unmapped"] == 1
 
@@ -81,7 +74,7 @@ def test_sku_du_phong_va_bo_dem():
 def test_thoi_gian_trang_thai_tinh_khung_gio():
     bang, _ = chuan_hoa([don(trang_thai="TO_CONFIRM_RECEIVE")], [escrow()])
     dong = bang.iloc[0]
-    assert dong["order_created_at"] == pd.Timestamp("2026-07-01 13:00:00")     # giờ VN
+    assert dong["order_created_at"] == pd.Timestamp("2026-07-01 13:00:00")
     assert dong["order_date"] == pd.Timestamp("2026-07-01")
     assert dong["hour_bucket"] == "13H - 14H"
     assert (dong["order_status_raw"], dong["order_status"]) == ("TO_CONFIRM_RECEIVE", "delivered")
@@ -95,13 +88,11 @@ def test_hoan_hang_theo_returned_qty():
 
 
 def test_chua_co_nguon_affiliate_thi_false():
-    """Không có phần "affiliate" trong kết quả kéo = không có thông tin = shop tự bán (§21.4)."""
     bang, _ = chuan_hoa([don()], [escrow()])
     assert not bang["is_affiliate"].any()
 
 
 def test_is_affiliate_theo_don_co_trong_bao_cao():
-    """Cờ theo ĐƠN: mọi dòng của đơn có trong báo cáo affiliate đều True; đơn khác False."""
     hai_mat_hang = [mat_hang(item_id=1, model_id=10), mat_hang(item_sku="M15", model_sku="M15", item_id=2, model_id=20)]
     cac_don = [don("A1", cac_mat_hang=hai_mat_hang), don("A2")]
     bang, _ = shopee_api_transform.chuan_hoa_api_shopee(

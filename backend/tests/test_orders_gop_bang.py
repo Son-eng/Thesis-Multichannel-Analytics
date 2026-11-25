@@ -1,7 +1,3 @@
-"""Test riêng của bảng gộp `orders` (chốt 08/11/2026 theo yêu cầu GVHD, SPEC §3): khóa duy nhất có `platform`,
-cột riêng từng sàn để NULL, ràng buộc CHECK, chỉ mục bắt đầu bằng `platform`. CSDL thật, giao dịch rollback.
-"""
-
 from datetime import date
 from pathlib import Path
 
@@ -24,7 +20,6 @@ def mau():
 
 
 def mot_dong(bang, order_id="DON_TRUNG_MA", sku="SKU_TRUNG_MA"):
-    """Một dòng chuẩn của sàn với (order_id, sku) cho trước."""
     dong = bang.head(1).copy()
     dong["order_id"] = order_id
     dong["sku"] = sku
@@ -40,7 +35,7 @@ def test_cung_order_id_sku_khac_san_khong_bi_coi_la_trung(mau, phien_test, ket_n
     shopee, tiktok = mau
     them_s, cap_nhat_s = loader.upsert_don_hang(phien_test, "shopee", mot_dong(shopee), None)
     them_t, cap_nhat_t = loader.upsert_don_hang(phien_test, "tiktok", mot_dong(tiktok), None)
-    assert (them_s, cap_nhat_s, them_t, cap_nhat_t) == (1, 0, 1, 0)                 # cả hai đều THÊM MỚI
+    assert (them_s, cap_nhat_s, them_t, cap_nhat_t) == (1, 0, 1, 0)
     assert dem(ket_noi_test, order_id="DON_TRUNG_MA", sku="SKU_TRUNG_MA") == 2
     assert dem(ket_noi_test, platform="shopee", order_id="DON_TRUNG_MA") == 1
     assert dem(ket_noi_test, platform="tiktok", order_id="DON_TRUNG_MA") == 1
@@ -60,7 +55,7 @@ def test_cung_san_cung_order_id_sku_thi_cap_nhat_khong_nhan_doi(mau, phien_test,
 def test_cap_nhat_cua_mot_san_khong_dung_den_dong_cung_ma_cua_san_kia(mau, phien_test, ket_noi_test):
     shopee, tiktok = mau
     dong_shopee, dong_tiktok = mot_dong(shopee), mot_dong(tiktok)
-    dong_shopee["order_status"] = dong_tiktok["order_status"] = "completed"       # dòng đầu của tệp mẫu có thể đã là 'cancelled'
+    dong_shopee["order_status"] = dong_tiktok["order_status"] = "completed"
     loader.upsert_don_hang(phien_test, "shopee", dong_shopee, None)
     loader.upsert_don_hang(phien_test, "tiktok", dong_tiktok, None)
     dong_doi = dong_tiktok.copy()
@@ -78,8 +73,8 @@ def test_cot_rieng_tung_san(mau, phien_test, ket_noi_test):
            "count(*) FILTER (WHERE nmv_is_provisional)")
     s = ket_noi_test.execute(text(f"SELECT {cot} FROM orders WHERE platform = 'shopee'")).one()
     t = ket_noi_test.execute(text(f"SELECT {cot} FROM orders WHERE platform = 'tiktok'")).one()
-    assert tuple(s) == (0, 0, 0)                       # Shopee: cột riêng của TikTok để NULL; nmv_is_provisional theo dữ liệu
-    assert t[0] == 5 and t[1] == 5 and t[2] == 0       # TikTok: có order_amount và sku_subtotal; không bao giờ tạm tính
+    assert tuple(s) == (0, 0, 0)
+    assert t[0] == 5 and t[1] == 5 and t[2] == 0
 
 
 def test_nmv_is_provisional_cua_shopee_duoc_giu_con_tiktok_luon_false(mau, phien_test, ket_noi_test):
@@ -125,7 +120,6 @@ def test_bang_cu_da_bi_xoa_va_chi_muc_deu_bat_dau_bang_platform(ket_noi_test):
 
 
 def test_truy_van_mot_san_dung_chi_muc_co_platform(ket_noi_test):
-    """Với đủ dữ liệu, truy vấn lọc theo sàn + ngày phải dùng chỉ mục (không quét cả bảng). Tắt seqscan để kiểm planner CÓ THỂ dùng."""
     ket_noi_test.execute(text("SET LOCAL enable_seqscan = off"))
     ke_hoach = "\n".join(ket_noi_test.execute(text(
         "EXPLAIN SELECT sum(nmv_after_tax) FROM orders WHERE platform = 'tiktok' AND order_date BETWEEN '2026-08-01' AND '2026-08-23'"

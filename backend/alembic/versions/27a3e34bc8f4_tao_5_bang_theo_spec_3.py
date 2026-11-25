@@ -1,26 +1,10 @@
-"""tao 5 bang theo SPEC 3
-
-Migration đầu tiên: tạo 5 bảng orders_shopee, orders_tiktok, users, sync_runs,
-platform_tokens đúng như CREATE TABLE ở SPEC §3 (bản 12/10/2026, đã bỏ 5 cột).
-
-Sinh bằng `alembic revision --autogenerate` từ app/models/, rồi đọc lại từng
-dòng đối chiếu §3. Phần DDL không phải sửa: CHECK, DEFAULT, UNIQUE, index đều
-được sinh đủ vì đã khai báo tường minh trong model (chi tiết: TRACKLOG bước 6).
-Chỉ sửa tay chú thích. Thứ tự tạo bảng: users trước sync_runs vì
-sync_runs.triggered_by là khóa ngoại tới users.id.
-
-Revision ID: 27a3e34bc8f4
-Revises:
-Create Date: 2026-10-12 23:01:52.793049
-
-"""
+"""Tạo 5 bảng ban đầu (revision 27a3e34bc8f4)."""
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
 revision: str = '27a3e34bc8f4'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
@@ -28,7 +12,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Tạo 5 bảng và 10 index của 2 bảng đơn hàng."""
     op.create_table('orders_shopee',
     sa.Column('id', sa.BigInteger(), nullable=False),
     sa.Column('shop_name', sa.String(length=50), nullable=False),
@@ -160,7 +143,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Xóa 5 bảng theo thứ tự ngược: sync_runs trước users (khóa ngoại)."""
+    """Xóa theo thứ tự ngược vì sync_runs có khóa ngoại tới users."""
     op.drop_table('sync_runs')
     op.drop_table('users')
     op.drop_table('platform_tokens')

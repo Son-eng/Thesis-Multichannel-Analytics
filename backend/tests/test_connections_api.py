@@ -1,12 +1,3 @@
-"""Test luồng KẾT NỐI GIAN HÀNG bằng ủy quyền (chỉ dẫn 026, giai đoạn 3): `/api/connections/*`.
-
-Chạy trọn vòng với MÁY CHỦ GIẢ LẬP THẬT trên socket (fixture `bat_may_chu_gia_lap`) và CSDL thật trong giao dịch rollback:
-    POST authorize (admin) → mở trang ủy quyền của sàn → bấm Đồng ý/Từ chối → sàn chuyển về callback → backend đổi mã.
-Phần "trình duyệt" do hàm `nguoi_dung_ben_trang_san` đóng vai: đọc biểu mẫu HTML của trang ủy quyền và gửi quyết định.
-
-Phần logic thuần của `state` (hết hạn, dùng một lần, khác sàn) test không cần CSDL ở đầu file.
-"""
-
 import logging
 import re
 from datetime import datetime, timedelta
@@ -25,10 +16,6 @@ from app.services.ket_noi_gian_hang import KhoYeuCau, xu_ly_callback
 
 BAY_GIO = datetime(2026, 11, 14, 9, 0, 0).astimezone()
 
-
-# =====================================================================
-# 1. Kho `state` — logic thuần (không CSDL)
-# =====================================================================
 
 def test_state_dung_mot_lan():
     kho = KhoYeuCau()
@@ -50,7 +37,7 @@ def test_state_cua_san_nay_khong_dung_cho_san_kia_va_bi_huy_luon():
     kho = KhoYeuCau()
     state = kho.tao("shopee", 1, "Shop D", BAY_GIO, timedelta(minutes=10))
     assert kho.lay_mot_lan(state, "tiktok", BAY_GIO) is None
-    assert kho.lay_mot_lan(state, "shopee", BAY_GIO) is None          # đã bị hủy: không thử lại được
+    assert kho.lay_mot_lan(state, "shopee", BAY_GIO) is None
 
 
 def test_state_gia_mao_hoac_rong_khong_hop_le():
@@ -62,7 +49,6 @@ def test_state_gia_mao_hoac_rong_khong_hop_le():
 
 
 def test_callback_state_khong_hop_le_khong_goi_ra_ngoai_va_tra_loi_state():
-    """Không có state hợp lệ thì KHÔNG đổi mã (không gọi sàn): dùng cấu hình trỏ vào cổng không ai nghe — nếu có gọi sẽ ra lỗi khác."""
     kho = KhoYeuCau()
     ket_qua = xu_ly_callback("shopee", {"code": "abc", "shop_id": "1", "state": "gia"}, kho=kho)
     assert not ket_qua.thanh_cong and ket_qua.ly_do == ket_noi_gian_hang.LY_DO_STATE
@@ -84,13 +70,7 @@ def test_url_ve_giao_dien_khong_co_ma_hay_state():
     assert loi == {"ket_noi": ["loi"], "ly_do": ["chu_shop_tu_choi"]}
 
 
-# =====================================================================
-# 2. Trọn vòng với máy chủ giả lập thật + CSDL thật
-# =====================================================================
-
 class Moi:
-    """Môi trường một test: app, máy chủ giả lập, danh sách lời gọi chạy nền, các hàm đóng vai trình duyệt."""
-
     def __init__(self, client, tieu_de_admin, may_chu, cac_lan_chay, ket_noi):
         self.client = client
         self.tieu_de_admin = tieu_de_admin
@@ -104,7 +84,6 @@ class Moi:
                                 headers=self.tieu_de_admin if tieu_de is None else tieu_de)
 
     def nguoi_dung_ben_trang_san(self, authorize_url, quyet_dinh="dong_y", chon=None):
-        """Mở trang ủy quyền của sàn rồi bấm nút; trả truy vấn (dict) của địa chỉ sàn chuyển trình duyệt về."""
         trang = httpx2.get(authorize_url)
         assert trang.status_code == 200, trang.text
         phien = re.search(r'name="phien" value="([^"]+)"', trang.text).group(1)
@@ -118,7 +97,6 @@ class Moi:
         return {k: v[0] for k, v in parse_qs(urlparse(chuyen.headers["location"]).query).items()}
 
     def callback(self, san, truy_van):
-        """Sàn chuyển trình duyệt về backend: KHÔNG có JWT."""
         return self.client.get(f"/api/connections/{san}/callback", params=truy_van, follow_redirects=False)
 
     def ket_noi_hoan_chinh(self, san, chon, ten_shop=None, quyet_dinh="dong_y"):
@@ -167,7 +145,7 @@ def test_chi_admin_moi_bat_dau_duoc_ket_noi(moi, tieu_de_user):
     assert moi.client.post("/api/connections/shopee/authorize", json={"shop_name": "Shop D"}).status_code == 401
     assert moi.bat_dau("shopee", "Shop D", tieu_de_user).status_code == 403
     assert moi.bat_dau("tiktok", None, tieu_de_user).status_code == 403
-    assert moi.dong_token("shopee")[0][0] == "Shop C" and len(moi.dong_token("tiktok")) == 2     # chưa đổi gì
+    assert moi.dong_token("shopee")[0][0] == "Shop C" and len(moi.dong_token("tiktok")) == 2
 
 
 @pytest.mark.db
@@ -176,7 +154,7 @@ def test_shopee_bat_buoc_ten_hien_thi_va_ten_hop_le(moi):
     assert phan_hoi.status_code == 422 and phan_hoi.json()["detail"]["code"] == "shop_name_required"
     assert moi.bat_dau("shopee", "a/b").json()["detail"]["code"] == "shop_name_invalid"
     assert moi.bat_dau("shopee", "x" * 51).json()["detail"]["code"] == "shop_name_too_long"
-    assert moi.bat_dau("tiktok").status_code == 200                       # TikTok không cần tên
+    assert moi.bat_dau("tiktok").status_code == 200
 
 
 @pytest.mark.db
@@ -184,7 +162,7 @@ def test_dia_chi_uy_quyen_khong_chua_khoa_ung_dung_hay_token(moi):
     url_shopee = moi.bat_dau("shopee", "Shop D").json()["authorize_url"]
     url_tiktok = moi.bat_dau("tiktok").json()["authorize_url"]
     truy_van = parse_qs(urlparse(url_shopee).query)
-    assert set(truy_van) == {"partner_id", "timestamp", "sign", "redirect"}        # đúng thứ sàn yêu cầu công khai
+    assert set(truy_van) == {"partner_id", "timestamp", "sign", "redirect"}
     assert truy_van["redirect"][0].startswith(f"{settings.PUBLIC_BACKEND_URL}/api/connections/shopee/callback?state=")
     assert set(parse_qs(urlparse(url_tiktok).query)) == {"service_id", "state"}
     bi_mat = [settings.SHOPEE_PARTNER_KEY, settings.TIKTOK_APP_SECRET, settings.SHOPEE_ACCESS_TOKEN,
@@ -205,11 +183,9 @@ def test_shopee_ket_noi_shop_moi_tao_dong_token_va_kich_hoat_dong_bo(moi):
     assert [d[0] for d in sau] == ["Shop C", "Shop D"] and len(sau) == len(truoc) + 1
     shop_d = next(d for d in sau if d[0] == "Shop D")
     assert shop_d[1] == "200004" and shop_d[2] and shop_d[3]
-    # Không có token / mã / state nào trong địa chỉ chuyển về giao diện.
     chuoi_ve = phan_hoi.headers["location"]
     for gia_tri in [shop_d[2], shop_d[3], truy_van["code"], truy_van["state"]]:
         assert gia_tri not in chuoi_ve
-    # Kích hoạt MỘT lượt đồng bộ cho đúng shop vừa kết nối.
     assert [lan["shops"] for lan in moi.cac_lan_chay] == [[("shopee", "Shop D")]]
     dong_run = moi.ket_noi.execute(text("SELECT platform, shop_name, trigger_type, status FROM sync_runs")).all()
     assert dong_run == [("shopee", "Shop D", "manual", "running")]
@@ -218,23 +194,22 @@ def test_shopee_ket_noi_shop_moi_tao_dong_token_va_kich_hoat_dong_bo(moi):
 @pytest.mark.db
 def test_shopee_ket_noi_lai_shop_cu_cap_nhat_dung_dong_khong_tao_dong_trung_va_giu_ten(moi):
     truoc = {d[0]: d for d in moi.dong_token("shopee")}
-    # Admin gõ tên khác, nhưng sàn trả đúng shop_id đang có → là KẾT NỐI LẠI: giữ tên cũ.
     phan_hoi, _ = moi.ket_noi_hoan_chinh("shopee", str(settings.SHOPEE_SHOP_ID), "Tên gõ khác")
     _, tham_so = duong_dan_ve_giao_dien(phan_hoi)
     assert tham_so == {"ket_noi": "thanh_cong", "shop": "Shop C", "lai": "1"}
     sau = moi.dong_token("shopee")
-    assert len(sau) == 1 and sau[0][0] == "Shop C"                          # không thêm dòng, không đổi tên
-    assert sau[0][2] != truoc["Shop C"][2] and sau[0][3] != truoc["Shop C"][3]   # token được thay
+    assert len(sau) == 1 and sau[0][0] == "Shop C"
+    assert sau[0][2] != truoc["Shop C"][2] and sau[0][3] != truoc["Shop C"][3]
     assert moi.cac_lan_chay[0]["shops"] == [("shopee", "Shop C")]
 
 
 @pytest.mark.db
 def test_shopee_ten_trung_voi_shop_khac_bi_tu_choi_va_khong_dong_den_shop_do(moi):
     truoc = moi.dong_token("shopee")
-    phan_hoi, _ = moi.ket_noi_hoan_chinh("shopee", "200004", "Shop C")    # shop D nhưng đặt tên "Shop C" đang là shop khác
+    phan_hoi, _ = moi.ket_noi_hoan_chinh("shopee", "200004", "Shop C")
     _, tham_so = duong_dan_ve_giao_dien(phan_hoi)
     assert tham_so == {"ket_noi": "loi", "ly_do": "ten_trung"}
-    assert moi.dong_token("shopee") == truoc                               # token Shop C nguyên vẹn
+    assert moi.dong_token("shopee") == truoc
     assert moi.cac_lan_chay == []
 
 
@@ -255,17 +230,13 @@ def test_state_gia_mao_het_han_dung_lai_bi_tu_choi_khong_doi_ma(moi):
     url = moi.bat_dau("shopee", "Shop D").json()["authorize_url"]
     truy_van = moi.nguoi_dung_ben_trang_san(url, "dong_y", "200004")
     truoc = moi.dong_token("shopee")
-    # (a) state giả
     gia = {**truy_van, "state": "doan-bua"}
     assert duong_dan_ve_giao_dien(moi.callback("shopee", gia))[1] == {"ket_noi": "loi", "ly_do": "state_khong_hop_le"}
-    # (b) thiếu state
     thieu = {k: v for k, v in truy_van.items() if k != "state"}
     assert duong_dan_ve_giao_dien(moi.callback("shopee", thieu))[1]["ly_do"] == "state_khong_hop_le"
     assert moi.dong_token("shopee") == truoc
-    # (c) state thật dùng được MỘT lần
     assert duong_dan_ve_giao_dien(moi.callback("shopee", truy_van))[1]["ket_noi"] == "thanh_cong"
     assert duong_dan_ve_giao_dien(moi.callback("shopee", truy_van))[1]["ly_do"] == "state_khong_hop_le"
-    # (d) hết hạn: lùi hạn của yêu cầu về quá khứ
     url2 = moi.bat_dau("tiktok").json()["authorize_url"]
     truy_van2 = moi.nguoi_dung_ben_trang_san(url2, "dong_y", "Shop E")
     for yeu_cau in ket_noi_gian_hang.KHO_YEU_CAU._yeu_cau.values():
@@ -286,7 +257,7 @@ def test_state_cua_shopee_khong_dung_duoc_cho_callback_tiktok(moi):
 def test_ma_uy_quyen_het_han_o_san_thi_bao_loi_san_va_khong_ghi(moi):
     url = moi.bat_dau("shopee", "Shop D").json()["authorize_url"]
     truy_van = moi.nguoi_dung_ben_trang_san(url, "dong_y", "200004")
-    truy_van["code"] = "ma-sai-khong-ton-tai"                              # sàn sẽ từ chối đổi (invalid_code)
+    truy_van["code"] = "ma-sai-khong-ton-tai"
     truoc = moi.dong_token("shopee")
     assert duong_dan_ve_giao_dien(moi.callback("shopee", truy_van))[1] == {"ket_noi": "loi", "ly_do": "loi_san"}
     assert moi.dong_token("shopee") == truoc and moi.cac_lan_chay == []
@@ -309,7 +280,7 @@ def test_tiktok_ket_noi_lai_shop_a_thay_token_khong_tao_dong_trung(moi):
     assert duong_dan_ve_giao_dien(phan_hoi)[1] == {"ket_noi": "thanh_cong", "shop": "Shop A", "lai": "1"}
     sau = {d[0]: d for d in moi.dong_token("tiktok")}
     assert set(sau) == {"Shop A", "Shop B"}
-    assert sau["Shop A"][2] != truoc["Shop A"][2] and sau["Shop B"] == truoc["Shop B"]       # chỉ Shop A đổi
+    assert sau["Shop A"][2] != truoc["Shop A"][2] and sau["Shop B"] == truoc["Shop B"]
 
 
 @pytest.mark.db
@@ -317,8 +288,7 @@ def test_token_va_ma_khong_xuat_hien_trong_phan_hoi_hay_log(moi, caplog):
     caplog.set_level(logging.DEBUG)
     url = moi.bat_dau("shopee", "Shop D").json()["authorize_url"]
     truy_van = moi.nguoi_dung_ben_trang_san(url, "dong_y", "200004")
-    # Từ đây chỉ xét log do BACKEND ghi: bước "trình duyệt" ở trên là do test đóng vai (thư viện HTTP của test ghi cả
-    # địa chỉ chuyển về ở mức DEBUG), không phải mã của ứng dụng.
+    # Từ đây chỉ xét log do backend ghi, bước trình duyệt ở trên là do test đóng vai.
     caplog.clear()
     phan_hoi = moi.callback("shopee", truy_van)
     shop_d = next(d for d in moi.dong_token("shopee") if d[0] == "Shop D")
@@ -327,7 +297,6 @@ def test_token_va_ma_khong_xuat_hien_trong_phan_hoi_hay_log(moi, caplog):
     for gia_tri in bi_mat:
         assert gia_tri not in caplog.text, "bí mật lọt vào log"
         assert gia_tri not in phan_hoi.text and gia_tri not in phan_hoi.headers["location"]
-    # Hai lần thất bại (state sai, sàn từ chối mã) cũng không làm lộ mã trong log.
     truy_van2 = moi.nguoi_dung_ben_trang_san(moi.bat_dau("shopee", "Shop X").json()["authorize_url"], "dong_y", "200004")
     ma_that = truy_van2["code"]
     truy_van2["code"] = "ma-sai-" + ma_that
@@ -340,11 +309,10 @@ def test_token_va_ma_khong_xuat_hien_trong_phan_hoi_hay_log(moi, caplog):
 
 @pytest.mark.db
 def test_shop_moi_duoc_lich_dong_bo_va_watcher_thay_o_vong_sau(moi, phien_test, tmp_path):
-    """Shop vừa kết nối nằm trong platform_tokens nên: scheduler (đọc lại danh sách mỗi vòng) và watcher (tạo ngăn) đều thấy."""
     from app.sync import folder_watcher, sync_job
 
     moi.ket_noi_hoan_chinh("shopee", "200004", "Shop D")
-    assert ("shopee", "Shop D") in sync_job.liet_ke_shop(phien_test)          # danh sách mà scheduler đọc lại mỗi vòng
+    assert ("shopee", "Shop D") in sync_job.liet_ke_shop(phien_test)
     ten_shopee = [ten for _, ten in sync_job.liet_ke_shop(phien_test, "shopee")]
     folder_watcher.quet_mot_lan(tmp_path, {}, lambda *t: None, None, ten_shopee)
     assert (tmp_path / "inbox" / "shopee" / "Shop D").is_dir()

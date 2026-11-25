@@ -1,8 +1,4 @@
-"""Bảng `sync_runs` — nhật ký MỌI lượt đưa dữ liệu vào, cả 3 đường (SPEC §3.3).
-
-Ba đường: đồng bộ API, thư mục quét tự động, nút tải file. Thay cho bảng
-`upload_logs` cũ. Trang lịch sử đồng bộ đọc bảng này.
-"""
+"""Bảng sync_runs: nhật ký mọi lượt đưa dữ liệu vào, cả ba đường."""
 
 from datetime import datetime
 
@@ -10,16 +6,11 @@ from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-# Import lớp User để khóa ngoại triggered_by trỏ thẳng vào User.id. Nhờ vậy,
-# nạp model SyncRun là bảng users cũng có trong metadata. Viết dạng chuỗi
-# "users.id" thì nơi nào dùng SyncRun mà quên import user.py sẽ lỗi
-# NoReferencedTableError lúc ghi (đã gặp ở bước 7).
+# Import lớp User để nạp SyncRun là có luôn bảng users trong metadata, tránh NoReferencedTableError.
 from app.models.user import User
 
 
 class SyncRun(Base):
-    """Một lượt nạp dữ liệu của 1 sàn: nguồn, số dòng, 5 bộ đếm chất lượng, kết quả."""
-
     __tablename__ = "sync_runs"
     __table_args__ = (
         CheckConstraint("platform IN ('shopee', 'tiktok')", name="ck_sync_runs_platform"),
@@ -34,20 +25,16 @@ class SyncRun(Base):
     shop_name: Mapped[str | None] = mapped_column(String(50))
     source: Mapped[str] = mapped_column(String(15))
     trigger_type: Mapped[str] = mapped_column(String(10), server_default=text("'schedule'"))
-    # Chỉ đường API: khoảng thời gian đã kéo.
     window_from: Mapped[datetime | None] = mapped_column(DateTime)
     window_to: Mapped[datetime | None] = mapped_column(DateTime)
-    # Chỉ đường file.
     file_name: Mapped[str | None] = mapped_column(String(255))
     api_calls: Mapped[int] = mapped_column(server_default=text("0"))
     orders_fetched: Mapped[int] = mapped_column(server_default=text("0"))
     rows_total: Mapped[int] = mapped_column(server_default=text("0"))
     rows_inserted: Mapped[int] = mapped_column(server_default=text("0"))
-    # Thay rows_skipped cũ: upsert cập nhật dòng đã có, không bỏ qua (§4).
     rows_updated: Mapped[int] = mapped_column(server_default=text("0"))
 
-    # 5 bộ đếm chất lượng (§3.3) — tên trùng khóa của dict bộ đếm mà 2 parser
-    # trả về, để bước nạp ghi thẳng vào đây.
+    # Tên trùng khóa của bộ đếm mà parser trả về, để ghi thẳng vào đây.
     rows_sku_fallback: Mapped[int] = mapped_column(server_default=text("0"))
     rows_sku_unknown: Mapped[int] = mapped_column(server_default=text("0"))
     rows_status_unknown: Mapped[int] = mapped_column(server_default=text("0"))

@@ -1,5 +1,3 @@
-"""Test quản lý người dùng /api/users (UC03, SPEC §12.1.4.2). Chỉ admin; CSDL thật, giao dịch rollback."""
-
 import re
 
 import pytest
@@ -61,7 +59,7 @@ def test_trung_ten_la_409_username_taken(client):
     assert tao(client).status_code == 201
     phan_hoi = tao(client, mat_khau="mat-khau-khac-2")
     assert phan_hoi.status_code == 409 and phan_hoi.json()["detail"]["code"] == "username_taken"
-    assert tao(client, ten="  nhan.vien.01 ").status_code == 409                    # khoảng trắng hai đầu được bỏ trước khi so
+    assert tao(client, ten="  nhan.vien.01 ").status_code == 409
 
 
 @pytest.mark.parametrize("ten", ["ab", "a" * 51, "co dau cach", "tên-có-dấu", "a@b", ""])
@@ -93,7 +91,7 @@ def test_doi_vai_tro(client):
 def test_khong_tu_doi_vai_tro_cua_chinh_minh(client, admin):
     phan_hoi = client.patch(f"/api/users/{admin.id}", json={"role": "user"})
     assert phan_hoi.status_code == 400 and phan_hoi.json()["detail"]["code"] == "cannot_change_own_role"
-    assert client.get("/api/users").status_code == 200                              # vẫn là admin
+    assert client.get("/api/users").status_code == 200
 
 
 def test_dat_lai_mat_khau(client):

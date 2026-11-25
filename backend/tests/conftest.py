@@ -1,16 +1,3 @@
-"""Fixture dùng chung cho các test cần PostgreSQL thật (marker `db`).
-
-Cách test tự dọn dữ liệu — không xóa gì thật sự:
-- Mỗi test mở MỘT kết nối và một giao dịch bao ngoài.
-- Mọi Session trong test gắn vào kết nối đó với join_transaction_mode=
-  "create_savepoint": khi code gọi commit(), SQLAlchemy chỉ chốt một SAVEPOINT
-  bên trong, không chốt giao dịch ngoài.
-- Hết test → rollback giao dịch ngoài → CSDL trở về đúng như trước test, kể
-  cả dữ liệu đã nạp tay bằng lệnh nap_file.
-Nhờ vậy test chạy lại bao nhiêu lần cũng ra cùng kết quả và không làm mất dữ
-liệu sinh viên đang dùng để xem dashboard.
-"""
-
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
@@ -20,14 +7,12 @@ from app.config import settings
 from app.core import log_filter
 from may_chu_gia_lap import THU_MUC_MOCK, MayChuGiaLap, nap_module_mock
 
-# Mọi test chạy với bộ lọc che bí mật đã lắp (như khi chạy ứng dụng thật): chỉ dẫn 022.
+# Mọi test chạy với bộ lọc che bí mật đã lắp, như khi chạy thật.
 log_filter.cai_dat_loc(settings)
 
 
 @pytest.fixture(scope="session")
 def engine_test():
-    """Engine tới CSDL dự án; không kết nối được thì skip mọi test dùng nó."""
-    # connect_timeout: Docker tắt thì báo lỗi sau tối đa 3 giây thay vì treo.
     engine = create_engine(settings.DATABASE_URL, connect_args={"connect_timeout": 3})
     try:
         with engine.connect() as ket_noi:
@@ -41,12 +26,6 @@ def engine_test():
 
 @pytest.fixture
 def ket_noi_test(engine_test):
-    """Một kết nối với giao dịch bao ngoài, luôn rollback khi hết test.
-
-    Xóa sạch 3 bảng NGAY TRONG giao dịch này để test bắt đầu từ bảng rỗng
-    (đếm "1.774 dòng thêm mới" mới có nghĩa). Lệnh xóa cũng bị rollback ở cuối,
-    nên dữ liệu thật vẫn còn nguyên.
-    """
     ket_noi = engine_test.connect()
     giao_dich_ngoai = ket_noi.begin()
     ket_noi.execute(text("DELETE FROM orders"))
@@ -58,30 +37,18 @@ def ket_noi_test(engine_test):
 
 @pytest.fixture
 def tao_phien_test(ket_noi_test):
-    """Khuôn tạo Session gắn vào kết nối test; commit() chỉ chốt SAVEPOINT."""
     return sessionmaker(bind=ket_noi_test, join_transaction_mode="create_savepoint")
 
 
 @pytest.fixture
 def phien_test(tao_phien_test):
-    """Một Session gắn vào kết nối test."""
     phien: Session = tao_phien_test()
     yield phien
     phien.close()
 
 
-# ---------------- Máy chủ giả lập trên socket thật (bước 9, chỉ dẫn 009) ----------------
-
 @pytest.fixture(scope="session")
 def bat_may_chu_gia_lap():
-    """Hàm bật một máy chủ giả lập mới trên socket thật; mọi máy chủ đã bật tắt khi hết phiên test.
-
-    bat_may_chu_gia_lap(**ghi_de) — ghi_de là biến cấu hình của mock
-    (MOCK_FAULT_RATE, MOCK_ESCROW_MODE, MOCK_*_TTL_SECONDS…) đè lên
-    mock_platform/.env.example (toàn khóa giả, trùng giá trị backend/.env).
-    Mỗi lần gọi là một máy chủ mới với bảng token sạch. Dữ liệu CSV chỉ dựng
-    một lần cho cả phiên (mất vài giây mỗi lần dựng).
-    """
     config_mock, data_builder, main_mock = nap_module_mock()
     cau_hinh_mau = config_mock.doc_cau_hinh(THU_MUC_MOCK / ".env.example")
     du_lieu_shopee = data_builder.dung_du_lieu_shopee()
@@ -102,17 +69,13 @@ def bat_may_chu_gia_lap():
         may_chu.tat()
 
 
-# ---------------- Đăng nhập cho test API (chỉ dẫn 017) ----------------
-
 @pytest.fixture(autouse=True)
 def bcrypt_nhanh(monkeypatch):
-    """Hạ số vòng bcrypt xuống mức tối thiểu cho mọi test (mặc định 12 vòng làm mỗi lần băm ~0,3 giây)."""
     monkeypatch.setattr(settings, "BCRYPT_ROUNDS", 4)
 
 
 @pytest.fixture
 def tao_nguoi(phien_test):
-    """Hàm tạo người dùng THẬT trong CSDL test (rollback cuối test): tao_nguoi("admin1", "admin") → User."""
     from app.core import security
     from app.models.user import User
 
@@ -125,7 +88,6 @@ def tao_nguoi(phien_test):
 
 
 def tieu_de_dang_nhap(nguoi):
-    """Header Authorization với token thật của `nguoi`."""
     from app.core import security
     return {"Authorization": f"Bearer {security.tao_token(nguoi.id)}"}
 
@@ -142,8 +104,6 @@ def tieu_de_user(tao_nguoi):
 
 @pytest.fixture
 def gia_dang_nhap():
-    """Hàm gắn một người dùng GIẢ (không cần CSDL) cho app: dùng ở test chỉ-đọc trên dữ liệu mẫu.
-    Việc ĐÒI đăng nhập được kiểm riêng ở test_auth_api (mọi endpoint không token → 401)."""
     from app.core.deps import yeu_cau_dang_nhap
     from app.models.user import User
 

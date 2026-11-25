@@ -1,8 +1,4 @@
-"""Endpoint dashboard một sàn và đối chiếu hai sàn (SPEC §12.1.0–§12.1.2).
-
-Router mỏng: đọc tham số, gọi `services/kpi_service.py`, trả JSON đúng hợp đồng. Không logic nghiệp vụ ở đây.
-Chưa có đăng nhập (hoãn sau demo): endpoint đọc, mở cho mọi người dùng nội bộ.
-"""
+"""Endpoint dashboard một sàn và đối chiếu hai sàn."""
 
 from datetime import date
 from typing import Literal
@@ -14,7 +10,6 @@ from app.core.deps import yeu_cau_dang_nhap
 from app.database import lay_phien_db
 from app.services import alert_service, kpi_service
 
-# Mọi endpoint đọc dữ liệu cần đăng nhập (mọi vai trò) — SPEC §11.
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(yeu_cau_dang_nhap)])
 
 San = Literal["shopee", "tiktok"]
@@ -22,7 +17,6 @@ Muc = Literal["day", "month", "quarter", "year"]
 
 
 def _goi(ham, *tham_so, **tu_khoa):
-    """Gọi hàm của kpi_service; mã kỳ sai định dạng → 422 `invalid_period` (khuôn lỗi §12.1.0)."""
     try:
         return ham(*tham_so, **tu_khoa)
     except kpi_service.KyKhongHopLe as loi:
@@ -81,5 +75,4 @@ def theo_gio(platform: San, granularity: Muc = "month", period: str | None = Non
 @router.get("/api/{platform}/alerts")
 def canh_bao(platform: San, granularity: Muc = "month", shop_name: str | None = None,
              product_code: str | None = None, phien: Session = Depends(lay_phien_db)):
-    """Mọi kỳ bị cảnh báo theo mức đang chọn trên toàn bộ dữ liệu của sàn (§12.1.1.8). Không nhận `period`."""
     return alert_service.liet_ke_canh_bao(phien, platform, granularity, shop_name, product_code)

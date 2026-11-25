@@ -1,15 +1,3 @@
-"""Test khóa dòng `SELECT … FOR UPDATE` của `token_store.lam_moi_va_ghi` bằng 2 THREAD (QUY_TRINH bước 11, chỉ dẫn 009 điểm 2).
-
-Hai thread, MỖI thread một kết nối CSDL thật CÓ COMMIT, cùng làm mới token của
-MỘT shop Shopee với máy chủ giả lập qua socket thật. Refresh_token Shopee chỉ
-dùng được 1 lần, nên nếu không có khóa thì hai thread cùng đọc refresh_token cũ
-và thread chậm hơn bị sàn từ chối.
-
-KHÁC mọi test DB khác: không thể dùng giao dịch rollback (cần commit thật để
-thread kia nhìn thấy). Vì vậy dùng một shop RIÊNG (`ZZ_TEST_FOR_UPDATE`) và
-fixture tự xóa dòng đó trong `finally` — dữ liệu thật của sinh viên không bị đụng.
-"""
-
 import threading
 import time
 
@@ -28,7 +16,6 @@ TEN_SHOP_TEST = "ZZ_TEST_FOR_UPDATE"
 
 @pytest.fixture
 def shop_test_that(engine_test):
-    """Một dòng platform_tokens thật (commit) cho shop thử; xóa sạch khi xong, kể cả khi test lỗi."""
     with SessionLocal() as phien:
         phien.execute(text("DELETE FROM platform_tokens WHERE shop_name = :s"), {"s": TEN_SHOP_TEST})
         phien.execute(text(
@@ -52,8 +39,6 @@ def doc_token_that():
 
 
 def chay_hai_thread(may_chu, *, thread_1_cho_giay):
-    """Thread 1 vào `lam_moi_va_ghi`, giữ khóa dòng, rồi MỚI gọi sàn sau `thread_1_cho_giay`;
-    thread 2 bắt đầu khi thread 1 đã nắm khóa. Trả (kết quả thread 1, kết quả thread 2, refresh đã gửi cho sàn)."""
     da_vao_giao_dich = threading.Event()
     cac_refresh_da_gui = []
     ket_qua = {}
@@ -65,7 +50,7 @@ def chay_hai_thread(may_chu, *, thread_1_cho_giay):
         def ham_lam_moi(refresh_token, shop_ref):
             cac_refresh_da_gui.append((ten, refresh_token))
             if ten == "t1":
-                da_vao_giao_dich.set()           # đã giữ khóa dòng (nếu có khóa), chưa gọi sàn
+                da_vao_giao_dich.set()
                 time.sleep(cho)
             return client.goi_lam_moi_token(refresh_token, shop_ref)
         try:
@@ -89,15 +74,13 @@ def test_hai_thread_cung_lam_moi_mot_shop_refresh_cu_chi_dung_1_lan_va_ca_hai_de
     may_chu = bat_may_chu_gia_lap()
     ket_qua_1, ket_qua_2, refresh_da_gui = chay_hai_thread(may_chu, thread_1_cho_giay=1.5)
 
-    # Cả hai lượt kết thúc thành công, mỗi lượt nhận một cặp token MỚI khác nhau.
     assert isinstance(ket_qua_1, dict), ket_qua_1
     assert isinstance(ket_qua_2, dict), ket_qua_2
     assert ket_qua_1["refresh_token"] != ket_qua_2["refresh_token"]
-    # Refresh cũ (ban đầu) chỉ được gửi cho sàn đúng 1 lần — thread 2 phải đợi rồi dùng refresh MỚI của thread 1.
+    # Refresh ban đầu chỉ được gửi cho sàn đúng một lần; thread 2 phải đợi rồi dùng refresh mới.
     refresh_ban_dau = [ten for ten, refresh in refresh_da_gui if refresh == settings.SHOPEE_REFRESH_TOKEN]
     assert refresh_ban_dau == ["t1"]
     assert ("t2", ket_qua_1["refresh_token"]) in refresh_da_gui
-    # CSDL giữ cặp token của lần làm mới SAU CÙNG, và token đó dùng được thật với sàn.
     access_cuoi, refresh_cuoi = doc_token_that()
     assert (access_cuoi, refresh_cuoi) == (ket_qua_2["access_token"], ket_qua_2["refresh_token"])
     with ShopeeClient(may_chu.url, settings.SHOPEE_PARTNER_ID, settings.SHOPEE_PARTNER_KEY,
@@ -106,9 +89,8 @@ def test_hai_thread_cung_lam_moi_mot_shop_refresh_cu_chi_dung_1_lan_va_ca_hai_de
 
 
 def test_thread_hai_phai_doi_khoa_cua_thread_mot(shop_test_that, bat_may_chu_gia_lap):
-    """Thread 2 chỉ chạy `ham_lam_moi` SAU khi thread 1 commit: thời điểm gọi sàn của thread 2 muộn hơn thời gian thread 1 giữ khóa."""
     may_chu = bat_may_chu_gia_lap()
     bat_dau = time.monotonic()
     ket_qua_1, ket_qua_2, _ = chay_hai_thread(may_chu, thread_1_cho_giay=1.5)
     assert isinstance(ket_qua_1, dict) and isinstance(ket_qua_2, dict)
-    assert time.monotonic() - bat_dau >= 1.5                          # thread 2 không thể xong trước khi thread 1 nhả khóa
+    assert time.monotonic() - bat_dau >= 1.5

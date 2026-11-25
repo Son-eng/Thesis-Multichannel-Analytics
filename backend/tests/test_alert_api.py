@@ -1,9 +1,3 @@
-"""Test cảnh báo biến động: `alert_service` và `GET /api/{platform}/alerts` (SPEC §9, §12.1.1.8, §17.3).
-
-Dữ liệu mẫu đã nạp trong CSDL thật (chỉ đọc). Ngoài số cố định của SPEC còn có đối chiếu độc lập: tính lại
-danh sách cảnh báo bằng pandas từ file mẫu cho nhiều tổ hợp (mức × bộ lọc × ngưỡng) rồi so với endpoint.
-"""
-
 from datetime import timedelta
 from pathlib import Path
 
@@ -60,8 +54,6 @@ def lay(client, san, **tham_so):
     return phan_hoi.json()
 
 
-# ---------------------------------------------------------------- số cố định §9.1, §17.3
-
 def test_muc_thang_tiktok_dung_1_canh_bao_2026_04(client):
     du_lieu = lay(client, "tiktok", granularity="month")
     assert set(du_lieu) == KHOA_ALERT and du_lieu["threshold_pct"] == -30.0
@@ -79,7 +71,7 @@ def test_muc_thang_shopee_khong_co_canh_bao(client):
 
 def test_thang_5_va_6_tiktok_giam_nhung_duoi_nguong_nen_khong_canh_bao(client):
     cac_ky = [m["period"] for m in lay(client, "tiktok", granularity="month")["items"]]
-    assert "2026-05" not in cac_ky and "2026-06" not in cac_ky           # −21,1% và −29,2%
+    assert "2026-05" not in cac_ky and "2026-06" not in cac_ky
     for ma_ky, pct in (("2026-05", -21.1), ("2026-06", -29.2)):
         du_lieu = client.get("/api/tiktok/kpi", params={"granularity": "month", "period": ma_ky}).json()
         assert du_lieu["metrics"]["revenue"]["pct_change"] == pct and du_lieu["alert"]["triggered"] is False
@@ -97,8 +89,6 @@ def test_muc_quy_nam_shopee_khong_co_canh_bao_vi_khong_du_ky(client):
     assert lay(client, "tiktok", granularity="year")["items"] == []
 
 
-# ---------------------------------------------------------------- ngưỡng lấy từ cấu hình
-
 def test_nguong_20_lam_ca_ba_thang_4_5_6_deu_canh_bao(client, monkeypatch):
     monkeypatch.setattr(settings, "ALERT_DROP_THRESHOLD_PCT", 20.0)
     du_lieu = lay(client, "tiktok", granularity="month")
@@ -113,8 +103,6 @@ def test_nguong_cao_hon_thi_het_canh_bao(client, monkeypatch):
     assert lay(client, "tiktok", granularity="month")["items"] == []
 
 
-# ---------------------------------------------------------------- không bao giờ cảnh báo khi thiếu kỳ trước / kỳ trước = 0
-
 @pytest.mark.parametrize("pct, ket_qua", [(None, False), (0.0, False), (-29.99, False), (-30.0, True), (-80.0, True)])
 def test_quy_tac_co_canh_bao(pct, ket_qua):
     assert alert_service.co_canh_bao(pct, 30) is ket_qua
@@ -126,7 +114,6 @@ def test_ky_truoc_bang_0_khong_chia_cho_0_khong_canh_bao():
 
 
 def test_san_pham_co_ky_truoc_bang_0_khong_xuat_hien_trong_alerts(client):
-    """M21 TikTok không bán ở tháng 2 và tháng 4 (previous_zero ở các tháng sau) → không bao giờ có trong items."""
     ky_truoc_bang_0 = client.get("/api/tiktok/top-products", params={"period": "2026-03", "limit": 100}).json()["items"]
     assert any(m["product_code"] == "M21" and m["previous_zero"] for m in ky_truoc_bang_0)
     for ma in ("M21", "M8 AIR", "M9 MAX"):
@@ -135,7 +122,6 @@ def test_san_pham_co_ky_truoc_bang_0_khong_xuat_hien_trong_alerts(client):
 
 
 def test_ky_khong_co_du_lieu_khong_bi_coi_la_giam_100_phan_tram(client):
-    """Shopee tháng 1–6 không có dòng nào: không được sinh cảnh báo kiểu −100%."""
     du_lieu = lay(client, "shopee", granularity="month")
     assert du_lieu["items"] == []
     du_lieu = lay(client, "tiktok", granularity="month", shop_name="Shop A", product_code="M21")
@@ -143,11 +129,7 @@ def test_ky_khong_co_du_lieu_khong_bi_coi_la_giam_100_phan_tram(client):
         assert muc["revenue"] > 0
 
 
-# ---------------------------------------------------------------- đối chiếu độc lập với pandas
-
 def tinh_canh_bao_pandas(bang, muc, nguong, shop=None, ma=None):
-    """Tính lại danh sách cảnh báo từ DataFrame của parser, KHÔNG dùng code của kpi_service/alert_service."""
-    # Khoảng dữ liệu là của TOÀN sàn (§9.2), không phải của phần đã lọc.
     ngay_min, ngay_max = bang["order_date"].min(), bang["order_date"].max()
     if shop:
         bang = bang[bang["shop_name"] == shop]

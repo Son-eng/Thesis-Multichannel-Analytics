@@ -1,9 +1,3 @@
-"""Test POST /api/upload/{platform} và GET /api/watcher/status (SPEC §12.1.3.5–§12.1.3.6, QUY_TRINH bước 12).
-
-CSDL thật trong giao dịch rollback: `nap_file.SessionLocal` và dependency `lay_phien_db`
-cùng trỏ vào kết nối test. File mẫu ẩn danh ở data/samples/.
-"""
-
 import re
 from pathlib import Path
 
@@ -33,7 +27,6 @@ def client(phien_test, tao_phien_test, monkeypatch, tieu_de_admin):
 
 
 def dem(ket_noi, bang):
-    """Đếm dòng: `bang` là "sync_runs" hoặc tên sàn ("shopee"/"tiktok") → đếm dòng của sàn đó trong `orders`."""
     if bang in ("shopee", "tiktok"):
         return ket_noi.execute(text("SELECT count(*) FROM orders WHERE platform = :p"), {"p": bang}).scalar_one()
     return ket_noi.execute(text(f"SELECT count(*) FROM {bang}")).scalar_one()
@@ -93,7 +86,7 @@ def test_file_thieu_cot_tra_422_missing_columns_va_khong_ghi_don_nao(client, ket
                                           "message": "Tệp thiếu cột bắt buộc, không dòng nào được ghi",
                                           "missing_columns": ["Mã đơn hàng"]}}
     assert dem(ket_noi_test, "shopee") == 0
-    assert ket_noi_test.execute(text("SELECT status FROM sync_runs")).scalars().all() == ["failed"]   # lần nạp hỏng có dấu vết
+    assert ket_noi_test.execute(text("SELECT status FROM sync_runs")).scalars().all() == ["failed"]
 
 
 def test_file_tiktok_thieu_cot_liet_ke_du_cac_cot_thieu(client, ket_noi_test, tmp_path):
@@ -139,9 +132,9 @@ def test_lifespan_bat_watcher_quet_ngay_khi_khoi_dong_va_cap_nhat_trang_thai(phi
                             thu_muc_data=tmp_path, ham_nap=lambda *tham_so: None)
     ung_dung.dependency_overrides[lay_phien_db] = lambda: phien_test
     with TestClient(ung_dung, headers=tieu_de_admin) as c:
-        for _ in range(100):                                  # vòng quét đầu chạy ở thread nền
+        for _ in range(100):
             du_lieu = c.get("/api/watcher/status").json()
             if du_lieu["last_scan_at"]:
                 break
             import time; time.sleep(0.1)
-    assert MAU_GIO_VN.match(du_lieu["last_scan_at"]) and du_lieu["pending_files"] == 1   # lần quét đầu chỉ ghi kích thước
+    assert MAU_GIO_VN.match(du_lieu["last_scan_at"]) and du_lieu["pending_files"] == 1

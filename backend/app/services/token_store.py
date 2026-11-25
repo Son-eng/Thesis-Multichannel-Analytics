@@ -1,20 +1,4 @@
-"""Đọc / ghi bảng `platform_tokens` — token API của từng gian hàng (SPEC §3.3, §12.1.3.2, §20.1).
-
-Vì sao đặt ở services/ chứ không ở connectors/: connector chỉ nói chuyện HTTP,
-không biết CSDL (§20.1) — nhờ vậy test connector không cần PostgreSQL. Module
-này là cầu nối: lấy token trong CSDL đưa cho connector, và ghi token mới mà
-connector nhận được từ sàn.
-
-Hai việc chính:
-1. `nap_san_tu_cau_hinh()` — lần đầu chạy, bảng chưa có token của shop nào thì
-   lấy token ban đầu trong .env (§20.4) ghi vào. Đã có dòng thì KHÔNG ghi đè:
-   token trong CSDL là token mới nhất, token trong .env có thể đã bị dùng.
-2. `lam_moi_va_ghi()` — làm mới token và ghi token mới trong CÙNG MỘT giao
-   dịch, có khóa dòng. Lý do: refresh_token Shopee chỉ dùng được 1 lần (§3.3).
-
-Thời điểm truyền vào đều là datetime CÓ múi giờ; cột kiểu timestamp không múi
-giờ, PostgreSQL tự đổi về múi giờ phiên — cùng quy ước với nap_file.py (bước 8 Phần A).
-"""
+"""Đọc, ghi platform_tokens: cầu nối giữa CSDL và connector, connector không biết CSDL."""
 
 from datetime import datetime, timedelta
 
@@ -28,22 +12,14 @@ from app.models.platform_token import PlatformToken
 SAN_SHOPEE = "shopee"
 SAN_TIKTOK = "tiktok"
 
-# Hạn sống theo tài liệu (§19.3 mục 3). Shopee trả `expire_in` khi làm mới
-# nên ưu tiên dùng số đó; TikTok không trả trường hạn nào (§19.2) nên bắt buộc
-# dùng hằng số; refresh TikTok "sống tới năm 2123" → để NULL (§12.1.3.2).
+# Shopee trả expire_in nên ưu tiên dùng; TikTok không trả nên dùng hằng số, refresh TikTok để NULL vì gần như không hết hạn.
 HAN_ACCESS_SHOPEE = timedelta(hours=4)
 HAN_REFRESH_SHOPEE = timedelta(days=30)
 HAN_ACCESS_TIKTOK = timedelta(days=7)
 
 
 class LoiGhiTokenSauLamMoi(Exception):
-    """Sàn ĐÃ cấp token mới nhưng ghi xuống CSDL thất bại.
-
-    Hậu quả với Shopee: refresh_token cũ đã bị sàn vô hiệu, còn token mới chưa
-    được lưu → lần làm mới sau sẽ bị từ chối (error_auth), phải ủy quyền lại.
-    Thuộc tính `token_moi` giữ cặp token mới TRONG BỘ NHỚ để nơi gọi (sync_job,
-    bước 11) thử ghi lại; KHÔNG được in ra log. Thông báo lỗi không chứa token.
-    """
+    """Sàn đã cấp token mới nhưng ghi CSDL thất bại; token_moi giữ trong bộ nhớ để thử ghi lại, không được ghi ra log."""
 
     def __init__(self, san, ten_shop, token_moi):
         super().__init__(
@@ -56,12 +32,6 @@ class LoiGhiTokenSauLamMoi(Exception):
 
 
 def tinh_han_token(san, ket_qua_lam_moi, bay_gio):
-    """Thời điểm hết hạn (access, refresh) của cặp token vừa cấp.
-
-    Nhận: sàn; ket_qua_lam_moi — dict connector trả về (có thể có `expire_in`
-    giây, như phản hồi Shopee); bay_gio — datetime có múi giờ.
-    Trả: (access_expires_at, refresh_expires_at hoặc None).
-    """
     if san == SAN_SHOPEE:
         han_access = timedelta(seconds=ket_qua_lam_moi["expire_in"]) if "expire_in" in ket_qua_lam_moi else HAN_ACCESS_SHOPEE
         return bay_gio + han_access, bay_gio + HAN_REFRESH_SHOPEE
@@ -69,10 +39,6 @@ def tinh_han_token(san, ket_qua_lam_moi, bay_gio):
 
 
 def cac_shop_tu_cau_hinh(cau_hinh):
-    """3 gian hàng và token ban đầu khai trong .env (§20.4), dạng dict sẵn để ghi bảng.
-
-    Shopee: shop_ref = shop_id; TikTok: shop_ref = shop_cipher (§3.3).
-    """
     return [
         {"platform": SAN_SHOPEE, "shop_name": cau_hinh.SHOPEE_SHOP_NAME, "shop_ref": str(cau_hinh.SHOPEE_SHOP_ID),
          "access_token": cau_hinh.SHOPEE_ACCESS_TOKEN, "refresh_token": cau_hinh.SHOPEE_REFRESH_TOKEN},
@@ -84,27 +50,14 @@ def cac_shop_tu_cau_hinh(cau_hinh):
 
 
 def nap_san_tu_cau_hinh(cau_hinh, bay_gio=None):
-    """Ghi token ban đầu từ .env cho shop nào CHƯA có dòng trong platform_tokens.
-
-    Nhận: cau_hinh (app.config.settings); bay_gio — datetime có múi giờ,
-    mặc định là lúc gọi.
-    Trả: số dòng vừa thêm (0 nếu cả 3 shop đã có).
-    Hạn tính như token vừa được cấp lúc nạp — GIẢ ĐỊNH: .env không cho biết
-    token được cấp lúc nào. Với máy chủ giả lập thì đúng (nó cấp token ban
-    đầu lúc khởi động); với sàn thật, nếu token đã cũ thì lượt đồng bộ đầu
-    gặp token hết hạn → làm mới (§18.2 bước 3).
-    ON CONFLICT DO NOTHING trên (platform, shop_name): đã có dòng thì giữ
-    nguyên, không ghi đè token mới nhất bằng token cũ trong .env.
-    """
+    """Chỉ ghi cho shop chưa có dòng; đã có thì giữ nguyên vì token trong CSDL mới hơn token trong .env."""
     bay_gio = bay_gio or datetime.now().astimezone()
     cac_dong = []
     for shop in cac_shop_tu_cau_hinh(cau_hinh):
         han_access, han_refresh = tinh_han_token(shop["platform"], {}, bay_gio)
         cac_dong.append({**shop, "access_expires_at": han_access, "refresh_expires_at": han_refresh})
 
-    # RETURNING id: chỉ dòng THẬT SỰ được thêm mới mới trả về (dòng bị DO NOTHING
-    # bỏ qua thì không) → đếm là ra số dòng thêm. Không dùng rowcount: chạy qua
-    # Session.execute thì rowcount ra -1 (đã gặp ở bước 9a).
+    # Đếm bằng RETURNING id vì rowcount qua Session.execute trả -1.
     cau_lenh = (
         insert(PlatformToken).values(cac_dong)
         .on_conflict_do_nothing(constraint="uq_token_shop")
@@ -117,7 +70,7 @@ def nap_san_tu_cau_hinh(cau_hinh, bay_gio=None):
 
 
 class TenGianHangDaDung(Exception):
-    """Tên gian hàng đã thuộc về MỘT GIAN HÀNG KHÁC (shop_ref khác) của cùng sàn — không ghi đè token của shop đó."""
+    """Tên gian hàng đã thuộc một shop khác của cùng sàn, không ghi đè token của shop đó."""
 
     def __init__(self, san, ten_shop):
         super().__init__(f"Tên gian hàng '{ten_shop}' ({san}) đã dùng cho gian hàng khác")
@@ -126,14 +79,7 @@ class TenGianHangDaDung(Exception):
 
 
 def ghi_ket_noi(san, ten_shop, shop_ref, ket_qua_token, bay_gio=None):
-    """Ghi token của gian hàng vừa ủy quyền (chỉ dẫn 026): THÊM shop mới, hoặc CẬP NHẬT khi là kết nối lại.
-
-    Nhận: san; ten_shop — tên đề xuất (Shopee: admin nhập; TikTok: tên từ sàn); shop_ref — Shopee shop_id (chuỗi) /
-    TikTok shop_cipher; ket_qua_token — dict sàn trả về {access_token, refresh_token[, expire_in]}; bay_gio.
-    Trả: (tên gian hàng đã ghi, la_ket_noi_lai). Nhận ra "kết nối lại" theo (sàn, shop_ref): shop đã có thì GIỮ TÊN CŨ
-    và chỉ thay token + hạn — không tạo dòng thứ hai. Shop mới mà tên trùng một shop khác → TenGianHangDaDung.
-    Token chỉ đi qua đây vào CSDL (không log, không trả ra ngoài) và được đăng ký cho bộ lọc log TRƯỚC khi ghi.
-    """
+    """Kết nối lại nhận ra theo (sàn, shop_ref): giữ tên cũ, chỉ thay token và hạn."""
     bay_gio = bay_gio or datetime.now().astimezone()
     dang_ky_bi_mat(ket_qua_token["access_token"])
     dang_ky_bi_mat(ket_qua_token["refresh_token"])
@@ -165,26 +111,20 @@ def ghi_ket_noi(san, ten_shop, shop_ref, ket_qua_token, bay_gio=None):
 
 
 def doc_token(san, ten_shop):
-    """Dòng token của một shop (đối tượng PlatformToken đã tách khỏi phiên), hoặc None."""
     with SessionLocal() as phien:
         dong = phien.execute(
             select(PlatformToken).where(PlatformToken.platform == san, PlatformToken.shop_name == ten_shop)
         ).scalar_one_or_none()
         if dong is not None:
             phien.expunge(dong)
-            # Từ đây token của shop này nằm trong bộ nhớ: đăng ký để bộ lọc log che nó ở mọi nơi nó có thể lọt vào.
+            # Đăng ký token để bộ lọc log che nó ở mọi nơi.
             dang_ky_bi_mat(dong.access_token)
             dang_ky_bi_mat(dong.refresh_token)
         return dong
 
 
 def ghi_token(san, ten_shop, token_moi):
-    """Ghi lại cặp token mới trong một phiên CSDL MỚI (dùng khi `LoiGhiTokenSauLamMoi`).
-
-    Nhận: token_moi — dict `LoiGhiTokenSauLamMoi.token_moi` (access_token,
-    refresh_token, access_expires_at, refresh_expires_at).
-    Lỗi: LookupError nếu không có dòng của shop; lỗi CSDL thì ném nguyên.
-    """
+    """Ghi lại cặp token mới trong một phiên CSDL mới, dùng khi gặp LoiGhiTokenSauLamMoi."""
     with SessionLocal() as phien:
         dong = phien.execute(
             select(PlatformToken)
@@ -204,12 +144,7 @@ def ghi_token(san, ten_shop, token_moi):
 
 
 def danh_dau_het_quyen(san, ten_shop):
-    """Đánh dấu shop hết quyền: đặt cả 2 hạn về BÂY GIỜ → token_status = "expired" (§12.1.3.2).
-
-    Dùng khi sàn đã vô hiệu refresh_token cũ mà không ghi lại được token mới:
-    người dùng phải ủy quyền lại. Đặt `refresh_expires_at` cả với TikTok (vốn
-    NULL = "ok") để trang đồng bộ báo đúng. Không đổi giá trị token.
-    """
+    """Đặt cả hai hạn về hiện tại để trang đồng bộ báo hết quyền; người dùng phải ủy quyền lại."""
     with SessionLocal() as phien:
         phien.execute(
             update(PlatformToken)
@@ -220,25 +155,7 @@ def danh_dau_het_quyen(san, ten_shop):
 
 
 def lam_moi_va_ghi(san, ten_shop, ham_lam_moi, bay_gio=None):
-    """Làm mới token của một shop và ghi token mới — trong MỘT giao dịch, có khóa dòng.
-
-    Nhận:
-        san, ten_shop — dòng cần làm mới.
-        ham_lam_moi(refresh_token, shop_ref) — do connector cung cấp: gọi sàn,
-            trả dict {access_token, refresh_token[, expire_in]}; lỗi thì ném.
-        bay_gio — datetime có múi giờ, mặc định lúc gọi.
-    Trả: dict cặp token mới kèm 2 thời điểm hết hạn.
-    Lỗi:
-        LookupError — chưa có dòng token của shop (chưa nạp sẵn).
-        Lỗi của ham_lam_moi — ném nguyên; CSDL không đổi gì (rollback).
-        LoiGhiTokenSauLamMoi — sàn đã cấp token mới nhưng commit thất bại.
-
-    Trình tự trong giao dịch:
-        SELECT … FOR UPDATE → gọi sàn → UPDATE dòng → COMMIT.
-    Khóa dòng (FOR UPDATE) giữ suốt lúc gọi sàn: tiến trình khác muốn làm mới
-    cùng shop phải đợi, rồi đọc được refresh_token MỚI — không bao giờ có 2
-    tiến trình cùng dùng một refresh_token Shopee (lần thứ 2 sẽ bị từ chối).
-    """
+    """Khóa dòng FOR UPDATE suốt lúc gọi sàn để không có hai tiến trình cùng dùng một refresh_token Shopee."""
     bay_gio = bay_gio or datetime.now().astimezone()
     with SessionLocal() as phien:
         dong = phien.execute(
@@ -249,13 +166,11 @@ def lam_moi_va_ghi(san, ten_shop, ham_lam_moi, bay_gio=None):
         if dong is None:
             raise LookupError(f"Chưa có token của {san}/{ten_shop} trong platform_tokens")
 
-        # Lỗi ở đây (sàn từ chối, hết lần thử lại…) → thoát khối `with` chưa
-        # commit → rollback, nhả khóa, dòng giữ nguyên token cũ.
+        # Lỗi ở đây thì rollback, dòng giữ nguyên token cũ.
         dang_ky_bi_mat(dong.access_token)
         dang_ky_bi_mat(dong.refresh_token)
         ket_qua = ham_lam_moi(dong.refresh_token, dong.shop_ref)
-        # Đăng ký token MỚI ngay khi nhận từ sàn, TRƯỚC khi ghi: nếu commit lỗi và PostgreSQL chép cả dòng vào thông điệp
-        # lỗi thì chuỗi đó đã nằm trong tập bị che.
+        # Đăng ký token mới trước khi ghi, để nếu commit lỗi thì thông điệp lỗi cũng đã được che.
         dang_ky_bi_mat(ket_qua.get("access_token"))
         dang_ky_bi_mat(ket_qua.get("refresh_token"))
         han_access, han_refresh = tinh_han_token(san, ket_qua, bay_gio)
@@ -273,7 +188,6 @@ def lam_moi_va_ghi(san, ten_shop, ham_lam_moi, bay_gio=None):
         try:
             phien.commit()
         except Exception as loi:
-            # Từ đây sàn đã ghi nhận lần làm mới mà CSDL thì không: phải báo
-            # bằng lỗi riêng, nơi gọi mới phân biệt được với "sàn từ chối".
+            # Sàn đã ghi nhận lần làm mới mà CSDL thì chưa, nên báo bằng lỗi riêng.
             raise LoiGhiTokenSauLamMoi(san, ten_shop, token_moi) from loi
         return token_moi

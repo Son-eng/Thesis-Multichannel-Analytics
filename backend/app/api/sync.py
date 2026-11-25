@@ -1,10 +1,4 @@
-"""Endpoint đồng bộ API: /api/sync/status, /api/sync/runs, POST /api/sync/{platform} (SPEC §12, §12.1.3.1–§12.1.3.4).
-
-Khuôn JSON đúng hợp đồng §12.1.3. Hai điều BẮT BUỘC:
-- Không bao giờ có giá trị token trong phản hồi (chỉ có hạn dùng).
-- Mọi thời điểm là ISO 8601 giờ Việt Nam (+07:00). CSDL lưu `timestamp` không
-  múi giờ ở UTC (database.py ép phiên UTC), nên đổi ở lớp này, một chỗ duy nhất.
-"""
+"""Endpoint đồng bộ: không trả giá trị token, thời điểm đổi sang giờ Việt Nam ở lớp này."""
 
 import threading
 from datetime import datetime, timedelta, timezone
@@ -23,7 +17,6 @@ from app.models.user import User
 from app.sync import sync_job
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
-# GET: mọi người dùng đã đăng nhập; POST: chỉ admin (khai báo ở từng route).
 CAN_DANG_NHAP = [Depends(yeu_cau_dang_nhap)]
 
 GIO_VN = timezone(timedelta(hours=7))
@@ -33,18 +26,14 @@ COT_CHAT_LUONG = ["rows_sku_fallback", "rows_sku_unknown", "rows_status_unknown"
 
 
 def gio_vn_iso(thoi_diem):
-    """datetime từ CSDL (UTC, không múi giờ) → chuỗi ISO giờ VN, hoặc None."""
+    """Thời điểm UTC không múi giờ từ CSDL sang chuỗi ISO giờ Việt Nam."""
     if thoi_diem is None:
         return None
     return sync_job.sang_utc(thoi_diem).astimezone(GIO_VN).isoformat(timespec="seconds")
 
 
 def tinh_token_status(refresh_expires_at, bay_gio):
-    """`ok` / `expiring` / `expired` theo refresh_expires_at (§12.1.3.2).
-
-    NULL → `ok`: refresh_token không hết hạn (TikTok sống tới 2123, access được
-    làm mới tự động), người dùng không cần làm gì.
-    """
+    """refresh_expires_at là NULL nghĩa là không hết hạn (TikTok), nên coi là ok."""
     if refresh_expires_at is None:
         return "ok"
     han = sync_job.sang_utc(refresh_expires_at)
@@ -56,7 +45,6 @@ def tinh_token_status(refresh_expires_at, bay_gio):
 
 
 def luot_chay_sang_json(dong, nguoi_chay):
-    """Một dòng sync_runs → object SyncRun của hợp đồng §12.1.3.1."""
     return {
         "id": dong.id,
         "platform": dong.platform,
@@ -82,7 +70,6 @@ def luot_chay_sang_json(dong, nguoi_chay):
 
 @router.get("/status", dependencies=CAN_DANG_NHAP)
 def trang_thai_dong_bo(phien: Session = Depends(lay_phien_db)):
-    """Mỗi sàn: có lượt đang chạy không. Mỗi (sàn, shop): lần thành công gần nhất, hạn token (KHÔNG có token)."""
     bay_gio = datetime.now(timezone.utc)
     cac_san = {}
     for san in sync_job.SAN_HOP_LE:
@@ -115,7 +102,7 @@ def lich_su_dong_bo(
     page_size: int = Query(20, ge=1, le=100),
     phien: Session = Depends(lay_phien_db),
 ):
-    """Lịch sử MỌI lượt đưa dữ liệu vào (api + file), mới nhất trước, có phân trang."""
+    """Lịch sử mọi lượt nạp (API và file), mới nhất trước."""
     dieu_kien = []
     if platform is not None:
         dieu_kien.append(SyncRun.platform == platform)
@@ -127,7 +114,7 @@ def lich_su_dong_bo(
     tong = phien.execute(select(func.count()).select_from(SyncRun).where(*dieu_kien)).scalar_one()
     cac_dong = phien.execute(
         select(SyncRun).where(*dieu_kien)
-        .order_by(SyncRun.started_at.desc(), SyncRun.id.desc())   # id phá thế hòa khi trùng thời điểm
+        .order_by(SyncRun.started_at.desc(), SyncRun.id.desc())   # id để thứ tự ổn định khi trùng thời điểm
         .offset((page - 1) * page_size).limit(page_size)
     ).scalars().all()
     ma_nguoi_chay = {dong.triggered_by for dong in cac_dong if dong.triggered_by is not None}
@@ -139,22 +126,15 @@ def lich_su_dong_bo(
 
 
 def chay_nen_mac_dinh(cac_shop, cac_khoa, cac_run_id):
-    """Chạy các lượt trong MỘT thread nền riêng, lần lượt từng shop.
-
-    Dùng threading.Thread thay vì BackgroundTasks của FastAPI: BackgroundTasks
-    chạy sau khi gửi phản hồi nhưng TestClient đợi nó xong mới trả về, nên không
-    kiểm được "trả 202 ngay, lượt vẫn chạy" và 409 khi đang chạy.
-    daemon=True: tắt máy chủ không bị treo chờ lượt (dòng 'running' sót lại sẽ
-    được don_dep_luot_treo dọn lúc khởi động lần sau).
-    """
+    """Chạy các lượt trong một thread nền; không dùng BackgroundTasks vì TestClient chờ nó chạy xong."""
     def chay():
         try:
             for (san, ten_shop), khoa, run_id in zip(cac_shop, cac_khoa, cac_run_id):
-                # dong_bo_mot_shop tự nhả khoa của shop đó và nuốt mọi lỗi của lượt.
+                # dong_bo_mot_shop tự nhả khóa của shop và nuốt lỗi của lượt.
                 sync_job.dong_bo_mot_shop(san, ten_shop, "manual", None, khoa=khoa, run_id=run_id)
         finally:
             for khoa in cac_khoa:
-                khoa.nha()                      # nhả nốt khóa của shop chưa kịp chạy (nhả nhiều lần vẫn an toàn)
+                khoa.nha()                      # nhả khóa của shop chưa kịp chạy, nhả nhiều lần vẫn an toàn
     threading.Thread(target=chay, name="dong-bo-ngay", daemon=True).start()
 
 
@@ -165,12 +145,7 @@ def dong_bo_ngay(
     phien: Session = Depends(lay_phien_db),
     nguoi_dung=Depends(yeu_cau_admin),
 ):
-    """Nút "Đồng bộ ngay": một lượt cho MỖI gian hàng của sàn, chạy nền, trả `run_ids` ngay.
-
-    Đang có lượt chạy của bất kỳ shop nào của sàn → 409, không chạy chồng (§20.4).
-    Giành khóa của MỌI shop trước rồi mới tạo dòng sync_runs: lượt bị từ chối
-    không để lại dòng 'running' mồ côi.
-    """
+    """Nút "Đồng bộ ngay": một lượt cho mỗi gian hàng, chạy nền, trả run_ids ngay."""
     cac_shop = sync_job.liet_ke_shop(phien, platform)
     if not cac_shop:
         raise HTTPException(404, detail={"code": "no_shop", "message": f"Chưa có gian hàng nào của {TEN_SAN_HIEN_THI[platform]}"})

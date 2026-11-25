@@ -1,7 +1,4 @@
-"""Quản lý người dùng (UC03, chỉ admin): /api/users (SPEC §12.1.4.2).
-
-Không bao giờ trả `password_hash`. Không có khóa tài khoản (bảng users không có cột trạng thái).
-"""
+"""Quản lý người dùng, chỉ admin."""
 
 import re
 from typing import Literal
@@ -76,7 +73,7 @@ def tao(du_lieu: TaoNguoiDung, phien: Session = Depends(lay_phien_db), _admin: U
     phien.add(nguoi)
     try:
         phien.commit()
-    except IntegrityError:                       # hai yêu cầu cùng tạo một tên: ràng buộc UNIQUE của CSDL chặn
+    except IntegrityError:                       # hai yêu cầu cùng tạo một tên thì ràng buộc UNIQUE chặn
         phien.rollback()
         raise _loi(409, "username_taken", "Tên đăng nhập đã tồn tại") from None
     phien.refresh(nguoi)
@@ -87,7 +84,7 @@ def tao(du_lieu: TaoNguoiDung, phien: Session = Depends(lay_phien_db), _admin: U
 def doi_vai_tro(ma: int, du_lieu: DoiVaiTro, phien: Session = Depends(lay_phien_db), admin: User = Depends(yeu_cau_admin)):
     nguoi = _lay_hoac_404(phien, ma)
     if nguoi.id == admin.id:
-        # Chặn tự hạ quyền: đảm bảo luôn còn ít nhất một admin (người đang thao tác).
+        # Không cho tự hạ quyền để luôn còn ít nhất một admin.
         raise _loi(400, "cannot_change_own_role", "Không đổi được vai trò của chính mình")
     nguoi.role = du_lieu.role
     phien.commit()
@@ -111,7 +108,7 @@ def xoa(ma: int, phien: Session = Depends(lay_phien_db), admin: User = Depends(y
         raise _loi(400, "cannot_delete_self", "Không xóa được chính mình")
     nguoi = _lay_hoac_404(phien, ma)
     if phien.execute(select(SyncRun.id).where(SyncRun.triggered_by == nguoi.id).limit(1)).first() is not None:
-        # Xóa sẽ làm lịch sử đồng bộ mất người chạy (khóa ngoại) hoặc đổi thành "Tự động" — sai sự thật.
+        # Xóa sẽ làm lịch sử đồng bộ mất người chạy hoặc hiện sai thành "Tự động".
         raise _loi(409, "user_has_history", "Người dùng này đã chạy đồng bộ hoặc nạp tệp nên không xóa được")
     phien.delete(nguoi)
     phien.commit()

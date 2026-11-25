@@ -1,16 +1,3 @@
-"""Test KHỨ HỒI TikTok (SPEC §21.5) — điều kiện xong của bước chuẩn hóa API.
-
-    Đáp án:    CSV ẩn danh → tiktok_parser (đường file, đã khớp §17)
-    Đường API: cùng CSV → máy chủ giả lập (socket thật) → TikTokClient (2 shop)
-               → tiktok_api_transform
-
-So từng dòng theo (order_id, sku): mọi cột chuẩn phải bằng nhau, trừ các
-NGOẠI LỆ dưới đây; mỗi ngoại lệ có test riêng kiểm đúng dạng khác biệt. Khác
-Shopee: `is_returned` khớp ĐỦ 139/139 (qua Finance API) — không phải ngoại lệ.
-
-Marker `cham`: kéo đủ 2 shop + Finance cho ~4.700 đơn qua socket thật.
-"""
-
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -36,24 +23,21 @@ SHOP = [
     ("Shop B", settings.TIKTOK_SHOP_B_CIPHER, settings.TIKTOK_SHOP_B_ACCESS_TOKEN),
 ]
 
-# Cột được phép khác giữa 2 đường — kèm lý do. Mỗi cột có test riêng bên dưới.
 NGOAI_LE = {
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status (đã duyệt 04/11)",
     "data_source": "theo định nghĩa: 'file' / 'api' (đã duyệt 04/11)",
-    # is_affiliate KHÔNG còn là ngoại lệ (bước 16, chỉ dẫn 014): khớp đủ 4.297 dòng.
-    # Đã duyệt 06/11 (chỉ dẫn 015); `variation` KHÔNG còn là ngoại lệ — tiktok_parser đã strip:
+    # is_affiliate và variation không còn là ngoại lệ.
     "returned_quantity": "file điền Sku Quantity of return cả cho đơn hủy; API không có nguồn → 0 (§3.2, §21.2)",
 }
 
-DOANH_THU_TONG = 7538502584                                             # §17.2
-DOANH_THU_THEO_THANG = {                                                # §17.3
+DOANH_THU_TONG = 7538502584
+DOANH_THU_THEO_THANG = {
     "2026-01": 963328583, "2026-02": 1056998596, "2026-03": 1459153482, "2026-04": 1014538449,
     "2026-05": 800122017, "2026-06": 566274001, "2026-07": 814595996, "2026-08": 863491460,
 }
 
 
 def keo_va_chuan_hoa(may_chu):
-    """Kéo + chuẩn hóa từng shop, ghép lại. Trả (bảng chuẩn, tổng bộ đếm, số line item đã kéo)."""
     cac_bang, tong_bo_dem, so_line_item = [], {}, 0
     for ten_shop, shop_cipher, access_token in SHOP:
         with TikTokClient(may_chu.url, may_chu.url, settings.TIKTOK_APP_KEY, settings.TIKTOK_APP_SECRET,
@@ -83,7 +67,6 @@ def gop(dap_an, duong_api):
 
 
 def bang_nhau(cot_file, cot_api):
-    """So 2 Series từng phần tử: NaN == NaN; số so theo giá trị."""
     cung_thieu = cot_file.isna() & cot_api.isna()
     la_so = all(pd.api.types.is_numeric_dtype(c) and not pd.api.types.is_bool_dtype(c) for c in (cot_file, cot_api))
     if la_so:
@@ -92,7 +75,6 @@ def bang_nhau(cot_file, cot_api):
 
 
 def bang_khac_biet(gop, cac_cot):
-    """Bảng (order_id, sku, cột, giá trị file, giá trị API) của mọi ô khác nhau."""
     cac_phan = []
     for cot in cac_cot:
         lech = ~bang_nhau(gop[f"{cot}_file"], gop[f"{cot}_api"])
@@ -103,11 +85,8 @@ def bang_khac_biet(gop, cac_cot):
 
 
 def doanh_thu(bang):
-    """Doanh thu §7.1: bỏ đơn hủy và dòng hoàn."""
     return bang[(bang["order_status"] != "cancelled") & ~bang["is_returned"]]["nmv_after_tax"]
 
-
-# ---------- Khớp từng dòng ----------
 
 def test_cung_tap_khoa_7540_dong(gop):
     assert (gop["_merge"] == "both").all(), gop["_merge"].value_counts().to_dict()
@@ -129,16 +108,14 @@ def test_is_returned_khop_du_139_khong_phai_ngoai_le(gop):
 
 
 def test_dong_tach_theo_so_luong_gop_lai_dung_muc_dong(gop, duong_api):
-    """Line item tách theo SL (§19.4) gộp lại: quantity, tiền, unit_price khớp từng dòng; tổng line item 7.636."""
     for cot in ["quantity", "unit_price", "sku_subtotal_after_discount", "nmv", "nmv_after_tax"]:
         assert bang_nhau(gop[f"{cot}_file"], gop[f"{cot}_api"]).all(), cot
     assert duong_api[0]["quantity"].sum() == duong_api[2] == 7636
-    assert (gop["quantity_api"] > 1).sum() == 87                         # §17.8
+    assert (gop["quantity_api"] > 1).sum() == 87
 
 
 def test_order_amount_muc_don_dung_7_4(gop, duong_api):
     bang = duong_api[0]
-    # Mỗi đơn đúng MỘT giá trị order_amount, lặp trên mọi dòng của đơn — không bị chia/cộng.
     assert (bang.groupby("order_id")["order_amount"].nunique() == 1).all()
     mot_dong_moi_don = gop.drop_duplicates("order_id")
     assert bang_nhau(mot_dong_moi_don["order_amount_file"], mot_dong_moi_don["order_amount_api"]).all()
@@ -146,12 +123,10 @@ def test_order_amount_muc_don_dung_7_4(gop, duong_api):
     assert bang["order_id"].nunique() == 7526
 
 
-# ---------- Ngoại lệ ----------
-
 def test_ngoai_le_order_status_raw_gom_nhom_ra_cung_nhom(gop):
     nhom_tu_ma_api = gop["order_status_raw_api"].apply(gom_nhom_trang_thai_api, args=("tiktok",))
     assert (nhom_tu_ma_api == gop["order_status_api"]).all()
-    assert (gop["order_status_file"] == gop["order_status_api"]).all()   # TikTok không có ngoại lệ trạng thái
+    assert (gop["order_status_file"] == gop["order_status_api"]).all()
 
 
 def test_ngoai_le_data_source(gop):
@@ -160,23 +135,20 @@ def test_ngoai_le_data_source(gop):
 
 def test_is_affiliate_khop_du_4297_dong_khong_phai_ngoai_le(gop):
     assert (gop["is_affiliate_file"] == gop["is_affiliate_api"]).all()
-    assert gop["is_affiliate_api"].sum() == 4297                          # §17.8
+    assert gop["is_affiliate_api"].sum() == 4297
     assert gop.loc[gop["is_affiliate_api"], "order_id"].nunique() == 4294
 
 
 def test_ngoai_le_returned_quantity(gop):
-    """File điền cả cho đơn hủy (2.308 dòng, §3.2); API không có nguồn → 0. CẤM dùng tính tỷ lệ hoàn."""
     assert (gop["returned_quantity_api"] == 0).all()
     assert (gop["returned_quantity_file"] > 0).sum() == 2308
-    # 2.308 = 2.177 dòng đơn hủy + 131 dòng hoàn. Chỉ 131/139 dòng hoàn có số lượng hoàn > 0
-    # (8 dòng bằng 0) — thêm một lý do cấm dùng cột này tính tỷ lệ hoàn; is_returned khớp đủ 139.
+    # 2.308 = 2.177 dòng đơn hủy + 131 dòng hoàn, nên không dùng cột này tính tỷ lệ hoàn; is_returned khớp đủ 139.
     hoan = gop["is_returned_api"]
     assert (gop.loc[hoan, "returned_quantity_file"] > 0).sum() == 131
     assert (gop.loc[~hoan & (gop["returned_quantity_file"] > 0), "order_status_file"] == "cancelled").all()
 
 
 def test_variation_khop_sau_khi_parser_strip(gop):
-    """Trước đây 219 dòng khác nhau chỉ ở dấu cách cuối; nay hai đường khớp đủ."""
     assert (gop["variation_file"] == gop["variation_api"]).all()
     assert not gop["variation_file"].str.endswith(" ").any()
 
@@ -187,16 +159,12 @@ def test_bo_dem_khop(dap_an, duong_api):
         "rows_province_unmapped": 0, "rows_product_unmapped": 0}
 
 
-# ---------- Doanh thu ----------
-
 def test_doanh_thu_tong_va_theo_thang(duong_api):
     bang = duong_api[0]
     assert doanh_thu(bang).sum() == DOANH_THU_TONG
     theo_thang = doanh_thu(bang).groupby(bang["order_date"].dt.strftime("%Y-%m")).sum().to_dict()
     assert theo_thang == DOANH_THU_THEO_THANG
 
-
-# ---------- Nạp CSDL thật 2 lần: lũy đẳng ----------
 
 @pytest.mark.db
 def test_nap_csdl_2_lan_luy_dang(duong_api, phien_test, ket_noi_test):

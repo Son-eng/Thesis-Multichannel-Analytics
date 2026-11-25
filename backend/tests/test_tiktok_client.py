@@ -1,11 +1,3 @@
-"""Test connector TikTok với máy chủ giả lập qua SOCKET THẬT (SPEC §20.1–§20.3, §19.2, §21.5).
-
-Số kỳ vọng: Shop A 5.364 + Shop B 2.162 = 7.526 đơn, 5.377 + 2.163 = 7.540
-dòng (đơn × sku_id), 89 + 50 = 139 dòng hoàn qua Finance (§17.1, §17 dòng
-hoàn theo shop). Tập đơn cho test ranh giới tính thẳng từ dữ liệu mà chính máy
-chủ giả lập đang phục vụ.
-"""
-
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -18,8 +10,8 @@ from app.connectors.tiktok_client import CUA_SO_GIAY, LoiApiTikTok, TikTokClient
 from app.services import token_store
 
 GIO_VN = timezone(timedelta(hours=7))
-TU_LUC = int(datetime(2026, 1, 1, tzinfo=GIO_VN).timestamp())      # đầu dữ liệu TikTok
-DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())    # sau mọi create_time / update_time
+TU_LUC = int(datetime(2026, 1, 1, tzinfo=GIO_VN).timestamp())
+DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())
 MUOI_LAM_NGAY = 15 * 86400
 
 SHOP = {
@@ -30,7 +22,7 @@ MONG_DOI = {"Shop A": (5364, 5377, 89), "Shop B": (2162, 2163, 50)}   # (đơn, 
 
 
 def khong_ngu(so_giay):
-    """Thay time.sleep trong http_retry."""
+    """(giữ một dòng)"""
 
 
 def tao_client(may_chu, ten_shop="Shop A", **them):
@@ -53,8 +45,6 @@ def so_dong_hoan(finance):
 
 
 class SoTokenTrongBoNho:
-    """Thay token_store trong test không cần CSDL."""
-
     def __init__(self, client, refresh_token):
         self.client = client
         self.refresh_token = refresh_token
@@ -67,22 +57,18 @@ class SoTokenTrongBoNho:
         return moi["access_token"]
 
 
-# ---------- Chia cửa sổ (đơn vị) ----------
-
 def test_chia_cua_so_ge_lt_noi_dung_tai_lt():
     cac_cua_so = chia_cua_so(0, 40 * 86400)
     assert cac_cua_so == [(0, MUOI_LAM_NGAY), (MUOI_LAM_NGAY, 2 * MUOI_LAM_NGAY), (2 * MUOI_LAM_NGAY, 40 * 86400)]
     for (_, lt_truoc), (ge_sau, _) in zip(cac_cua_so, cac_cua_so[1:]):
-        assert ge_sau == lt_truoc                              # [ge, lt) → cửa sổ sau bắt đầu ĐÚNG tại lt
+        assert ge_sau == lt_truoc
     assert all(lt - ge <= CUA_SO_GIAY for ge, lt in cac_cua_so)
 
 
 def test_chia_cua_so_bien():
     assert chia_cua_so(5, 6) == [(5, 6)]
-    assert chia_cua_so(5, 5) == []                              # [5, 5) rỗng
+    assert chia_cua_so(5, 5) == []
 
-
-# ---------- Kéo đủ theo từng shop ----------
 
 @pytest.mark.cham
 @pytest.mark.parametrize("ten_shop", ["Shop A", "Shop B"])
@@ -94,10 +80,8 @@ def test_keo_du_don_dong_va_dong_hoan_theo_shop(bat_may_chu_gia_lap, ten_shop):
     ma_don = [don["id"] for don in ket_qua["don_hang"]]
     assert len(ma_don) == len(set(ma_don)) == so_don
     assert so_dong(ket_qua["don_hang"]) == so_dong_mong_doi
-    # Finance chỉ gọi cho đơn COMPLETED (§20.2), và gọi cho TẤT CẢ đơn đó.
     assert set(ket_qua["finance"]) == {don["id"] for don in ket_qua["don_hang"] if don["status"] == "COMPLETED"}
     assert so_dong_hoan(ket_qua["finance"]) == so_hoan
-    # JSON thô: connector không thêm trường nào của tầng chuẩn hóa.
     assert all("is_returned" not in don for don in ket_qua["don_hang"])
 
 
@@ -108,29 +92,21 @@ def test_keo_theo_update_time_mac_dinh_cung_du(bat_may_chu_gia_lap):
 
 
 def test_ranh_gioi_cua_so_ge_lt(bat_may_chu_gia_lap):
-    """§20.2 — BẮT BUỘC: có đơn nằm ĐÚNG mốc lt nối giữa 2 cửa sổ.
-
-    Đơn X: khoảng kéo [X − 15 ngày, X + 15 ngày) → cửa sổ đầu là [X − 15n, X),
-    cửa sổ sau [X, X + 15n). X chỉ thuộc cửa sổ sau. Bắt đầu cửa sổ sau tại
-    lt + 1 → sót X; gửi lt + 1 (lấy cả mốc cuối) → X bị kéo 2 lần.
-    """
     may_chu = bat_may_chu_gia_lap()
     cipher_a = SHOP["Shop A"][0]
     cac_don = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[cipher_a]["don_hang"]
     don_x = next(don for don in cac_don.values() if don["create_time"] > TU_LUC + 30 * 86400)
     moc = don_x["create_time"]
     tu_luc, den_luc = moc - MUOI_LAM_NGAY, moc + MUOI_LAM_NGAY
-    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc            # đúng là X nằm trên mốc nối
+    assert chia_cua_so(tu_luc, den_luc)[0][1] == moc
 
     with tao_client(may_chu, "Shop A") as client:
         ma_don = [don["id"] for don in client.lay_don(tu_luc, den_luc, truong_thoi_gian="create_time")]
     mong_doi = {ma for ma, don in cac_don.items() if tu_luc <= don["create_time"] < den_luc}
-    assert ma_don.count(don_x["id"]) == 1                       # không sót, không trùng ở mốc
+    assert ma_don.count(don_x["id"]) == 1
     assert len(ma_don) == len(set(ma_don))
     assert set(ma_don) == mong_doi
 
-
-# ---------- Token ----------
 
 @pytest.mark.cham
 def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
@@ -139,13 +115,12 @@ def test_token_het_han_tu_lam_moi_roi_tiep_tuc(bat_may_chu_gia_lap):
         so = SoTokenTrongBoNho(client, settings.TIKTOK_SHOP_A_REFRESH_TOKEN)
         client.khi_can_lam_moi = so.khi_can_lam_moi
         lan_1 = [don["id"] for don in client.lay_don(TU_LUC, TU_LUC + 86400, "create_time")]
-        time.sleep(3)                                            # token hết hạn → mock trả 9990004
+        time.sleep(3)
         lan_2 = [don["id"] for don in client.lay_don(TU_LUC, TU_LUC + 86400, "create_time")]
     assert so.so_lan == 1 and lan_2 == lan_1 and lan_1
 
 
 def test_token_cua_shop_khac_lam_moi_1_lan_roi_bao_loi(bat_may_chu_gia_lap):
-    """Token Shop B gửi kèm cipher Shop A → 9990003 → làm mới 1 lần; vẫn sai thì báo lỗi."""
     so_lan = []
 
     def lam_moi_ra_token_hong():
@@ -187,8 +162,6 @@ def test_sai_app_secret_bao_sai_chu_ky_khong_lam_moi(bat_may_chu_gia_lap):
     assert loi.value.ma_loi == 9990001 and so_lan == []
 
 
-# ---------- Quá tải ----------
-
 @pytest.mark.cham
 def test_qua_tai_30_phan_tram_van_keo_du(bat_may_chu_gia_lap):
     may_chu = bat_may_chu_gia_lap(MOCK_FAULT_RATE=0.3, MOCK_FAULT_SEED=11)
@@ -206,12 +179,9 @@ def test_qua_tai_mai_thi_bao_het_lan_thu(bat_may_chu_gia_lap):
     assert loi.value.lan_cuoi.json()["code"] == 36009002
 
 
-# ---------- Nối với token_store và CSDL thật ----------
-
 @pytest.mark.cham
 @pytest.mark.db
 def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi_test, tao_phien_test, monkeypatch):
-    """Cách nối của sync_job (§20.1): khi_can_lam_moi → token_store.lam_moi_va_ghi(…, client.goi_lam_moi_token)."""
     ket_noi_test.execute(text("DELETE FROM platform_tokens"))
     monkeypatch.setattr(token_store, "SessionLocal", tao_phien_test)
     token_store.nap_san_tu_cau_hinh(settings)
@@ -230,11 +200,9 @@ def test_noi_voi_token_store_ghi_token_moi_vao_csdl(bat_may_chu_gia_lap, ket_noi
         "FROM platform_tokens WHERE platform = 'tiktok' AND shop_name = :s"),
         {"luc": luc_bat_dau, "s": settings.TIKTOK_SHOP_A_NAME}).mappings().one()
     assert dong["access_token"] == client.access_token != settings.TIKTOK_SHOP_A_ACCESS_TOKEN
-    assert dong["refresh_expires_at"] is None                    # refresh TikTok sống tới 2123 (§12.1.3.2)
+    assert dong["refresh_expires_at"] is None
     assert timedelta(days=7) <= dong["con_lai"] < timedelta(days=7, minutes=1)
 
-
-# ---------- Đơn affiliate (bước 16) ----------
 
 def cap_don_sku_affiliate(cac_don_affiliate):
     return {(don["id"], sku["sku_id"]) for don in cac_don_affiliate for sku in don["skus"]}
@@ -250,11 +218,10 @@ def test_keo_don_kem_don_affiliate_theo_shop(bat_may_chu_gia_lap, ten_shop, so_d
     mong_doi = {(ma, sku_id) for ma, muc in shop["affiliate"].items() for sku_id in muc["skus"]}
     assert cap_don_sku_affiliate(ket_qua["affiliate"]) == mong_doi and len(mong_doi) == so_dong
     ma_don = [don["id"] for don in ket_qua["affiliate"]]
-    assert len(ma_don) == len(set(ma_don))                      # không trùng giữa các cửa sổ
+    assert len(ma_don) == len(set(ma_don))
 
 
 def test_lay_don_affiliate_ranh_gioi_cua_so_ge_lt(bat_may_chu_gia_lap):
-    """§20.2: đơn affiliate nằm ĐÚNG mốc lt nối giữa 2 cửa sổ — đúng 1 lần (TikTok: cửa sổ sau bắt đầu tại lt)."""
     may_chu = bat_may_chu_gia_lap()
     affiliate = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[SHOP["Shop A"][0]]["affiliate"]
     ma_x, moc = next((ma, muc["create_time"]) for ma, muc in affiliate.items() if muc["create_time"] > TU_LUC + 30 * 86400)
@@ -273,16 +240,11 @@ def test_keo_don_khong_co_don_thi_khong_goi_don_affiliate(bat_may_chu_gia_lap):
 
 
 def test_keo_don_don_affiliate_nam_dung_create_time_lon_nhat_van_co_mat(bat_may_chu_gia_lap):
-    """Mép trên: `_lt` không lấy mốc nên cửa sổ affiliate phải kết thúc ở max(create_time) + 1.
-
-    Quên +1 thì cửa sổ [min, max) loại đúng đơn có create_time lớn nhất; khi cả
-    lượt chỉ có đơn ở mốc đó, cửa sổ rỗng và cờ affiliate bị mất.
-    """
     may_chu = bat_may_chu_gia_lap()
     affiliate = may_chu.ung_dung.state.du_lieu_tiktok_theo_cipher[SHOP["Shop A"][0]]["affiliate"]
     ma_x, muc = next((ma, muc) for ma, muc in affiliate.items() if muc["create_time"] > TU_LUC + 30 * 86400)
     moc = muc["create_time"]
     with tao_client(may_chu, "Shop A") as client:
-        ket_qua = client.keo_don(moc, moc + 1, truong_thoi_gian="create_time")     # chỉ các đơn tạo đúng giây `moc`
+        ket_qua = client.keo_don(moc, moc + 1, truong_thoi_gian="create_time")
     assert ma_x in {don["id"] for don in ket_qua["don_hang"]}
     assert ma_x in {don["id"] for don in ket_qua["affiliate"]}

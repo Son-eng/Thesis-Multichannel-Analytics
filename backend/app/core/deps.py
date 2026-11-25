@@ -1,10 +1,4 @@
-"""Phụ thuộc (dependency) dùng chung của router: đăng nhập và phân quyền (SPEC §11, §12.1.4).
-
-- `yeu_cau_dang_nhap`: có token hợp lệ của một người dùng CÒN TỒN TẠI → trả User; không thì 401.
-- `yeu_cau_admin`: như trên và vai trò phải là admin → không thì 403.
-Router chỉ khai báo `Depends(...)`; mọi logic kiểm quyền nằm ở đây, một chỗ.
-Mọi 401 dùng cùng một mã `not_authenticated` (thiếu, sai, hết hạn đều giống nhau) để không lộ thêm thông tin.
-"""
+"""Phụ thuộc dùng chung cho router: đăng nhập và phân quyền; mọi 401 dùng chung mã not_authenticated."""
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -14,7 +8,7 @@ from app.core import security
 from app.database import lay_phien_db
 from app.models.user import User
 
-_BEARER = HTTPBearer(auto_error=False)   # tự xử lý thiếu token để trả đúng khuôn lỗi §12.1.0
+_BEARER = HTTPBearer(auto_error=False)   # tự xử lý khi thiếu token để trả đúng khuôn lỗi chung
 
 
 def _chua_dang_nhap():
@@ -26,7 +20,7 @@ def yeu_cau_dang_nhap(
     thong_tin: HTTPAuthorizationCredentials | None = Depends(_BEARER),
     phien: Session = Depends(lay_phien_db),
 ):
-    """Người dùng đang đăng nhập (mọi vai trò). Thiếu/sai/hết hạn token hoặc người dùng đã bị xóa → 401."""
+    """Người dùng đang đăng nhập; token sai, hết hạn hoặc người dùng đã bị xóa đều trả 401."""
     if thong_tin is None:
         raise _chua_dang_nhap()
     ma = security.doc_token(thong_tin.credentials)
@@ -37,7 +31,6 @@ def yeu_cau_dang_nhap(
 
 
 def yeu_cau_admin(nguoi: User = Depends(yeu_cau_dang_nhap)):
-    """Chỉ admin; vai trò khác → 403. Trả User để ghi `triggered_by`."""
     if nguoi.role != "admin":
         raise HTTPException(403, detail={"code": "forbidden", "message": "Chức năng này chỉ dành cho quản trị viên"})
     return nguoi

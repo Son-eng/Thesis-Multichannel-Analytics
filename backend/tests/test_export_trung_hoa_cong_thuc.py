@@ -1,8 +1,3 @@
-"""Test trung hòa công thức khi xuất Excel (chỉ dẫn 021, C.3): chuỗi bắt đầu bằng = + - @ (tab/xuống dòng) không được chạy như công thức.
-
-Phần 1 thuần; phần 2 chạy trên dữ liệu mẫu trong CSDL thật (chỉ đọc) qua endpoint xuất Excel.
-"""
-
 from io import BytesIO
 
 import pytest
@@ -18,8 +13,6 @@ from app.services.export_service import trung_hoa_cong_thuc, trung_hoa_toan_bo_o
 
 CONG_THUC = '=HYPERLINK("http://x","y")'
 
-
-# ---------------------------------------------------------------- hàm thuần
 
 @pytest.mark.parametrize("dau_vao", [CONG_THUC, "=1+1", "+cmd|' /C calc'!A0", "-2+3", "@SUM(A1:A2)", "\t=1", "\r=1", "\n=1"])
 def test_chuoi_nguy_hiem_duoc_them_dau_nhay(dau_vao):
@@ -42,13 +35,11 @@ def test_o_cong_thuc_cua_openpyxl_duoc_tra_ve_van_ban():
     sheet["A1"] = CONG_THUC
     sheet["A2"] = "bình thường"
     sheet["A3"] = -5
-    assert sheet["A1"].data_type == "f"                           # openpyxl nhận nó là công thức thật
+    assert sheet["A1"].data_type == "f"
     trung_hoa_toan_bo_o(sổ)
     assert sheet["A1"].data_type == "s" and sheet["A1"].value == "'" + CONG_THUC
     assert sheet["A2"].value == "bình thường" and sheet["A3"].value == -5
 
-
-# ---------------------------------------------------------------- endpoint Excel trên dữ liệu thật
 
 @pytest.fixture(scope="module")
 def client():
@@ -73,7 +64,7 @@ def test_ten_gian_hang_la_cong_thuc_thanh_van_ban_va_khong_co_o_cong_thuc_nao(cl
     sổ = load_workbook(BytesIO(phan_hoi.content))
     o_gian_hang = next(r[1] for r in sổ["Tổng quan"].iter_rows() if r[0].value == "Gian hàng")
     assert o_gian_hang.value == "'" + CONG_THUC
-    assert o_gian_hang.data_type == "s"                           # văn bản, KHÔNG phải 'f' (công thức)
+    assert o_gian_hang.data_type == "s"
     assert [o.coordinate for o in tat_ca_o(sổ) if o.data_type == "f"] == []
 
 
@@ -93,13 +84,12 @@ def test_xuat_binh_thuong_khong_co_o_cong_thuc_va_so_lieu_khong_doi(client, san,
     hang = next(r for r in sổ["Tổng quan"].iter_rows() if r[0].value == "Doanh thu (đ)")
     chuan = {("shopee", "2026-08"): (840035154, 624277755, 34.6), ("tiktok", "2026-04"): (1014538449, 1459153482, -30.5),
              ("tiktok", "2026"): (7538502584, None, None)}[(san, ky)]
-    assert (hang[1].value, hang[2].value, hang[3].value) == chuan     # số (kể cả −30,5) giữ nguyên là SỐ
+    assert (hang[1].value, hang[2].value, hang[3].value) == chuan
     assert isinstance(hang[3].value, (int, float)) or hang[3].value is None
 
 
 @pytest.mark.db
 def test_khong_o_chuoi_nao_bat_dau_bang_ky_tu_nguy_hiem_ma_thieu_dau_nhay(client):
-    """Sau khi trung hòa, KHÔNG còn ô chuỗi nào bắt đầu bằng = + - @ tab xuống-dòng (chỉ còn dạng đã thêm dấu nháy)."""
     phan_hoi = client.get("/api/export/tiktok/excel", params={"granularity": "month", "period": "2026-08", "shop_name": "=A1"})
     sổ = load_workbook(BytesIO(phan_hoi.content))
     for o in tat_ca_o(sổ):

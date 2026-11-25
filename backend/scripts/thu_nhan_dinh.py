@@ -1,15 +1,6 @@
-"""Chạy tay: gọi Gemini THẬT để sinh nhận định cho Shopee 2026-08 (chỉ dẫn 017 phần 3).
-
-KHÔNG phải một phần của luồng chạy hệ thống (hệ thống gọi Gemini qua POST /api/insights/generate); chỉ chạy TAY để thử.
-CẢNH BÁO: gọi Gemini THẬT — tốn hạn mức khóa, và gửi số liệu tổng hợp theo kỳ (không có dữ liệu cá nhân) tới Google.
-Đầu vào: dữ liệu mẫu trong CSDL + GEMINI_API_KEY trong backend/.env. Đầu ra: in ra màn hình; không ghi CSDL.
-
-Dùng (từ backend/, đã nạp dữ liệu mẫu, Docker bật, .env có GEMINI_API_KEY):
-    .venv\\Scripts\\python scripts\\thu_nhan_dinh.py            # Shopee 2026-08
-    .venv\\Scripts\\python scripts\\thu_nhan_dinh.py tiktok month 2026-04
-
-In: dữ liệu đã gửi (JSON số liệu tổng hợp), văn bản nhận được, và kết quả chốt chặn số lạ. KHÔNG bao giờ in khóa.
-Không có khóa thì in "chưa có khóa" và thoát mã 0 (không phải lỗi).
+"""Chạy tay: gọi Gemini thật để thử sinh nhận định, tốn hạn mức của khóa.
+Dùng (từ backend/): .venv\\Scripts\\python scripts\\thu_nhan_dinh.py [sàn mức kỳ], ví dụ: tiktok month 2026-04.
+Chỉ gửi số liệu tổng hợp, không có dữ liệu cá nhân; không bao giờ in khóa.
 """
 
 import json

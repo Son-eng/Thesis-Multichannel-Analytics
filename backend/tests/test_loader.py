@@ -1,8 +1,3 @@
-"""Test phần của loader.py chạy được KHÔNG cần CSDL: kiểm hợp đồng và đổi kiểu dữ liệu.
-
-Phần ghi xuống CSDL thật (upsert, đếm thêm mới / cập nhật) ở test_nap_file_db.py.
-"""
-
 import datetime
 from pathlib import Path
 
@@ -33,9 +28,6 @@ def test_thieu_hoac_thua_cot_bao_loi_ro(shopee):
 
 
 def test_trung_khoa_trong_cung_du_lieu_bao_loi(shopee):
-    # Chép khóa của dòng 0 sang dòng 3. Không dùng pd.concat: nối cột toàn NaT
-    # (order_created_at của Shopee) sinh DeprecationWarning của numpy 2.5 bên
-    # trong pandas 2.2.3.
     bang_trung = shopee.head(4).copy()
     bang_trung.loc[3, "order_id"] = bang_trung.loc[0, "order_id"]
     bang_trung.loc[3, "sku"] = bang_trung.loc[0, "sku"]
@@ -44,7 +36,6 @@ def test_trung_khoa_trong_cung_du_lieu_bao_loi(shopee):
 
 
 def test_du_lieu_mau_dung_hop_dong(shopee, tiktok):
-    # Không raise = qua kiểm.
     loader.kiem_cot_va_khoa(shopee, loader.COT_CHUAN_SHOPEE)
     loader.kiem_cot_va_khoa(tiktok, loader.COT_CHUAN_TIKTOK)
 
@@ -53,29 +44,21 @@ def test_doi_sang_kieu_python(shopee, tiktok):
     dong_shopee = loader.doi_sang_dong_python(shopee.head(1))[0]
     dong_tiktok = loader.doi_sang_dong_python(tiktok.head(1))[0]
 
-    # order_date là date (không kèm giờ), không phải pandas.Timestamp.
     assert type(dong_shopee["order_date"]) is datetime.date
     assert type(dong_tiktok["order_date"]) is datetime.date
-    # NaT của Shopee (file không có giờ tạo đơn) → None, không phải NaT.
     assert dong_shopee["order_created_at"] is None
     assert type(dong_tiktok["order_created_at"]) is datetime.datetime
-    # Không còn kiểu numpy nào lọt xuống CSDL.
     for gia_tri in list(dong_shopee.values()) + list(dong_tiktok.values()):
         assert not isinstance(gia_tri, np.generic)
 
 
 def test_nan_thanh_none(shopee):
-    # 19 dòng Shopee có trạng thái gốc rỗng → order_status_raw là NaN.
     dong_rong = shopee[shopee["order_status_raw"].isna()].head(1)
     dong = loader.doi_sang_dong_python(dong_rong)[0]
     assert dong["order_status_raw"] is None
 
 
 def test_bang_rong_dung_cot_khong_ghi_gi_va_khong_loi(shopee, tiktok):
-    """Lượt đồng bộ định kỳ không có đơn đổi (§20.3) → bảng rỗng đúng cột: trả (0, 0), không chạm CSDL.
-
-    Phiên truyền vào là None: nếu code đi tiếp tới câu lệnh ghi thì sẽ lỗi ngay.
-    """
     assert loader.upsert_don_hang(None, "shopee", shopee.iloc[0:0], None) == (0, 0)
     assert loader.upsert_don_hang(None, "tiktok", tiktok.iloc[0:0], None) == (0, 0)
 

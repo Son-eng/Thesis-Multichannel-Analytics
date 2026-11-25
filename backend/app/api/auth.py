@@ -1,8 +1,4 @@
-"""Đăng nhập: POST /api/auth/login, GET /api/auth/me, POST /api/auth/logout (SPEC §11, §12.1.4.1).
-
-Sai tên đăng nhập và sai mật khẩu cho CÙNG một phản hồi (cùng thông báo, cùng thời gian xử lý).
-Đăng xuất phía máy chủ chỉ trả 204: token không lưu trạng thái nên không có gì để thu hồi; giao diện xóa token.
-"""
+"""Đăng nhập: sai tên hay sai mật khẩu đều trả cùng một phản hồi để không lộ tài khoản nào tồn tại."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel

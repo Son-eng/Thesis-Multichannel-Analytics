@@ -1,15 +1,3 @@
-"""Test KHỨ HỒI Shopee (SPEC §21.5) — điều kiện xong của bước chuẩn hóa API.
-
-    Đáp án:    CSV ẩn danh → shopee_parser (đường file, đã khớp §17)
-    Đường API: cùng CSV → máy chủ giả lập (socket thật) → ShopeeClient → shopee_api_transform
-
-So từng dòng theo (order_id, sku): mọi cột chuẩn phải bằng nhau, trừ các
-NGOẠI LỆ dưới đây. Mỗi ngoại lệ có test riêng kiểm đúng dạng khác biệt của nó
-— không bỏ qua cả cột một cách mù quáng. Fail thì in bảng khác biệt.
-
-Marker `cham`: kéo đủ dữ liệu qua socket thật mất vài giây.
-"""
-
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -32,17 +20,15 @@ TU_LUC = int(datetime(2026, 7, 1, tzinfo=GIO_VN).timestamp())
 DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())
 KHOA = ["order_id", "sku"]
 
-# Cột được phép khác giữa 2 đường — kèm lý do. Mỗi cột có test riêng bên dưới.
 NGOAI_LE = {
     "order_created_at": "§21.5: đường file Shopee chỉ có ngày → NULL; đường API có giờ",
     "order_status": "§21.5, §6.4: 19 dòng trạng thái rỗng → file 'unknown', API sinh COMPLETED",
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status",
     "data_source": "theo định nghĩa: 'file' / 'api'",
-    # is_affiliate KHÔNG còn là ngoại lệ (bước 16, chỉ dẫn 014): khớp đủ 771 dòng.
 }
 
-DOANH_THU_TONG = Decimal("1908961059")                                  # §17.2
-DOANH_THU_THEO_THANG = {"2026-07": 1068925905, "2026-08": 840035154}    # §17.3
+DOANH_THU_TONG = Decimal("1908961059")
+DOANH_THU_THEO_THANG = {"2026-07": 1068925905, "2026-08": 840035154}
 
 
 def keo_va_chuan_hoa(may_chu):
@@ -64,12 +50,10 @@ def duong_api(bat_may_chu_gia_lap):
 
 @pytest.fixture(scope="module")
 def gop(dap_an, duong_api):
-    """Ghép 2 đường theo khóa; hậu tố _file / _api."""
     return dap_an[0].merge(duong_api[0], on=KHOA, how="outer", suffixes=("_file", "_api"), indicator=True)
 
 
 def bang_nhau(cot_file, cot_api):
-    """So 2 Series từng phần tử: NaN == NaN; số so theo giá trị (1774.0 == 1774)."""
     cung_thieu = cot_file.isna() & cot_api.isna()
     la_so = all(pd.api.types.is_numeric_dtype(c) and not pd.api.types.is_bool_dtype(c) for c in (cot_file, cot_api))
     if la_so:
@@ -78,7 +62,6 @@ def bang_nhau(cot_file, cot_api):
 
 
 def bang_khac_biet(gop, cac_cot):
-    """Bảng (order_id, sku, cột, giá trị file, giá trị API) của mọi ô khác nhau."""
     cac_phan = []
     for cot in cac_cot:
         lech = ~bang_nhau(gop[f"{cot}_file"], gop[f"{cot}_api"])
@@ -89,11 +72,8 @@ def bang_khac_biet(gop, cac_cot):
 
 
 def doanh_thu(bang):
-    """Doanh thu §7.1: bỏ đơn hủy và dòng hoàn."""
     return bang[(bang["order_status"] != "cancelled") & ~bang["is_returned"]]["nmv_after_tax"]
 
-
-# ---------- Khớp từng dòng ----------
 
 def test_cung_tap_khoa(gop):
     assert (gop["_merge"] == "both").all(), gop["_merge"].value_counts().to_dict()
@@ -112,7 +92,7 @@ def test_moi_cot_chuan_bang_nhau_tru_ngoai_le(gop):
 def test_ngoai_le_order_created_at(gop):
     assert gop["order_created_at_file"].isna().all()
     assert gop["order_created_at_api"].notna().all()
-    # Giờ của API khớp khung giờ của file (275/275 ở dữ liệu thật, §17.8).
+    # Giờ của API khớp khung giờ của file (275/275 dòng ở dữ liệu thật).
     gio_api = gop["order_created_at_api"].dt.hour.astype(str) + "H - " + (gop["order_created_at_api"].dt.hour + 1).astype(str) + "H"
     assert (gio_api == gop["hour_bucket_file"]).all()
 
@@ -135,29 +115,24 @@ def test_ngoai_le_data_source(gop):
 
 def test_is_affiliate_khop_du_771_dong_khong_phai_ngoai_le(gop):
     assert (gop["is_affiliate_file"] == gop["is_affiliate_api"]).all()
-    assert gop["is_affiliate_api"].sum() == 771                           # §17.8
+    assert gop["is_affiliate_api"].sum() == 771
     assert gop.loc[gop["is_affiliate_api"], "order_id"].nunique() == 764
 
 
 def test_bo_dem_khop_tru_trang_thai_rong(dap_an, duong_api):
-    """§3.3: đường API rows_status_unknown Shopee = 0 (19 dòng rỗng thành COMPLETED), các bộ đếm khác như đường file."""
     bo_dem_file, bo_dem_api = dap_an[1], duong_api[1]
     assert (bo_dem_file["rows_status_unknown"], bo_dem_api["rows_status_unknown"]) == (19, 0)
     for khoa in ["rows_sku_fallback", "rows_sku_unknown", "rows_province_unmapped", "rows_product_unmapped"]:
         assert bo_dem_api[khoa] == bo_dem_file[khoa], khoa
 
 
-# ---------- Doanh thu ----------
-
 def test_doanh_thu_tong_va_theo_thang(duong_api):
     bang = duong_api[0]
     assert doanh_thu(bang).sum() == DOANH_THU_TONG
     theo_thang = doanh_thu(bang).groupby(bang["order_date"].dt.strftime("%Y-%m")).sum().to_dict()
     assert theo_thang == DOANH_THU_THEO_THANG
-    assert not bang["nmv_is_provisional"].any()          # MOCK_ESCROW_MODE=all → mọi đơn có escrow
+    assert not bang["nmv_is_provisional"].any()
 
-
-# ---------- Nạp CSDL thật 2 lần: lũy đẳng ----------
 
 @pytest.mark.db
 def test_nap_csdl_2_lan_luy_dang(duong_api, phien_test, ket_noi_test):
@@ -176,15 +151,8 @@ def test_nap_csdl_2_lan_luy_dang(duong_api, phien_test, ket_noi_test):
         "SELECT count(*) FROM orders WHERE platform = 'shopee' AND data_source = 'api' AND source_file IS NULL")).scalar_one() == 1774
 
 
-# ---------- Escrow chỉ cho đơn hoàn tất: NMV tạm tính ----------
-
 def test_completed_only_nmv_tam_tinh_va_so_lech(bat_may_chu_gia_lap, dap_an):
-    """Đơn chưa hoàn tất không có escrow → nmv_is_provisional = TRUE (§7.5).
-
-    Doanh thu được phép lệch; số lệch ghi vào báo cáo cho khóa luận:
-    1.005 dòng tạm tính, 100 dòng trong đó có NMV khác số chính xác, doanh thu
-    1.765.691.423 (thấp hơn 143.269.636, toàn bộ ở tháng 8).
-    """
+    """Đơn chưa có escrow là NMV tạm tính: 1.005 dòng, doanh thu thấp hơn số chính xác 143.269.636, toàn bộ ở tháng 8."""
     bang, _ = keo_va_chuan_hoa(bat_may_chu_gia_lap(MOCK_ESCROW_MODE="completed_only"))
     chua_hoan_tat = bang["order_status_raw"] != "COMPLETED"
     assert (bang["nmv_is_provisional"] == chua_hoan_tat).all()
@@ -192,7 +160,7 @@ def test_completed_only_nmv_tam_tinh_va_so_lech(bat_may_chu_gia_lap, dap_an):
 
     gop = dap_an[0].merge(bang, on=KHOA, suffixes=("_file", "_api"))
     chinh_xac = ~gop["nmv_is_provisional_api"]
-    assert (gop.loc[chinh_xac, "nmv_file"] == gop.loc[chinh_xac, "nmv_api"]).all()   # dòng có escrow: khớp
+    assert (gop.loc[chinh_xac, "nmv_file"] == gop.loc[chinh_xac, "nmv_api"]).all()
     assert (gop["nmv_file"] != gop["nmv_api"]).sum() == 100
 
     assert doanh_thu(bang).sum() == 1765691423

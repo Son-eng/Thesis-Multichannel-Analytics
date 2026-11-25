@@ -1,14 +1,4 @@
-"""Nhận định tự động bằng LLM (Gemini) — UC12, SPEC §10, §12.1.4.3.
-
-Nguyên tắc: LLM CHỈ diễn giải số đã tính sẵn. Ba lớp chặn bịa số:
-1. Dữ liệu gửi đi là JSON số liệu tổng hợp từ `kpi_service` (đã qua bộ lọc §7.1); không gửi dữ liệu dòng, không gửi
-   thông tin khách hàng. Gửi `product_code`, không gửi `sku`.
-2. Câu lệnh hệ thống cấm suy đoán nguyên nhân và cấm tự tính số mới.
-3. Chốt chặn: trích mọi con số trong văn bản trả về và đối chiếu với tập số trong dữ liệu đã gửi (cho phép cách viết
-   làm tròn hợp lý như "34,6%", "840 triệu"). Có số lạ → gọi lại MỘT lần; vẫn có số lạ → từ chối (503).
-
-Khóa API chỉ đi trong tiêu đề `x-goog-api-key` của yêu cầu; không vào URL, log, hay phản hồi của API này.
-"""
+"""Nhận định bằng Gemini: LLM chỉ diễn giải số đã tính, văn bản có số lạ thì gọi lại một lần rồi từ chối."""
 
 import json
 import logging
@@ -24,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 THOI_GIAN_CHO_GIAY = 45
-# Đủ rộng để token "suy nghĩ" của model (nếu bật) không ăn hết phần trả lời.
+# Đủ rộng để phần "suy nghĩ" của model không ăn hết phần trả lời.
 SO_TOKEN_TOI_DA = 4096
 SO_SAN_PHAM_GUI = 5
 TEN_SAN_HIEN_THI = {"shopee": "Shopee", "tiktok": "TikTok Shop"}
@@ -46,17 +36,15 @@ QUY TẮC BẮT BUỘC:
 
 
 class LoiLLM(Exception):
-    """Không sinh được nhận định (mạng, khóa, hạn mức, hoặc văn bản chứa số lạ). `thong_diep` an toàn để trả cho người dùng."""
+    """Không sinh được nhận định; thong_diep an toàn để trả cho người dùng."""
 
     def __init__(self, thong_diep):
         self.thong_diep = thong_diep
         super().__init__(thong_diep)
 
 
-# ---------------------------------------------------------------- dữ liệu gửi đi
-
 def dung_du_lieu_gui(phien, san, muc, ma_ky):
-    """JSON số liệu theo SPEC §10, lấy từ `kpi_service` (không tự tính). Trả (dict, kpi đầy đủ)."""
+    """Chỉ gửi số liệu tổng hợp từ kpi_service, không gửi dữ liệu dòng hay thông tin khách hàng."""
     kpi = kpi_service.kpi(phien, san, muc, ma_ky)
     metrics = kpi["metrics"]
     doanh_thu = metrics["revenue"]
@@ -91,17 +79,11 @@ def dung_du_lieu_gui(phien, san, muc, ma_ky):
     return du_lieu, kpi
 
 
-# ---------------------------------------------------------------- chốt chặn số lạ
-
 MAU_SO = re.compile(r"\d+(?:[.,]\d+)*")
 DON_VI = {"tỷ": 1e9, "tỉ": 1e9, "triệu": 1e6, "nghìn": 1e3, "ngàn": 1e3}
 
 
 def doc_so(chuoi):
-    """Chuỗi số theo cách viết Việt/Anh → (giá trị, số chữ số thập phân đã viết).
-
-    '840.035.154' → nghìn phân cách bằng dấu chấm; '34,6' → thập phân dấu phẩy; '34.6' → thập phân dấu chấm.
-    """
     if re.fullmatch(r"\d{1,3}(?:\.\d{3})+(?:,\d+)?", chuoi):
         phan_nguyen, _, thap_phan = chuoi.replace(".", "").partition(",")
     elif "," in chuoi:
@@ -115,7 +97,6 @@ def doc_so(chuoi):
 
 
 def _gom_so_cho_phep(du_lieu):
-    """Mọi số xuất hiện trong dữ liệu đã gửi: số trong JSON, số trong chuỗi (kỳ, ngày, mã sản phẩm), thứ hạng 1..N."""
     so = set()
 
     def duyet(gia_tri):
@@ -138,11 +119,7 @@ def _gom_so_cho_phep(du_lieu):
 
 
 def tim_so_la(van_ban, du_lieu):
-    """Danh sách số trong `van_ban` KHÔNG có trong `du_lieu` (cho phép làm tròn hợp lý theo cách viết).
-
-    Một số viết ra với d chữ số thập phân và đơn vị (tỷ/triệu/nghìn) khớp một số trong dữ liệu khi chênh lệch không
-    quá nửa đơn vị cuối cùng của cách viết đó: '840 triệu' khớp 840.035.154; '850 triệu' không khớp.
-    """
+    """Số trong văn bản không có trong dữ liệu đã gửi, có cho phép làm tròn hợp lý."""
     cho_phep = _gom_so_cho_phep(du_lieu)
     la = []
     for khop in MAU_SO.finditer(van_ban):
@@ -156,8 +133,6 @@ def tim_so_la(van_ban, du_lieu):
     return la
 
 
-# ---------------------------------------------------------------- gọi Gemini
-
 def _thong_diep_loi_http(ma):
     if ma == 429:
         return "Đã hết hạn mức gọi Gemini, thử lại sau"
@@ -167,7 +142,7 @@ def _thong_diep_loi_http(ma):
 
 
 def goi_gemini(client, noi_dung_nguoi_dung):
-    """Một lần gọi generateContent. Trả văn bản; mọi lỗi → LoiLLM với thông điệp đã làm sạch (không có khóa)."""
+    """Khóa API chỉ đi trong header x-goog-api-key, không vào URL hay log."""
     khoa = settings.GEMINI_API_KEY.get_secret_value() if settings.GEMINI_API_KEY is not None else ""
     if not khoa:
         raise LoiLLM("Chưa cấu hình GEMINI_API_KEY")
@@ -182,7 +157,7 @@ def goi_gemini(client, noi_dung_nguoi_dung):
         phan_hoi = client.post(URL_GEMINI.format(model=settings.GEMINI_MODEL), json=body,
                                headers={"x-goog-api-key": khoa})
     except httpx2.HTTPError as loi:
-        # Chỉ ghi LOẠI lỗi: thông điệp của thư viện có thể chứa URL/tiêu đề.
+        # Chỉ ghi loại lỗi vì thông điệp của thư viện có thể chứa URL, header.
         logger.warning("Gọi Gemini lỗi mạng: %s", type(loi).__name__)
         raise LoiLLM("Không kết nối được Gemini") from None
     if phan_hoi.status_code != 200:
@@ -202,15 +177,12 @@ def goi_gemini(client, noi_dung_nguoi_dung):
 
 
 def sinh_nhan_dinh(phien, san, muc, ma_ky, transport=None):
-    """Sinh nhận định cho một sàn, một kỳ. Trả dict §12.1.4.3; lỗi → LoiLLM.
-
-    `transport`: chỉ test truyền vào (httpx2.MockTransport) để KHÔNG gọi Gemini thật.
-    """
+    """transport chỉ test truyền vào để không gọi Gemini thật."""
     du_lieu, kpi = dung_du_lieu_gui(phien, san, muc, ma_ky)
     ket_qua = {"generated_at": datetime.now(GIO_VN).isoformat(timespec="seconds"),
                "period_complete": kpi["period_complete"], "data_max_date": kpi["data_max_date"]}
     if kpi["status"] == "no_data":
-        # Không có số để diễn giải: không gọi LLM (tránh bịa), trả câu cố định.
+        # Không có số để diễn giải thì không gọi LLM, trả câu cố định.
         ket_qua["text"] = f"Kỳ {kpi['period']} của {TEN_SAN_HIEN_THI[san]} chưa có dữ liệu nên chưa thể nhận định."
         return ket_qua
 

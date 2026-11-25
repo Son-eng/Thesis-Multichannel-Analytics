@@ -1,9 +1,3 @@
-"""Test xuất Excel (UC13, SPEC §12.1.4.4): mở file sinh ra và kiểm số, tên sheet, ô thiếu số, tiêu đề tải về.
-
-Dữ liệu mẫu đã nạp trong CSDL thật (chỉ đọc). Điểm cốt lõi: số trong Excel PHẢI bằng đúng JSON của dashboard
-(file lấy số từ kpi_service, không tính lại) — nên ngoài số cố định của SPEC còn so từng ô với phản hồi của endpoint.
-"""
-
 from io import BytesIO
 
 import pytest
@@ -46,21 +40,18 @@ def tai(client, san="shopee", **tham_so):
 
 
 def hang_theo_nhan(sheet, nhan):
-    """Hàng đầu tiên có ô cột A bằng `nhan` → dict {cột: ô}."""
     for hang in sheet.iter_rows():
         if hang[0].value == nhan:
             return {chr(65 + i): o for i, o in enumerate(hang)}
     raise AssertionError(f"Không thấy hàng '{nhan}' trong sheet {sheet.title}")
 
 
-# ---------------------------------------------------------------- tệp tải về
-
 def test_tieu_de_tai_ve_va_ten_sheet(client):
     phan_hoi, sổ = tai(client, "shopee", granularity="month", period="2026-08")
     assert phan_hoi.headers["content-type"] == export_service_media()
     assert phan_hoi.headers["content-disposition"] == 'attachment; filename="bao-cao-shopee-2026-08.xlsx"'
     assert sổ.sheetnames == TEN_SHEET
-    assert phan_hoi.content[:2] == b"PK"                                           # xlsx là một tệp zip
+    assert phan_hoi.content[:2] == b"PK"
 
 
 def export_service_media():
@@ -70,17 +61,15 @@ def export_service_media():
 
 def test_ten_tep_theo_san_va_ky(client):
     assert 'filename="bao-cao-tiktok-2026-Q3.xlsx"' in tai(client, "tiktok", granularity="quarter", period="2026-Q3")[0].headers["content-disposition"]
-    assert 'filename="bao-cao-shopee-2026-08.xlsx"' in tai(client, "shopee")[0].headers["content-disposition"]   # mặc định: kỳ mới nhất
+    assert 'filename="bao-cao-shopee-2026-08.xlsx"' in tai(client, "shopee")[0].headers["content-disposition"]
 
-
-# ---------------------------------------------------------------- số trong sheet "Tổng quan" — số cố định §17 / §9.4
 
 def test_shopee_2026_08_doanh_thu_ky_truoc_va_phan_tram_dung_o(client):
     _, sổ = tai(client, "shopee", granularity="month", period="2026-08")
     hang = hang_theo_nhan(sổ["Tổng quan"], "Doanh thu (đ)")
-    assert hang["B"].value == 840035154                      # giá trị
+    assert hang["B"].value == 840035154
     assert hang["C"].value == 624277755                      # kỳ trước đã cắt cùng số ngày (01–16/07)
-    assert hang["D"].value == 34.6                           # +34,6%
+    assert hang["D"].value == 34.6
     assert hang["B"].number_format == "#,##0" and hang["D"].number_format == '+0.0"%";-0.0"%";0.0"%"'
     assert hang["E"].value in (None, "")
 
@@ -111,8 +100,6 @@ def test_tiktok_2026_08_va_canh_bao_thang_4(client):
     assert hang_theo_nhan(sổ["Tổng quan"], "Cảnh báo biến động")["B"].value == "Không"
 
 
-# ---------------------------------------------------------------- ô thiếu số để trống kèm chú thích, không ghi 0
-
 def test_ky_khong_co_du_lieu_o_trong_kem_chu_thich_khong_ghi_0(client):
     _, sổ = tai(client, "shopee", granularity="month", period="2026-03")
     sheet = sổ["Tổng quan"]
@@ -139,13 +126,10 @@ def test_khong_co_ky_truoc_o_so_sanh_trong_kem_chu_thich(client):
 
 
 def test_ky_truoc_bang_0_ghi_chu_dung(client):
-    """Shopee 2026-08, M9 MAX không bán ở kỳ trước: dòng sản phẩm để trống phần % và ghi 'Kỳ trước không bán'."""
     _, sổ = tai(client, "shopee", granularity="month", period="2026-08")
     hang = hang_theo_nhan(sổ["Sản phẩm bán chạy"], "M9 MAX")
     assert hang["E"].value is None and hang["F"].value == "Kỳ trước không bán" and hang["B"].value > 0
 
-
-# ---------------------------------------------------------------- Excel khớp đúng JSON dashboard (không tính lại)
 
 @pytest.mark.parametrize("san, muc, ky", [("shopee", "month", "2026-08"), ("tiktok", "month", "2026-07"),
                                           ("tiktok", "quarter", "2026-Q2"), ("shopee", "day", "2026-08-10")])
@@ -192,7 +176,6 @@ def test_sheet_doanh_thu_theo_ky_khop_revenue_trend_va_ky_trong_la_o_trong(clien
     assert [(r[0].value, r[1].value, r[2].value) for r in sheet.iter_rows(min_row=2, max_row=1 + len(xu_huong["items"]))] == \
         [(m["period"], m["revenue"], m["order_count"]) for m in xu_huong["items"]]
     assert [c.value for c in sheet[1]][4:8] == [f"Doanh thu {ma} (đ)" for ma in xu_huong["top_product_codes"]]
-    # Shopee: tháng 1–6 không có dữ liệu → khi xuất theo khoảng rộng, ô để trống (không phải 0) kèm ghi chú.
     from app.services import export_service as dv
     assert dv.GHI_CHU_KHONG_DU_LIEU == "Không có dữ liệu"
 
@@ -206,8 +189,6 @@ def test_loc_gian_hang_va_ma_san_pham_ap_dung_cho_ca_file(client):
     assert hang_theo_nhan(sheet, "Mã sản phẩm")["B"].value == "M15"
     assert hang_theo_nhan(sheet, "Doanh thu (đ)")["B"].value < tong
 
-
-# ---------------------------------------------------------------- lỗi, PDF, quyền
 
 def test_pdf_tra_501_chua_ho_tro_trong_ban_demo(client):
     phan_hoi = client.get("/api/export/shopee/pdf")

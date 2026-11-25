@@ -1,11 +1,3 @@
-"""Test quét thư mục tự động `app/sync/folder_watcher.py` (SPEC §2.4, QUY_TRINH bước 12).
-
-Thư mục `data/` thật được thay bằng thư mục tạm (tmp_path). Hai nhóm:
-- hàm giả cho `nap_file` — kiểm quy tắc "kích thước không đổi qua hai lần quét", chuyển file;
-- `nap_file` THẬT với CSDL thật (marker db, giao dịch rollback) — file tốt → processed/ và
-  dòng sync_runs `file_auto`, file thiếu cột → failed/ kèm .log và không dòng đơn hàng nào.
-"""
-
 import shutil
 from pathlib import Path
 
@@ -25,19 +17,17 @@ def data(tmp_path):
     for nhom in ("inbox", "processed", "failed"):
         for san in ("shopee", "tiktok"):
             (tmp_path / nhom / san).mkdir(parents=True)
-    (tmp_path / "inbox" / "shopee" / ".gitkeep").touch()           # file ẩn phải bị bỏ qua
+    (tmp_path / "inbox" / "shopee" / ".gitkeep").touch()
     return tmp_path
 
 
 def ngan_shopee(data, ten_shop="Shop C"):
-    """Ngăn của một gian hàng Shopee: data/inbox/shopee/<tên shop>/ (watcher cũng tự tạo, ở đây tạo sẵn để đặt file)."""
     ngan = data / "inbox" / "shopee" / ten_shop
     ngan.mkdir(parents=True, exist_ok=True)
     return ngan
 
 
 def quet_hai_lan(data, ham_nap, trang_thai=None, cac_shop=("Shop C",), ham_ghi_loi=None):
-    """Quét lần 1 (ghi nhận kích thước) và lần 2 (kích thước không đổi → xử lý)."""
     kich_thuoc, kq1 = folder_watcher.quet_mot_lan(data, {}, ham_nap, trang_thai, cac_shop, ham_ghi_loi)
     kich_thuoc, kq2 = folder_watcher.quet_mot_lan(data, kich_thuoc, ham_nap, trang_thai, cac_shop, ham_ghi_loi)
     return kq1, kq2
@@ -52,7 +42,7 @@ def test_file_chi_duoc_xu_ly_o_lan_quet_thu_hai(data):
     assert kq2 == [("tiktok", "a.csv", "processed")]
     assert not (data / "inbox" / "tiktok" / "a.csv").exists()
     assert [f.name for f in (data / "processed" / "tiktok").iterdir()][0].startswith("a__")
-    assert (data / "inbox" / "shopee" / ".gitkeep").exists()           # .gitkeep không bị đụng
+    assert (data / "inbox" / "shopee" / ".gitkeep").exists()
 
 
 def test_file_dang_copy_do_kich_thuoc_con_doi_thi_chua_xu_ly(data):
@@ -61,10 +51,10 @@ def test_file_dang_copy_do_kich_thuoc_con_doi_thi_chua_xu_ly(data):
     da_nap = []
     ham_nap = lambda *tham_so: da_nap.append(tham_so)
     kich_thuoc, _ = folder_watcher.quet_mot_lan(data, {}, ham_nap)
-    file.write_text("abcdef", encoding="utf-8")                        # vẫn đang được ghi thêm
+    file.write_text("abcdef", encoding="utf-8")
     kich_thuoc, kq = folder_watcher.quet_mot_lan(data, kich_thuoc, ham_nap)
     assert kq == [("tiktok", "lon.csv", "cho")] and da_nap == []
-    _, kq = folder_watcher.quet_mot_lan(data, kich_thuoc, ham_nap)      # nay kích thước đã đứng yên
+    _, kq = folder_watcher.quet_mot_lan(data, kich_thuoc, ham_nap)
     assert kq == [("tiktok", "lon.csv", "processed")] and len(da_nap) == 1
 
 
@@ -82,7 +72,7 @@ def test_file_loi_vao_failed_kem_log_va_khong_chan_file_khac(data):
     assert len(cac_file) == 2 and cac_file[0].endswith(".csv") and cac_file[1].endswith(".log")
     noi_dung_log = next((data / "failed" / "shopee" / "Shop C").glob("*.log")).read_text(encoding="utf-8")
     assert "ValueError" in noi_dung_log and "thiếu cột Mã đơn hàng" in noi_dung_log
-    assert list((data / "inbox" / "shopee" / "Shop C").glob("*.csv")) == []        # không còn tồn đọng trong inbox
+    assert list((data / "inbox" / "shopee" / "Shop C").glob("*.csv")) == []
 
 
 def test_chi_nhan_csv_va_bo_qua_file_an_hoac_khac_duoi(data):
@@ -110,8 +100,6 @@ def test_trang_thai_quet_dem_file_cho_va_moc_quet(data):
     assert trang_thai.pending_files == 1 and trang_thai.last_scan_at is not None
 
 
-# ---------- Chỉ dẫn 026 giai đoạn 1: tệp Shopee phải nằm trong ngăn của gian hàng ----------
-
 def test_tep_o_ngan_shop_duoc_nap_dung_shop_va_chuyen_vao_processed_cua_shop(data):
     (ngan_shopee(data, "Shop C") / "a.csv").write_text("x", encoding="utf-8")
     (ngan_shopee(data, "Shop D") / "b.csv").write_text("x", encoding="utf-8")
@@ -137,11 +125,11 @@ def test_tep_o_goc_inbox_shopee_khong_duoc_nap_ma_vao_failed_kem_ly_do_va_sync_r
     da_nap, da_ghi = [], []
     ghi_loi = lambda san, duong_dan, ten_shop, nguon, loi, thoi_diem: da_ghi.append((san, Path(duong_dan).name, ten_shop, nguon, str(loi)))
     _, kq = quet_hai_lan(data, lambda *t: da_nap.append(t), ham_ghi_loi=ghi_loi)
-    assert da_nap == []                                                   # KHÔNG nạp: không có dòng nào vào orders
+    assert da_nap == []
     assert kq == [("shopee", "lac.csv", "failed")]
     assert len(da_ghi) == 1 and da_ghi[0][:4] == ("shopee", "lac.csv", None, "file_auto")
     assert "Tệp Shopee phải đặt trong thư mục của gian hàng" in da_ghi[0][4]
-    assert "Shop C" in da_ghi[0][4]                                       # nói rõ các ngăn hợp lệ
+    assert "Shop C" in da_ghi[0][4]
     assert list((data / "inbox" / "shopee").glob("*.csv")) == []
     log = next((data / "failed" / "shopee").glob("*.log")).read_text(encoding="utf-8")
     assert "Tệp Shopee phải đặt trong thư mục của gian hàng" in log
@@ -161,7 +149,7 @@ def test_moi_vong_quet_tu_tao_ngan_cho_moi_shop_shopee(data):
     folder_watcher.quet_mot_lan(data, {}, lambda *t: None, None, ("Shop C", "Shop D", "bad/name", ".an"))
     assert (data / "inbox" / "shopee" / "Shop C").is_dir() and (data / "inbox" / "shopee" / "Shop D").is_dir()
     ten_ngan = sorted(f.name for f in (data / "inbox" / "shopee").iterdir() if f.is_dir())
-    assert ten_ngan == ["Shop C", "Shop D"]                               # tên chứa "/" hoặc bắt đầu bằng "." bị bỏ qua
+    assert ten_ngan == ["Shop C", "Shop D"]
 
 
 def test_ngan_shop_moi_xuat_hien_o_vong_sau_khi_them_shop(data):
@@ -187,7 +175,7 @@ def test_vong_nen_doc_lai_danh_sach_shop_moi_vong_va_loi_doc_shop_khong_day_tep_
     def lay_shop():
         cac_lan_goi.append(1)
         if len(cac_lan_goi) == 1:
-            raise RuntimeError("CSDL tạm thời không đọc được")     # vòng 1 lỗi: KHÔNG được coi là "chưa có shop nào"
+            raise RuntimeError("CSDL tạm thời không đọc được")
         return ["Shop D"]
 
     async def chay():
@@ -202,8 +190,8 @@ def test_vong_nen_doc_lai_danh_sach_shop_moi_vong_va_loi_doc_shop_khong_day_tep_
         await tac_vu
 
     asyncio.run(chay())
-    assert len(cac_lan_goi) >= 2                                      # đọc lại mỗi vòng
-    assert da_nap == ["Shop D"]                                       # vòng lỗi không làm tệp bị từ chối nhầm
+    assert len(cac_lan_goi) >= 2
+    assert da_nap == ["Shop D"]
     assert list((data / "failed" / "shopee").rglob("*.csv")) == []
 
 
@@ -214,8 +202,6 @@ def test_cli_shopee_thieu_shop_bao_loi():
     assert tham_so.shop == "Shop D"
     assert not hasattr(nap_file, "SHOP_SHOPEE_MAC_DINH")
 
-
-# ---------- nap_file THẬT với CSDL thật ----------
 
 @pytest.fixture
 def nap_that(tao_phien_test, monkeypatch):

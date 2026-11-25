@@ -1,11 +1,3 @@
-"""Test endpoint /api/sync/* qua TestClient (SPEC §12.1.3.1–§12.1.3.4).
-
-Marker `db`: CSDL thật trong giao dịch rollback (phiên của test được đưa vào
-app qua dependency_overrides). POST /api/sync/{platform} dùng hàm chạy nền GIẢ
-(ghi nhận lời gọi, giữ khóa) để kiểm 202 / 409 mà không chạy đồng bộ thật;
-khóa advisory vẫn là khóa THẬT trên kết nối riêng.
-"""
-
 import json
 import re
 from datetime import datetime, timedelta, timezone
@@ -37,7 +29,6 @@ def tat_ca_token():
 
 
 def khong_lo_token(phan_hoi):
-    """Không giá trị token nào (từ .env hay CSDL) xuất hiện trong nội dung phản hồi."""
     noi_dung = phan_hoi.text
     for token in tat_ca_token():
         assert token not in noi_dung
@@ -46,7 +37,6 @@ def khong_lo_token(phan_hoi):
 
 @pytest.fixture
 def api(phien_test, ket_noi_test, tao_phien_test, monkeypatch, tieu_de_admin):
-    """(client, các lời gọi chạy nền). platform_tokens nạp đủ 3 shop; sync_runs rỗng (ket_noi_test đã xóa)."""
     ket_noi_test.execute(text("DELETE FROM platform_tokens"))
     monkeypatch.setattr(token_store, "SessionLocal", tao_phien_test)
     token_store.nap_san_tu_cau_hinh(settings)
@@ -69,8 +59,6 @@ def them_luot(ket_noi, san, shop, source="api", status="success", **cot):
     ket_noi.execute(text(f"INSERT INTO sync_runs ({', '.join(cot_ghi)}) VALUES ({', '.join(':' + k for k in cot_ghi)})"), cot_ghi)
 
 
-# ---------- GET /api/sync/status ----------
-
 def test_status_dung_khuon_va_khong_co_token(api, ket_noi_test):
     client, _ = api
     them_luot(ket_noi_test, "shopee", "Shop C", finished_at=datetime(2026, 8, 23, 9, 40, 7))
@@ -82,7 +70,7 @@ def test_status_dung_khuon_va_khong_co_token(api, ket_noi_test):
     assert set(du_lieu) == {"interval_minutes", "platforms", "shops"}
     assert du_lieu["interval_minutes"] == settings.SYNC_INTERVAL_MINUTES
     assert du_lieu["platforms"]["shopee"] == {"running": False, "running_since": None}
-    assert du_lieu["platforms"]["tiktok"] == {"running": True, "running_since": "2026-08-23T16:50:02+07:00"}   # UTC → +07:00
+    assert du_lieu["platforms"]["tiktok"] == {"running": True, "running_since": "2026-08-23T16:50:02+07:00"}
     assert [(s["platform"], s["shop_name"]) for s in du_lieu["shops"]] == [
         ("shopee", "Shop C"), ("tiktok", "Shop A"), ("tiktok", "Shop B")]
     shopee = du_lieu["shops"][0]
@@ -115,8 +103,6 @@ def test_status_voi_csdl_trong_van_dung_khuon(api, ket_noi_test):
     assert du_lieu["shops"] == [] and set(du_lieu["platforms"]) == {"shopee", "tiktok"}
 
 
-# ---------- GET /api/sync/runs ----------
-
 def test_runs_dung_khuon_sap_moi_nhat_truoc_va_phan_trang(api, ket_noi_test):
     client, _ = api
     for gio in range(5):
@@ -133,10 +119,10 @@ def test_runs_dung_khuon_sap_moi_nhat_truoc_va_phan_trang(api, ket_noi_test):
     assert set(muc) == KHOA_SYNC_RUN and set(muc["quality"]) == KHOA_CHAT_LUONG
     assert muc["triggered_by"] is None and muc["source"] == "api" and muc["trigger_type"] == "schedule"
     assert MAU_GIO_VN.match(muc["started_at"]) and MAU_GIO_VN.match(muc["window_from"]) and muc["finished_at"] is None
-    assert muc["started_at"] == "2026-08-23T12:00:00+07:00"                    # 05:00 UTC + 7 (lượt gio=4)
+    assert muc["started_at"] == "2026-08-23T12:00:00+07:00"
     assert muc["quality"]["rows_sku_fallback"] == 6 and (muc["api_calls"], muc["orders_fetched"]) == (3, 8)
     gio_bat_dau = [m["started_at"] for m in toan_bo["items"]]
-    assert gio_bat_dau == sorted(gio_bat_dau, reverse=True)                      # mới nhất trước
+    assert gio_bat_dau == sorted(gio_bat_dau, reverse=True)
 
     trang_2 = client.get("/api/sync/runs", params={"page": 2, "page_size": 4}).json()
     assert (trang_2["total"], trang_2["page"], trang_2["page_size"], len(trang_2["items"])) == (6, 2, 4, 2)
@@ -167,19 +153,17 @@ def test_runs_triggered_by_la_object_khi_co_nguoi_chay(api, ket_noi_test):
     assert client.get("/api/sync/runs").json()["items"][0]["triggered_by"] == {"id": 9001, "username": "admin.vh"}
 
 
-# ---------- POST /api/sync/{platform} ----------
-
 def test_post_202_tao_dong_running_cho_moi_shop_va_goi_chay_nen(api, ket_noi_test):
     client, cac_lan_chay = api
     phan_hoi = client.post("/api/sync/tiktok")
     assert phan_hoi.status_code == 202
     run_ids = phan_hoi.json()["run_ids"]
-    assert set(phan_hoi.json()) == {"run_ids"} and len(run_ids) == 2                  # Shop A, Shop B
+    assert set(phan_hoi.json()) == {"run_ids"} and len(run_ids) == 2
     cac_dong = ket_noi_test.execute(text("SELECT platform, shop_name, source, trigger_type, status, triggered_by "
                                          "FROM sync_runs ORDER BY id")).all()
     ma_admin = ket_noi_test.execute(text("SELECT id FROM users WHERE username = 'admin_thu'")).scalar_one()
     assert cac_dong == [("tiktok", "Shop A", "api", "manual", "running", ma_admin),
-                        ("tiktok", "Shop B", "api", "manual", "running", ma_admin)]   # triggered_by = người bấm nút
+                        ("tiktok", "Shop B", "api", "manual", "running", ma_admin)]
     assert [lan["run_ids"] for lan in cac_lan_chay] == [run_ids]
     assert cac_lan_chay[0]["shops"] == [("tiktok", "Shop A"), ("tiktok", "Shop B")]
     khong_lo_token(phan_hoi)
@@ -187,16 +171,15 @@ def test_post_202_tao_dong_running_cho_moi_shop_va_goi_chay_nen(api, ket_noi_tes
 
 def test_post_409_khi_dang_chay_dung_khuon_va_khong_tao_dong_moi(api, ket_noi_test):
     client, cac_lan_chay = api
-    assert client.post("/api/sync/tiktok").status_code == 202                         # lượt đầu giữ khóa (hàm giả không nhả)
+    assert client.post("/api/sync/tiktok").status_code == 202
     so_dong_truoc = ket_noi_test.execute(text("SELECT count(*) FROM sync_runs")).scalar_one()
 
     phan_hoi = client.post("/api/sync/tiktok")
     assert phan_hoi.status_code == 409
     assert phan_hoi.json() == {"detail": {"code": "sync_running", "message": "TikTok Shop đang có lượt đồng bộ chạy"}}
     assert ket_noi_test.execute(text("SELECT count(*) FROM sync_runs")).scalar_one() == so_dong_truoc
-    assert len(cac_lan_chay) == 1                                                      # lượt bị từ chối không chạy nền
+    assert len(cac_lan_chay) == 1
 
-    # Sàn khác không bị chặn; nhả khóa rồi thì sàn cũ lại chạy được.
     assert client.post("/api/sync/shopee").status_code == 202
     for khoa in cac_lan_chay[0]["khoa"]:
         khoa.nha()
@@ -205,10 +188,9 @@ def test_post_409_khi_dang_chay_dung_khuon_va_khong_tao_dong_moi(api, ket_noi_te
 
 def test_post_409_ca_khi_chi_mot_trong_hai_shop_dang_chay_va_nha_khoa_da_gianh(api, ket_noi_test):
     client, cac_lan_chay = api
-    khoa_shop_b = sync_job.thu_giu_khoa("tiktok", "Shop B")                           # lượt khác đang chạy Shop B
+    khoa_shop_b = sync_job.thu_giu_khoa("tiktok", "Shop B")
     try:
         assert client.post("/api/sync/tiktok").status_code == 409
-        # Khóa Shop A mà lượt bị từ chối đã giành tạm phải được nhả → giành lại được ngay.
         khoa_shop_a = sync_job.thu_giu_khoa("tiktok", "Shop A")
         assert khoa_shop_a is not None
         khoa_shop_a.nha()
@@ -245,9 +227,8 @@ def test_cac_phan_hoi_khong_bao_gio_co_token(api, ket_noi_test):
         assert access not in noi_dung and refresh not in noi_dung
 
 
-@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")   # lỗi cố ý ở thread nền
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_luot_chay_nen_mac_dinh_chay_tung_shop_va_nha_khoa(monkeypatch):
-    """chay_nen_mac_dinh (thread thật): gọi dong_bo_mot_shop từng shop kèm khóa/run_id; nhả mọi khóa kể cả khi lượt lỗi."""
     from app.api import sync as api_sync
     cac_lan_goi, khoa_cua_shop = [], []
     for ten in ("Shop A", "Shop B"):
@@ -256,7 +237,7 @@ def test_luot_chay_nen_mac_dinh_chay_tung_shop_va_nha_khoa(monkeypatch):
     def dong_bo_gia(san, ten_shop, trigger, nguoi, khoa=None, run_id=None):
         cac_lan_goi.append((san, ten_shop, trigger, nguoi, run_id))
         if ten_shop == "Shop A":
-            raise RuntimeError("loi ngoai du kien")             # lỗi lượt đầu không được làm mất khóa Shop B
+            raise RuntimeError("loi ngoai du kien")
         khoa.nha()
     monkeypatch.setattr(sync_job, "dong_bo_mot_shop", dong_bo_gia)
 

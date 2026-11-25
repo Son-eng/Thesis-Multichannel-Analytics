@@ -1,8 +1,3 @@
-"""Test `/api/upload`: giới hạn kích thước (413), chỉ lỗi NỘI DUNG tệp mới là 422, lỗi hạ tầng là 500 (chỉ dẫn 021, B.3).
-
-CSDL thật trong giao dịch rollback (cùng cách dựng với test_upload_api.py).
-"""
-
 from pathlib import Path
 
 import pytest
@@ -45,15 +40,13 @@ def tai_len(client, san, duong_dan, **form):
         return client.post(f"/api/upload/{san}", files={"file": (Path(duong_dan).name, f, "text/csv")}, data=form)
 
 
-# ---------------------------------------------------------------- 413: giới hạn kích thước
-
 def test_tep_vuot_nguong_tra_413_dung_khuon_va_khong_tao_sync_run(client, ket_noi_test, monkeypatch):
-    monkeypatch.setattr(api_upload, "GIOI_HAN_TAI_FILE_BYTE", 1000)                 # ngưỡng nhỏ cho test nhanh
+    monkeypatch.setattr(api_upload, "GIOI_HAN_TAI_FILE_BYTE", 1000)
     phan_hoi = tai_len(client, "tiktok", FILE_TIKTOK)
     assert phan_hoi.status_code == 413
     chi_tiet = phan_hoi.json()["detail"]
     assert chi_tiet["code"] == "file_too_large" and chi_tiet["max_bytes"] == 1000 and "vượt quá" in chi_tiet["message"]
-    assert dem(ket_noi_test, "sync_runs") == 0 and dem(ket_noi_test, "orders") == 0   # chưa bắt đầu nạp
+    assert dem(ket_noi_test, "sync_runs") == 0 and dem(ket_noi_test, "orders") == 0
 
 
 def test_hang_so_gioi_han_la_50_mb_va_thong_diep_dung_chu():
@@ -61,7 +54,7 @@ def test_hang_so_gioi_han_la_50_mb_va_thong_diep_dung_chu():
 
 
 def test_thong_diep_413_ghi_dung_so_mb_theo_gioi_han_hien_hanh(client, monkeypatch):
-    monkeypatch.setattr(api_upload, "GIOI_HAN_TAI_FILE_BYTE", 2 * 1024 * 1024)       # tệp mẫu TikTok ~6 MB > 2 MB
+    monkeypatch.setattr(api_upload, "GIOI_HAN_TAI_FILE_BYTE", 2 * 1024 * 1024)
     chi_tiet = tai_len(client, "tiktok", FILE_TIKTOK).json()["detail"]
     assert chi_tiet["message"] == "Tệp vượt quá 2 MB" and chi_tiet["max_bytes"] == 2 * 1024 * 1024
 
@@ -69,7 +62,7 @@ def test_thong_diep_413_ghi_dung_so_mb_theo_gioi_han_hien_hanh(client, monkeypat
 def test_tep_dung_bang_nguong_van_nap_duoc(client, monkeypatch, ket_noi_test):
     monkeypatch.setattr(api_upload, "GIOI_HAN_TAI_FILE_BYTE", FILE_TIKTOK.stat().st_size)
     phan_hoi = tai_len(client, "tiktok", FILE_TIKTOK)
-    assert phan_hoi.status_code == 200 and phan_hoi.json()["rows_inserted"] == 7540      # đúng = ngưỡng thì không bị chặn
+    assert phan_hoi.status_code == 200 and phan_hoi.json()["rows_inserted"] == 7540
 
 
 def test_tep_mau_hop_le_van_nap_nhu_cu(client, ket_noi_test):
@@ -80,8 +73,6 @@ def test_tep_mau_hop_le_van_nap_nhu_cu(client, ket_noi_test):
         "SELECT SUM(nmv_after_tax) FROM orders WHERE platform = 'shopee' AND order_status <> 'cancelled' AND is_returned = FALSE"
     )).scalar_one() == 1908961059
 
-
-# ---------------------------------------------------------------- 422 chỉ cho lỗi nội dung tệp
 
 def test_tep_rac_khong_phai_csv_van_422_invalid_file(client, tmp_path):
     rac = tmp_path / "rac.csv"
@@ -97,7 +88,6 @@ def test_tep_rong_van_422(client, tmp_path):
 
 
 def test_gia_tri_khong_vua_cot_csdl_la_422_khong_phai_500(client, tmp_path, ket_noi_test):
-    """SKU dài 300 ký tự (cột VARCHAR(100)): PostgreSQL ném DataError — lỗi do NỘI DUNG tệp, vẫn là 422."""
     dong = FILE_TIKTOK.read_text(encoding="utf-8-sig").splitlines()
     tieu_de = dong[0].split(",")
     tep = tmp_path / "sku_dai.csv"
@@ -116,8 +106,6 @@ def test_gia_tri_khong_vua_cot_csdl_la_422_khong_phai_500(client, tmp_path, ket_
     assert phan_hoi.status_code == 422, phan_hoi.text
     assert dem(ket_noi_test, "orders") == 0
 
-
-# ---------------------------------------------------------------- lỗi hạ tầng không bị đổi thành 422
 
 def test_loi_ha_tang_la_500_khong_phai_422(ung_dung, tieu_de_admin, monkeypatch):
     def hong_csdl(*tham_so, **tu_khoa):
@@ -139,7 +127,6 @@ def test_cac_loi_khac_cung_la_500(ung_dung, tieu_de_admin, monkeypatch, loi):
 
 
 def test_cac_lop_loi_noi_dung_tep_la_dung_nhung_lop_da_chon():
-    """Ghi lại các lớp được coi là lỗi nội dung tệp (báo cáo 021): thêm/bớt lớp phải có chủ ý."""
     ten = {c.__name__ for c in nap_file.LOI_NOI_DUNG_TEP}
     assert ten == {"ValueError", "KeyError", "ParserError", "EmptyDataError", "UnicodeDecodeError", "DataError", "IntegrityError"}
     assert not issubclass(OperationalError, nap_file.LOI_NOI_DUNG_TEP)

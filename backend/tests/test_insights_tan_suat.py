@@ -1,8 +1,3 @@
-"""Test giới hạn tần suất `POST /api/insights/generate` (chỉ dẫn 021, C.1): tối thiểu 10 giây giữa hai lần gọi của MỘT người dùng.
-
-Đồng hồ được giả lập (`insights.dong_ho`) nên test không phải ngủ thật. Gemini được giả bằng `httpx2.MockTransport`.
-"""
-
 import threading
 
 import httpx2
@@ -25,8 +20,6 @@ BODY = {"platform": "shopee", "granularity": "month", "period": "2026-08"}
 
 
 class DongHoGia:
-    """Đồng hồ giả: tiến thời gian bằng tay."""
-
     def __init__(self):
         self.t = 1000.0
 
@@ -64,7 +57,6 @@ def dong_ho(monkeypatch):
 
 @pytest.fixture
 def goi(du_lieu_mau_da_nap, dong_ho, monkeypatch):
-    """goi(nguoi_id, gemini) → phản hồi; mỗi lần gọi tạo một app mới với người dùng giả có id cho trước."""
     monkeypatch.setattr(settings, "GEMINI_API_KEY", SecretStr("KHOA-GIA-0123456789"))
 
     def _goi(ma_nguoi, gemini):
@@ -84,7 +76,7 @@ def test_hai_lan_lien_tiep_cua_mot_nguoi_lan_hai_la_429_dung_khuon(goi):
     assert phan_hoi.json()["detail"] == {"code": "too_many_requests", "message": "Vui lòng đợi vài giây rồi thử lại",
                                          "retry_after_seconds": 10}
     assert phan_hoi.headers["Retry-After"] == "10"
-    assert gemini.so_lan_goi == 1                                  # lần bị chặn KHÔNG gọi Gemini
+    assert gemini.so_lan_goi == 1
 
 
 def test_so_giay_cho_giam_dan_theo_thoi_gian_va_lam_tron_len(goi, dong_ho):
@@ -92,15 +84,15 @@ def test_so_giay_cho_giam_dan_theo_thoi_gian_va_lam_tron_len(goi, dong_ho):
     goi(1, gemini)
     dong_ho.t += 3.2
     phan_hoi = goi(1, gemini)
-    assert phan_hoi.status_code == 429 and phan_hoi.json()["detail"]["retry_after_seconds"] == 7    # ceil(10 − 3,2)
+    assert phan_hoi.status_code == 429 and phan_hoi.json()["detail"]["retry_after_seconds"] == 7
     assert phan_hoi.headers["Retry-After"] == "7"
 
 
 def test_nguoi_dung_khac_khong_bi_anh_huong(goi):
     gemini = GeminiGia(VAN_BAN_TOT)
     assert goi(1, gemini).status_code == 200
-    assert goi(2, gemini).status_code == 200                       # người khác vẫn gọi được ngay
-    assert goi(1, gemini).status_code == 429                       # người 1 vẫn đang chờ
+    assert goi(2, gemini).status_code == 200
+    assert goi(1, gemini).status_code == 429
     assert gemini.so_lan_goi == 2
 
 
@@ -109,7 +101,7 @@ def test_sau_khi_qua_thoi_gian_cho_goi_lai_duoc(goi, dong_ho):
     goi(1, gemini)
     dong_ho.t += 9.9
     assert goi(1, gemini).status_code == 429
-    dong_ho.t += 0.2                                               # tổng 10,1 giây kể từ lần gọi đầu
+    dong_ho.t += 0.2
     assert goi(1, gemini).status_code == 200
     assert gemini.so_lan_goi == 2
 
@@ -122,19 +114,17 @@ def test_dung_bang_muoi_giay_thi_duoc_goi(goi, dong_ho):
 
 
 def test_lan_goi_that_bai_cung_tinh_vao_gioi_han(goi, dong_ho, monkeypatch):
-    """Giới hạn đếm mọi lần gọi tới được Gemini kể cả khi Gemini lỗi (để không thể dội liên tục khi dịch vụ đang hỏng)."""
     monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
     gemini = GeminiGia(VAN_BAN_TOT)
-    assert goi(1, gemini).status_code == 503                       # chưa có khóa → 503
+    assert goi(1, gemini).status_code == 503
     assert goi(1, gemini).status_code == 429
 
 
 def test_thu_lai_noi_bo_cua_chot_chan_so_la_khong_tinh_la_hai_lan_goi(goi):
-    """Gemini trả số bịa ở lần đầu, đúng ở lần hai: bên trong gọi Gemini 2 lần nhưng với người dùng đó là MỘT lần gọi API."""
     gemini = GeminiGia("Tăng 99,9% so với kỳ trước.", VAN_BAN_TOT)
     phan_hoi = goi(1, gemini)
-    assert phan_hoi.status_code == 200 and gemini.so_lan_goi == 2   # không bị 429 giữa hai lần thử nội bộ
-    assert goi(1, gemini).status_code == 429                       # nhưng lần gọi API kế tiếp thì bị chờ
+    assert phan_hoi.status_code == 200 and gemini.so_lan_goi == 2
+    assert goi(1, gemini).status_code == 429
 
 
 def test_loi_422_do_pydantic_khong_tinh_vao_gioi_han(du_lieu_mau_da_nap, dong_ho):
@@ -152,7 +142,6 @@ def test_khoang_nghi_bang_0_tat_gioi_han(goi, monkeypatch):
 
 
 def test_nhieu_luong_cung_luc_chi_mot_luong_duoc_qua(dong_ho):
-    """Kiểm-rồi-ghi là nguyên tử: 20 luồng cùng gọi một lúc chỉ đúng MỘT luồng nhận 0 (được gọi), 19 luồng còn lại phải chờ."""
     ket_qua = []
     rao = threading.Barrier(20)
 
