@@ -1,4 +1,6 @@
-"""Đọc file CSV TikTok → DataFrame cột chuẩn — đường nạp file dự phòng."""
+# Đọc file CSV TikTok → DataFrame cột chuẩn — đường nạp file dự phòng.
+## Lấy tên gian hàng từ cột Shop
+## Sửa lỗi tính toán
 
 import pandas as pd
 

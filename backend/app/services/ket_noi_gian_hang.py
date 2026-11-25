@@ -1,5 +1,4 @@
-"""Kết nối gian hàng bằng ủy quyền; state giữ trong bộ nhớ một tiến trình, sống 10 phút và chỉ dùng một lần."""
-
+# Quản lý vòng đời của mã state (Chống tấn công CSRF khi ủy quyền OAuth)
 import logging
 import secrets
 import threading

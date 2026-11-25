@@ -1,5 +1,6 @@
-"""Nạp một file CSV vào CSDL trong một giao dịch; lỗi thì rollback và ghi riêng một lượt failed."""
-
+# Nạp một file CSV vào CSDL trong một giao dịch; lỗi thì rollback và ghi riêng một lượt failed
+## Điều phối quy trình nạp
+## Quản lý giao dịch an toàn
 import argparse
 import logging
 import re

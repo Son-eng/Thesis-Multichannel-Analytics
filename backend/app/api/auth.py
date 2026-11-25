@@ -1,4 +1,4 @@
-"""Đăng nhập: sai tên hay sai mật khẩu đều trả cùng một phản hồi để không lộ tài khoản nào tồn tại."""
+# Đăng nhập, lấy thông tin cá nhân, đăng xuất
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
@@ -23,7 +23,7 @@ class DangNhap(BaseModel):
 def nguoi_dung_sang_json(nguoi):
     return {"id": nguoi.id, "username": nguoi.username, "role": nguoi.role}
 
-
+# Đăng nhập
 @router.post("/login")
 def dang_nhap(du_lieu: DangNhap, phien: Session = Depends(lay_phien_db)):
     nguoi = phien.execute(select(User).where(User.username == du_lieu.username.strip())).scalar_one_or_none()
@@ -36,12 +36,12 @@ def dang_nhap(du_lieu: DangNhap, phien: Session = Depends(lay_phien_db)):
         raise HTTPException(401, detail={"code": "invalid_credentials", "message": THONG_BAO_SAI_DANG_NHAP})
     return {"access_token": security.tao_token(nguoi.id), "token_type": "bearer", "user": nguoi_dung_sang_json(nguoi)}
 
-
+# Nhận token JWT từ Header xem ai gọi API, trả về id, username, role
 @router.get("/me")
 def toi_la_ai(nguoi: User = Depends(yeu_cau_dang_nhap)):
     return nguoi_dung_sang_json(nguoi)
 
-
+# Đăng xuất
 @router.post("/logout", status_code=204)
 def dang_xuat(_nguoi: User = Depends(yeu_cau_dang_nhap)):
     return Response(status_code=204)

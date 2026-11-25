@@ -1,4 +1,4 @@
-// Mã kỳ và phép tính lịch, dùng chung cho giao diện và mock; mọi phép tính ngày dùng UTC để không lệch múi giờ.
+// Thư viện tính toán lịch: chia kỳ theo ngày/tháng/quý/năm, xác định ngày bắt đầu/kết thúc của từng kỳ.
 
 export const MUC_THOI_GIAN = ['day', 'month', 'quarter', 'year'];
 

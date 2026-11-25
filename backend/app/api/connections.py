@@ -1,4 +1,4 @@
-"""Kết nối gian hàng bằng ủy quyền; callback không dùng JWT mà xác thực bằng state."""
+# Kết nối gian hàng bằng ủy quyền
 
 import logging
 from typing import Literal

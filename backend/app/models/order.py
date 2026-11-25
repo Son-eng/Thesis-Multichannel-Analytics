@@ -1,5 +1,4 @@
-"""Bảng orders dùng chung cho mọi sàn; mỗi dòng là một dòng sản phẩm của một đơn."""
-
+# Bảng orders dùng chung cho mọi sàn; mỗi dòng là một dòng sản phẩm của một đơn.
 from datetime import date, datetime
 from decimal import Decimal
 

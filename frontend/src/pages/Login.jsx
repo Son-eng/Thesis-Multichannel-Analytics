@@ -1,3 +1,5 @@
+// Màn hình đăng nhập, ghi nhớ trang người dùng định vào sau đăng nhập
+
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { mau, tranhDangNhap, canhBao, coChu } from '../theme/tokens.js';

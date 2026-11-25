@@ -21,9 +21,7 @@ from alembic import context
 from app.config import settings
 from app.database import Base
 
-# Import từng module model chỉ để các lớp model được khai báo, nhờ đó bảng của
-# chúng có mặt trong Base.metadata. Thiếu một dòng ở đây thì autogenerate
-# tưởng bảng đó không còn cần và sinh lệnh XÓA bảng.
+# Phải import các model để autogenerate không sinh lệnh xóa bảng.
 from app.models import order, platform_token, sync_run, user  # noqa: F401
 
 config = context.config
@@ -32,42 +30,34 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = Base.metadata # cho alembic biết cấu trúc mong muốn là gì
 
 
-def chay_migration_offline() -> None:
-    """Sinh câu SQL ra màn hình thay vì chạy vào CSDL (`alembic upgrade --sql`).
-
-    Nhận/trả: không. Cần hàm này để xem trước SQL sẽ chạy — hữu ích khi đối
-    chiếu migration với CREATE TABLE ở SPEC §3 mà không đụng vào CSDL.
-    """
+def chay_migration_offline() -> None: # Kiểm tra, xuất file .sql nộp/bàn giao
+    """Không kết nối CSDL, chỉ đọc file migration, dịch lệnh SQL thuần túy và in ra màn hình.    """
     context.configure(
-        url=settings.DATABASE_URL,
+        url=settings.DATABASE_URL, # cho alembic biết kết nối CSDL nào
         target_metadata=target_metadata,
         # Ghi thẳng giá trị vào câu SQL thay vì dùng tham số, để SQL in ra
         # đọc được và chạy lại được.
-        literal_binds=True,
+        literal_binds=True, # không để các tham số dạng ẩn, ghi thẳng giá trị vào câu lệnh SQL 
         dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def chay_migration_online() -> None:
-    """Kết nối CSDL thật và chạy migration.
-
-    Nhận/trả: không. Tạo engine riêng thay vì dùng engine của app/database.py:
-    engine đó bật echo theo DEBUG và giữ bể kết nối; một lượt migration chỉ
-    cần một kết nối dùng xong là đóng (NullPool).
+def chay_migration_online() -> None: # Nạp cấu trúc bảng khi cài đặt hệ thống
+    """Kết nối CSDL thật và chạy migration: kiểm tra bảng alembic_version -> chạy lệnh thật.
     """
-    engine_migration = create_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+    engine_migration = create_engine(settings.DATABASE_URL, poolclass=pool.NullPool) # Mở 1 kết nối duy nhất, chạy xong là đóng, không tạo pool gây lãng phí
     with engine_migration.connect() as ket_noi:
         context.configure(connection=ket_noi, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
 
 
-if context.is_offline_mode():
+if context.is_offline_mode(): # Chạy offline hay online theo lệnh mình
     chay_migration_offline()
 else:
     chay_migration_online()

@@ -1,4 +1,4 @@
-"""Endpoint đồng bộ: không trả giá trị token, thời điểm đổi sang giờ Việt Nam ở lớp này."""
+# Đồng bộ và theo chất lượng dữ liệu
 
 import threading
 from datetime import datetime, timedelta, timezone
@@ -24,7 +24,7 @@ TEN_SAN_HIEN_THI = {"shopee": "Shopee", "tiktok": "TikTok Shop"}
 COT_CHAT_LUONG = ["rows_sku_fallback", "rows_sku_unknown", "rows_status_unknown",
                   "rows_province_unmapped", "rows_product_unmapped"]
 
-
+## Nhận mốc giờ UTC chuyển thành chuỗi ISO giờ VN 
 def gio_vn_iso(thoi_diem):
     """Thời điểm UTC không múi giờ từ CSDL sang chuỗi ISO giờ Việt Nam."""
     if thoi_diem is None:
@@ -67,17 +67,20 @@ def luot_chay_sang_json(dong, nguoi_chay):
         "quality": {cot: getattr(dong, cot) for cot in COT_CHAT_LUONG},
     }
 
-
+# Giám sát trạng thái kết nối
 @router.get("/status", dependencies=CAN_DANG_NHAP)
+## Không trả về 2 trường nhạy cảm, chỉ trả ngày hết hạn và trạng thái
 def trang_thai_dong_bo(phien: Session = Depends(lay_phien_db)):
     bay_gio = datetime.now(timezone.utc)
     cac_san = {}
+    # Kiểm tra có lượt đồng bộ nào đang chạy không
     for san in sync_job.SAN_HOP_LE:
         bat_dau = phien.execute(select(func.min(SyncRun.started_at)).where(
             SyncRun.platform == san, SyncRun.source == "api", SyncRun.status == "running")).scalar_one()
         cac_san[san] = {"running": bat_dau is not None, "running_since": gio_vn_iso(bat_dau)}
 
     cac_shop = []
+    # Tính toán trạng thái hạn dùng của token
     for token in phien.execute(select(PlatformToken).order_by(PlatformToken.platform, PlatformToken.shop_name)).scalars():
         thanh_cong_cuoi = phien.execute(select(func.max(SyncRun.finished_at)).where(
             SyncRun.platform == token.platform, SyncRun.shop_name == token.shop_name,
@@ -92,7 +95,7 @@ def trang_thai_dong_bo(phien: Session = Depends(lay_phien_db)):
         })
     return {"interval_minutes": settings.SYNC_INTERVAL_MINUTES, "platforms": cac_san, "shops": cac_shop}
 
-
+## Bảng lịch sử nạp dữ liệu
 @router.get("/runs", dependencies=CAN_DANG_NHAP)
 def lich_su_dong_bo(
     platform: Literal["shopee", "tiktok"] | None = None,

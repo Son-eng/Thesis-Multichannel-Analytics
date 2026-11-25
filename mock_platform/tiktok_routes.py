@@ -1,4 +1,4 @@
-"""Các endpoint TikTok của máy chủ giả lập; mã lỗi dải 9990xxx là mã quy ước của bản giả lập."""
+# Chứa các endpoint của TiktokShop
 
 import json
 import secrets

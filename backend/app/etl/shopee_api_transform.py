@@ -1,5 +1,6 @@
-"""JSON API Shopee thành DataFrame cột chuẩn."""
-
+# JSON API Shopee thành DataFrame cột chuẩn
+## Trải danh sách item_list lồng trong đơn hàng
+## Đơn chưa có escrow -> tự tính NMV tạm
 import pandas as pd
 
 from app.etl import cleaners

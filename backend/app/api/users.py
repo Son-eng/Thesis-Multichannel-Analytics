@@ -1,5 +1,5 @@
-"""Quản lý người dùng, chỉ admin."""
-
+# Quản lý người dùng, chỉ admin
+# Mọi endpoint đều được gắn dependency _admin -> chỉ tài khoản admin mới gọi được các API này
 import re
 from typing import Literal
 
@@ -73,7 +73,7 @@ def tao(du_lieu: TaoNguoiDung, phien: Session = Depends(lay_phien_db), _admin: U
     phien.add(nguoi)
     try:
         phien.commit()
-    except IntegrityError:                       # hai yêu cầu cùng tạo một tên thì ràng buộc UNIQUE chặn
+    except IntegrityError:                       # Hai yêu cầu cùng tạo một tên cùng 1 lúc thì ràng buộc UNIQUE chặn
         phien.rollback()
         raise _loi(409, "username_taken", "Tên đăng nhập đã tồn tại") from None
     phien.refresh(nguoi)
@@ -105,6 +105,7 @@ def dat_lai_mat_khau(ma: int, du_lieu: DoiMatKhau, phien: Session = Depends(lay_
 @router.delete("/{ma}", status_code=204)
 def xoa(ma: int, phien: Session = Depends(lay_phien_db), admin: User = Depends(yeu_cau_admin)):
     if ma == admin.id:
+        # Chặn xóa chính mình
         raise _loi(400, "cannot_delete_self", "Không xóa được chính mình")
     nguoi = _lay_hoac_404(phien, ma)
     if phien.execute(select(SyncRun.id).where(SyncRun.triggered_by == nguoi.id).limit(1)).first() is not None:
@@ -113,3 +114,5 @@ def xoa(ma: int, phien: Session = Depends(lay_phien_db), admin: User = Depends(y
     phien.delete(nguoi)
     phien.commit()
     return Response(status_code=204)
+
+# Bảng sync_runs có cột khóa ngoại, ai chạy đồng bộ hay nạp tệp đều được ghi lại tên, nếu xóa người này sẽ gây ra lỗi

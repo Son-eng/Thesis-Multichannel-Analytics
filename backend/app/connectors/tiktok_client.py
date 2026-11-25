@@ -1,4 +1,7 @@
-"""Connector TikTok Shop; body POST serialize đúng một lần rồi dùng cùng chuỗi để ký và gửi, nếu không sẽ sai chữ ký."""
+# Khách gọi API Tiktok
+## Ký chữ ký số
+## Xử lý phân trang bằng con trỏ
+## Gọi Finance API để tách các thông tin hoàn hủy và API Aff để gắn cờ tiếp thị liên kết
 
 import hashlib
 import hmac

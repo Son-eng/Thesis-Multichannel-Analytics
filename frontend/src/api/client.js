@@ -1,5 +1,5 @@
-// Một cửa duy nhất gọi API; trang và hook không gọi fetch trực tiếp.
-// VITE_USE_MOCK chọn nguồn dữ liệu: bật thì dùng src/api/mock/, tắt thì gọi backend.
+// VITE_USE_MOCK=true: frontend chạy bằng dữ liệu giả ngay trên trình duyệt, không cần bật Docker, backend hay PostgreSQL.
+// VITE_USE_MOCK=false: Các hàm gọi API gửi request về backend
 
 import { luonGiaLap } from './cheDo.js';
 

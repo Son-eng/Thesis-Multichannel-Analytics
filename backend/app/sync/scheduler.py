@@ -1,5 +1,4 @@
-"""Lịch đồng bộ chạy nền; chống chạy chồng nằm ở khóa advisory trong sync_job, không ở đây."""
-
+# Vòng lặp hẹn giờ 10p
 import asyncio
 import logging
 

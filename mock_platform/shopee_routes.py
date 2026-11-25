@@ -1,5 +1,4 @@
-"""Các endpoint Shopee của máy chủ giả lập; mọi yêu cầu đi qua kiem_tham_so_chung trước."""
-
+# Chứa các endpoint của Shopee v2
 import json
 import secrets
 

@@ -1,4 +1,4 @@
-"""Endpoint nạp file dự phòng: POST /api/upload/{platform}, GET /api/watcher/status."""
+# Nạp file dự phòng
 
 import tempfile
 from pathlib import Path

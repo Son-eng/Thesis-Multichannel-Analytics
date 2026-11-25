@@ -1,4 +1,7 @@
-"""Đọc file CSV Shopee → DataFrame cột chuẩn — đường nạp file dự phòng."""
+# Đọc file CSV Shopee → DataFrame cột chuẩn — đường nạp file dự phòng
+## Đọc các cột cần thiết, bỏ qua các cột nhạy cảm
+## Xây chuỗi dự phòng SKU
+## Tính NMV chuẩn
 
 import pandas as pd
 

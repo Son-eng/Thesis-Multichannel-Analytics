@@ -1,3 +1,5 @@
+// Hiệu ứng số nhảy tăng dần
+
 import { useEffect, useRef, useState } from 'react';
 import { chuyenDongDangTat, thoiLuong } from '../theme/motion.js';
 

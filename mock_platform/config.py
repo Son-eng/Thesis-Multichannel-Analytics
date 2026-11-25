@@ -1,4 +1,4 @@
-"""Cấu hình máy chủ giả lập; mọi khóa và token ở đây là giả."""
+# Đọc cấu hình từ mock_platform/.env
 
 from pathlib import Path
 from typing import Literal

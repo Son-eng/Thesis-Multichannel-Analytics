@@ -1,5 +1,8 @@
-"""Các hàm làm sạch dùng chung cho đường file và đường API, để hai đường cho cùng kết quả."""
-
+# Làm sạch: đưa 2 nguồn đầu vào đều về 1 kiểu dữ liệu
+## Định dạng tiền -> số thực
+## Chuẩn hóa 63 tỉnh thành
+## Chuyển đổi Timestamp sang múi giờ VN 
+## Tính toán NMV
 import json
 import logging
 import re

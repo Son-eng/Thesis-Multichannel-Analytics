@@ -1,10 +1,11 @@
-"""Gửi HTTP có thử lại, chờ tăng dần; nhận diện lỗi theo cả mã HTTP lẫn body vì sàn hay trả lỗi kèm HTTP 200."""
+# Tự động thử lại khi gặp lỗi mạng
+# Tự động chờ, gửi lại tối đa 5 lần
 
 import time
 
 import httpx2
 
-# Mã lỗi thử lại được, đã gặp thật khi chạy với sàn.
+# Mã lỗi thử lại được
 LOI_QUA_TAI_SHOPEE = "error_rate_limit"
 MA_QUA_TAI_TIKTOK = 36009002
 MA_LOI_NOI_BO_TIKTOK = 36009003

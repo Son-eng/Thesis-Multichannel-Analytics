@@ -1,3 +1,5 @@
+// Tỉ lệ kênh affiliate
+
 import { mau, coChu } from '../../theme/tokens.js';
 import { thoiLuong } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';

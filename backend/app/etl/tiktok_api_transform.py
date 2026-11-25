@@ -1,5 +1,6 @@
-"""JSON API TikTok thành DataFrame cột chuẩn; mỗi line item là một sản phẩm nên gộp theo (đơn, sku_id)."""
-
+# JSON API TikTok thành DataFrame cột chuẩn; mỗi line item là một sản phẩm nên gộp theo (đơn, sku_id)
+## Mỗi sản phẩm lẻ là 1 dòng, gộp các sản phẩm cùng SKU thành 1 dòng, cộng dồn giảm giá và số lượng
+## Nhận diện đơn hoàn hàng từ finance API 
 import pandas as pd
 
 from app.etl import cleaners

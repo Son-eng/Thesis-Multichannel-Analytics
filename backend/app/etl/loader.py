@@ -1,5 +1,6 @@
-"""Ghi dữ liệu đã chuẩn hóa vào bảng orders bằng upsert; mọi đường nạp đều đi qua đây."""
-
+# Ghi dữ liệu đã chuẩn hóa vào bảng orders bằng upsert
+## Định nghĩa danh sách cột chuẩn đầu ra 
+## Chia lô 1000 dòng tránh chạm giới hạn 65.535 tham số của PostgreSQL và tối ưu tốc độ ghi đĩa
 import pandas as pd
 from sqlalchemy import func, literal_column
 from sqlalchemy.dialects.postgresql import insert

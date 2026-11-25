@@ -1,3 +1,5 @@
+// Màn hình đối chiếu 2 sàn
+
 import { useSearchParams } from 'react-router-dom';
 import { mau, chuDao, san, coChu, khoangCach } from '../theme/tokens.js';
 import { TrangChuyenDong } from '../hooks/useChuyenDong.jsx';

@@ -1,4 +1,4 @@
-"""Tính KPI: doanh thu là SUM(nmv_after_tax) trên dòng không hủy, không hoàn; đếm đơn bằng COUNT(DISTINCT order_id)."""
+# Trọng tâm thuật toán phân tích
 
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal

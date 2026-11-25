@@ -1,4 +1,7 @@
-"""Băm mật khẩu bằng bcrypt và JWT; vai trò không nằm trong token mà đọc lại từ CSDL mỗi yêu cầu."""
+# Bảo mật Bcrypt & Token JWT
+## Băm mật khẩu = Bcrypt giới hạn 72 byte
+## Chống rò rỉ tài khoản - đăng nhập bằng user không tồn tại vẫn băm giả để tiêu đúng 100ms, tránh tấn công mạng thông qua độ trễ
+## Cấp và giải mã JWT
 
 from datetime import datetime, timedelta, timezone
 

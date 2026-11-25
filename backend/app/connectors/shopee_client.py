@@ -1,4 +1,8 @@
-"""Connector Shopee: ký, gửi, thử lại, phân trang, làm mới token; chỉ trả JSON thô của sàn."""
+# Khách gọi API Shopee
+## Ký chữ ký số
+## Chia thời gian kéo đơn -> tránh lỗi vượt giới hạn
+## Kéo danh sách mã đơn -> chia 50 đơn/lần và thấy thông tin tiền ký quỹ
+## Tự gọi endpoint làm mới access token
 
 import hashlib
 import hmac

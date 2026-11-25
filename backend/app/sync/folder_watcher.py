@@ -1,5 +1,7 @@
-"""Quét thư mục nạp file tự động; tệp Shopee phải nằm trong ngăn của đúng gian hàng, sai chỗ thì chuyển sang failed."""
-
+# Bộ quét thư mục thả tệp tự động (30s)
+## Chống đọc tệp đang copy dở 
+## Tự động tạo ngăn cho thư mục shopee
+## Tự động phân loại sau khi nạp
 import asyncio
 import logging
 from datetime import datetime, timezone

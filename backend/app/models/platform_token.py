@@ -1,5 +1,4 @@
-"""Bảng platform_tokens: lưu token trong CSDL vì refresh token Shopee chỉ dùng được một lần, ghi trong giao dịch thì không mất giữa chừng."""
-
+# Quản lý quyền truy cập API của từng gian hàng trên từng sàn
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, String, Text, UniqueConstraint, func

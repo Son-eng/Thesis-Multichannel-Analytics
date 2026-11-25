@@ -1,4 +1,4 @@
-"""Xuất báo cáo: GET /api/export/{platform}/excel, GET /api/export/{platform}/pdf."""
+# Xuất báo cáo
 
 from typing import Literal
 

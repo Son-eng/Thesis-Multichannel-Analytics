@@ -1,4 +1,4 @@
-"""Sinh dữ liệu theo khuôn API của sàn từ hai file CSV ẩn danh; không dùng parser của backend để test khứ hồi không tự so với chính nó."""
+# Dữ liệu của mock - khi khởi động, file này đọc 2 file CSV mẫu và dịch ngược về chuẩn Open API
 
 import hashlib
 import unicodedata

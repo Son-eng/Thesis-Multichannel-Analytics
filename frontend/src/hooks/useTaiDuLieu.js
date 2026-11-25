@@ -1,3 +1,5 @@
+// Hook dùng cho khối giao diện, quản lý 3 trạng thái bất đồng bộ (dangTai, duLieu, loi và hàm thuLai())
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Mỗi khối gọi hook riêng để một khối lỗi không làm hỏng khối khác; dữ liệu cũ giữ tới khi dữ liệu mới về. */

@@ -1,4 +1,6 @@
-"""Tính và kiểm chữ ký, timestamp; mỗi sàn một hàm vì chuỗi đem ký khác hẳn nhau."""
+# Tính và kiểm chữ ký, timestamp, mỗi sàn một hàm vì chuỗi đem ký khác nhau.
+## Tính toán và đối chiếu chữ ký số HMAC-SHA256
+## Kiểm tra độ lệch timestamp
 
 import hashlib
 import hmac

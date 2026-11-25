@@ -1,3 +1,5 @@
+// Dải phân bố doanh thu
+
 import { useState, useRef, useEffect } from 'react';
 import { mau, chuDao, canhBao, coChu, bong, boGoc } from '../../theme/tokens.js';
 import { thoiLuong, troGiup } from '../../theme/motion.js';

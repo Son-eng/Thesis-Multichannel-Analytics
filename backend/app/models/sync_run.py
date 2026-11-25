@@ -1,4 +1,4 @@
-"""Bảng sync_runs: nhật ký mọi lượt đưa dữ liệu vào, cả ba đường."""
+# Ghi lại nhật ký những lần nạp dữ liệu
 
 from datetime import datetime
 

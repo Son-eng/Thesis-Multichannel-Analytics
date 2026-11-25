@@ -1,3 +1,5 @@
+// Biểu đồ nhiệt khung giờ đặt hàng
+
 import { mau, coChu } from '../../theme/tokens.js';
 import { thoiLuong } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';

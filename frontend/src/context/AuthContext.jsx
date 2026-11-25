@@ -1,3 +1,6 @@
+// Lưu trữ thông tin người dùng đang đăng nhập
+// Lắng nghe sự kiện: token hết hạn -> đẩy người dùng về trang login
+
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as apiAuth from '../api/auth.js';
 import { layToken, datToken, xoaToken, SU_KIEN_HET_PHIEN } from '../api/client.js';

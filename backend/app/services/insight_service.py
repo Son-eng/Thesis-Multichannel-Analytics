@@ -1,4 +1,4 @@
-"""Nhận định bằng Gemini: LLM chỉ diễn giải số đã tính, văn bản có số lạ thì gọi lại một lần rồi từ chối."""
+# Nhận định bằng AI Gemini 3.6
 
 import json
 import logging

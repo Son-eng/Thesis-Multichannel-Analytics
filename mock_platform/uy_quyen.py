@@ -1,5 +1,4 @@
-"""Trang ủy quyền giả của sàn; phiên và mã ủy quyền giữ trong bộ nhớ, dùng một lần và có hạn."""
-
+# Dựng trang ủy quyền - cấp quyền giả lập
 import html
 import secrets
 from urllib.parse import urlencode

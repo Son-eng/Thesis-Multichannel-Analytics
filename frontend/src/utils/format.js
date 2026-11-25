@@ -1,6 +1,7 @@
-// Tự viết thay vì toLocaleString để kết quả không phụ thuộc bộ icu của máy chạy.
+// Định dạng tiền tệ VND có dấu chấm (840.035.154 đ)
+// định dạng ngày Việt Nam (DD/MM/YYYY), định dạng phần trăm (+34,6%)
+// null không bao giờ hiện thành 0
 
-/** null không bao giờ hiện thành 0. */
 export const KHONG_CO_DU_LIEU = 'Không có dữ liệu';
 
 export const KHONG_DU_DU_LIEU = 'Không đủ dữ liệu để so sánh';

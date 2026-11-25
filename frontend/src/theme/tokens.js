@@ -1,5 +1,4 @@
-// Mọi màu, cỡ chữ, bo góc, bóng, khoảng cách khai báo một lần ở đây; có test chặn mã hex ở file khác trong src/.
-
+// Định nghĩa toàn bộ màu sắc, kích thước chữ, bán kính bo góc, đổ bóng
 export const mau = {
   nenTrang: '#F3F4F8',
   nenThe: '#FFFFFF',

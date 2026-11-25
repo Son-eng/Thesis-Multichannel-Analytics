@@ -1,4 +1,7 @@
-"""Connector luồng ủy quyền gian hàng: dựng URL trang ủy quyền, đổi mã lấy token; URL cho trình duyệt không chứa khóa ứng dụng."""
+# Luồng ủy quyền gian hàng mới
+## Sinh đường dẫn URL cho chủ shop sang trang đăng nhập chính thức 
+## Sau khi đồng ý ủy quyền -> trả về 1 mã code -> Hệ thống đổi code lấy cặp access, refresh thật
+## Lấy danh sách các gian hàng thuộc sở hữu tài khoản đó
 
 import hashlib
 import hmac

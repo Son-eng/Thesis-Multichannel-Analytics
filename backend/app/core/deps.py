@@ -1,4 +1,6 @@
-"""Phụ thuộc dùng chung cho router: đăng nhập và phân quyền; mọi 401 dùng chung mã not_authenticated."""
+# Dependency và Phân quyền RBAC
+## yeu_cau_dang_nhap: trích xuất Bearer Token, giải mã lấy user_id và truy vấn CSDL
+## yeu_cau_admin: kiểm tra thêm role=admin
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

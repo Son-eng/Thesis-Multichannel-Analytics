@@ -1,3 +1,5 @@
+// Cột doanh thu ngày
+
 import { mau, chuDao, coChu } from '../../theme/tokens.js';
 import { thoiLuong, troGiup } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';

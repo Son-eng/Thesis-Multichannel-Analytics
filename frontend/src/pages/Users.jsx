@@ -1,3 +1,5 @@
+// Quản lý danh sách tài khoản nội bộ, thêm tài khoản, đổi role,...
+
 import { useState } from 'react';
 import { Modal } from 'antd';
 import { mau, chuDao, canhBao, coChu, khoangCach } from '../theme/tokens.js';

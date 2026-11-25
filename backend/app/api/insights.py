@@ -1,4 +1,4 @@
-"""Sinh nhận định bằng LLM, giới hạn tần suất đếm trong bộ nhớ của một tiến trình."""
+# Sinh nhận định bằng AI
 
 import math
 import threading

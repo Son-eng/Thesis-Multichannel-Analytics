@@ -1,5 +1,6 @@
-"""Gom trạng thái đơn của từng sàn về 5 nhóm chuẩn; giá trị lạ thành "unknown" và ghi log, không làm hỏng lượt nạp."""
-
+# Gom trạng thái đơn hàng
+## Gom trạng thái đơn hàng về 5 trạng thái chuẩn
+## Nhận diện 15 biến thể trạng thái có gắn ngày tháng về completed
 import logging
 
 import pandas as pd

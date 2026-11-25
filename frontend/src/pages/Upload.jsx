@@ -1,3 +1,5 @@
+// Kéo thả tệp CSV để nạp thủ công khi sập API
+
 import { useRef, useState } from 'react';
 import { mau, chuDao, canhBao, nhanThayDoi, coChu, khoangCach, boGoc } from '../theme/tokens.js';
 import { useTaiDuLieu } from '../hooks/useTaiDuLieu.js';

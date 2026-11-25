@@ -1,5 +1,7 @@
-"""Che token, khóa, mật khẩu khỏi mọi dòng log, kể cả dòng "Failing row contains" do PostgreSQL sinh ra."""
-
+# Bộ lọc che bí mật trong log 
+## Can thiệp vào các logger của tiến trình Python
+## Quét và che dữ liệu nhạy cảm: quét theo Regex(đổi thành ***), che lỗi CSDL
+## Cơ chế đăng ký động: lưu token vào danh sách đen
 import logging
 import re
 import threading

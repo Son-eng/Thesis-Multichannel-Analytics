@@ -1,4 +1,4 @@
-"""Bảng token trong bộ nhớ của máy chủ giả lập; refresh Shopee chỉ dùng một lần, refresh TikTok coi như không hết hạn."""
+# mô phỏng kho lưu trữ token của sàn: kiểm tra xem token hợp lệ không, còn hạn hay không
 
 import secrets
 

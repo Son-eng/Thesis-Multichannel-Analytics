@@ -1,5 +1,4 @@
-"""Cảnh báo khi doanh thu giảm từ ngưỡng (mặc định 30%) trở lên so với kỳ trước; không cảnh báo khi không có kỳ trước, kỳ trước bằng 0 hoặc kỳ này trống."""
-
+# Phát hiện biến động sụt giảm
 from datetime import timedelta
 
 from sqlalchemy import text

@@ -1,4 +1,4 @@
-"""Xuất Excel: số liệu lấy từ kpi_service nên luôn khớp dashboard; thiếu số liệu để ô trống, không ghi 0."""
+# Xuất file excel 
 
 from datetime import date, datetime
 from io import BytesIO

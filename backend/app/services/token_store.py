@@ -1,4 +1,4 @@
-"""Đọc, ghi platform_tokens: cầu nối giữa CSDL và connector, connector không biết CSDL."""
+# Kho lưu trữ token
 
 from datetime import datetime, timedelta
 

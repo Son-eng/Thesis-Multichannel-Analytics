@@ -1,3 +1,4 @@
+# Lưu trữ thông tin tài khoản người dùng nội bộ
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, String, func

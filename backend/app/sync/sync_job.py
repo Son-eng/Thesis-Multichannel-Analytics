@@ -1,5 +1,7 @@
-"""Một lượt đồng bộ API cho một (sàn, shop); token không bao giờ được ghi ra file hay log."""
-
+# Các bước đồng bộ 1 gian hàng
+## Cơ chế chống khóa chạy trùng
+## Tính nguyên tử của dữ liệu
+## Tự động dọn dẹp lượt treo
 import logging
 import time
 import zlib

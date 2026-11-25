@@ -1,3 +1,4 @@
+# Kiểm tra bảng user trống thì tạo tài khoản admin 
 import logging
 
 from sqlalchemy import func, select

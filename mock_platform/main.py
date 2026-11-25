@@ -1,4 +1,4 @@
-"""Máy chủ giả lập API sàn, cổng 8001; mọi trạng thái giữ trong bộ nhớ, mỗi lần chạy là một sàn sạch."""
+# Điểm khởi động máy chủ FastAPI cổng 8001, mọi dữ liệu lưu trong app.state
 
 import time
 

@@ -1,7 +1,4 @@
-"""Gọi thử máy chủ giả lập đang chạy như một client thật, ký lại độc lập theo tài liệu; dùng để demo, không phải luồng chạy hệ thống.
-Chạy (từ mock_platform/, máy chủ ở cổng 8001): ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py [tom-tat|keo-du|loi|lam-moi|dem-loi 300]
-Refresh Shopee chỉ dùng được một lần: chạy lam-moi lần hai sẽ bị từ chối, khởi động lại máy chủ để có lại token.
-"""
+# Công cụ gọi thử các endpoint của máy chủ mock đang chạy 
 
 import argparse
 import hashlib

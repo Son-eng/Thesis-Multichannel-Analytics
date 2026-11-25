@@ -1,3 +1,5 @@
+// Màn hình chính: dùng chung cho cả 2 sàn
+
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { mau, canhBao, coChu, khoangCach } from '../theme/tokens.js';
