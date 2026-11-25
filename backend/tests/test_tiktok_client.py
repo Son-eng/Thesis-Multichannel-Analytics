@@ -22,7 +22,7 @@ MONG_DOI = {"Shop A": (5364, 5377, 89), "Shop B": (2162, 2163, 50)}   # (đơn, 
 
 
 def khong_ngu(so_giay):
-    """(giữ một dòng)"""
+    """Thay cho time.sleep để test không phải chờ."""
 
 
 def tao_client(may_chu, ten_shop="Shop A", **them):

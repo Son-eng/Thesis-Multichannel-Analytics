@@ -15,11 +15,11 @@ ID_TIKTOK_GIA = {"Shop A": "7000000000000000001", "Shop B": "7000000000000000002
 
 
 class PhienKhongHopLe(Exception):
-    """(giữ một dòng)"""
+    """Phiên ủy quyền không có, đã dùng hoặc đã hết hạn."""
 
 
 class MaKhongHopLe(Exception):
-    """(giữ một dòng)"""
+    """Mã ủy quyền không có, đã dùng hoặc đã hết hạn."""
 
 
 class _KhoMotLan:

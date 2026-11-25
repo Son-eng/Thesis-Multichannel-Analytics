@@ -1,1 +1,1 @@
-"""(giữ một dòng)"""
+"""Các router FastAPI, mỗi tệp một nhóm endpoint."""

@@ -20,7 +20,7 @@ BAY_GIO = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 
 
 def khong_ngu(so_giay):
-    """(giữ một dòng)"""
+    """Thay cho time.sleep để test không phải chờ."""
 
 
 @pytest.fixture

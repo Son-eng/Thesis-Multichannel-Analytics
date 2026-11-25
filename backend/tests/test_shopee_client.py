@@ -16,7 +16,7 @@ MUOI_LAM_NGAY = 15 * 86400
 
 
 def khong_ngu(so_giay):
-    """(giữ một dòng)"""
+    """Thay cho time.sleep để test không phải chờ."""
 
 
 def tao_client(may_chu, **them):

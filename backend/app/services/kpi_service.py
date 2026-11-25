@@ -18,7 +18,7 @@ SO_MA_SAN_PHAM_TOP = 4
 
 
 class KyKhongHopLe(ValueError):
-    """(giữ một dòng)"""
+    """Kỳ không đúng định dạng của mức thời gian đã chọn."""
 
 
 def lam_tron_1(so):
