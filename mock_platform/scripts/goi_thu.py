@@ -1,24 +1,6 @@
-"""Gọi thử máy chủ giả lập ĐANG CHẠY như một client thật (bước 8, SPEC §19).
-
-Dùng để demo trước hội đồng và để tự kiểm tra máy chủ. Chỉ dùng thư viện có
-sẵn (urllib, hmac). Thuật toán ký được VIẾT LẠI ở đây theo tài liệu, không
-dùng signature.py của mock và không dùng connector của backend: ký ở đây mà
-máy chủ chấp nhận thì hai bản cài đặt độc lập đã khớp nhau.
-
-CHẠY KHI NÀO: chạy TAY khi muốn xem máy chủ giả hoạt động hoặc demo. KHÔNG phải một phần của luồng chạy hệ thống
-(backend tự gọi máy chủ giả bằng connector của nó, không qua script này). Đầu vào: máy chủ giả ĐANG CHẠY + mock_platform/.env.
-Đầu ra: in kết quả ra màn hình; không ghi tệp, không đụng CSDL, không đụng sàn thật. Token trong .env của mock là giả.
-
-Cách chạy (từ mock_platform/, máy chủ đang chạy ở cổng 8001, có .env):
-    ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py              # tom-tat
-    ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py keo-du       # kéo hết, đếm, đối chiếu CSV
-    ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py loi          # các yêu cầu sai → mã lỗi
-    ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py lam-moi      # làm mới token 2 sàn
-    ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py dem-loi 300  # đếm tỷ lệ lỗi quá tải
-
-Lưu ý `lam-moi`: refresh_token Shopee chỉ dùng được 1 lần. Chạy `lam-moi`
-lần 2 trên CÙNG một lượt máy chủ thì làm mới Shopee bị từ chối — đúng hành
-vi; khởi động lại máy chủ để có lại token trong .env.
+"""Gọi thử máy chủ giả lập đang chạy như một client thật, ký lại độc lập theo tài liệu; dùng để demo, không phải luồng chạy hệ thống.
+Chạy (từ mock_platform/, máy chủ ở cổng 8001): ..\\backend\\.venv\\Scripts\\python scripts\\goi_thu.py [tom-tat|keo-du|loi|lam-moi|dem-loi 300]
+Refresh Shopee chỉ dùng được một lần: chạy lam-moi lần hai sẽ bị từ chối, khởi động lại máy chủ để có lại token.
 """
 
 import argparse
@@ -32,20 +14,16 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-# Đọc .env bằng chính config.py của mock để không viết lại phần đọc cấu hình.
 THU_MUC_MOCK = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(THU_MUC_MOCK))
 import config  # noqa: E402
 
-DAU_THANG_7 = 1782838800          # 01/07/2026 00:00 giờ VN — đầu dữ liệu Shopee
-DAU_NAM_2026 = 1767200400         # 01/01/2026 00:00 giờ VN — đầu dữ liệu TikTok
+DAU_THANG_7 = 1782838800
+DAU_NAM_2026 = 1767200400
 MUOI_LAM_NGAY = 15 * 86400
 
 
-# ---------------------------------------------------------------- HTTP
-
 def gui(url_goc, phuong_thuc, duong_dan, tham_so, than=None, header=None):
-    """Gửi một yêu cầu, trả (mã HTTP, JSON). Không ném lỗi với 4xx: muốn xem cả 429."""
     url = url_goc + duong_dan + "?" + urllib.parse.urlencode(tham_so)
     du_lieu = None if than is None else than.encode("utf-8")
     yeu_cau = urllib.request.Request(url, data=du_lieu, method=phuong_thuc, headers=header or {})
@@ -55,8 +33,6 @@ def gui(url_goc, phuong_thuc, duong_dan, tham_so, than=None, header=None):
     except urllib.error.HTTPError as loi:
         return loi.code, json.loads(loi.read())
 
-
-# ---------------------------------------------------------------- Shopee
 
 class Shopee:
     """Client Shopee: ký `partner_id + path + timestamp [+ access_token + shop_id]` bằng HMAC-SHA256."""
@@ -90,8 +66,6 @@ class Shopee:
         })
 
 
-# ---------------------------------------------------------------- TikTok
-
 class TikTok:
     """Client TikTok một shop: ký path + {key}{value} (sắp xếp, bỏ sign/access_token) + body, bọc app_secret."""
 
@@ -112,7 +86,7 @@ class TikTok:
         bao = self.ch.TIKTOK_APP_SECRET + chuoi + self.ch.TIKTOK_APP_SECRET
         tham_so["sign"] = hmac.new(self.ch.TIKTOK_APP_SECRET.encode(), bao.encode(), hashlib.sha256).hexdigest()
         header = {"content-type": "application/json", "x-tts-access-token": self.access_token}
-        # Body đã serialize MỘT lần ở nơi gọi; ký và gửi cùng một chuỗi (§20.1).
+        # Body đã serialize một lần ở nơi gọi; ký và gửi cùng một chuỗi.
         return gui(self.url_goc, phuong_thuc, duong_dan, tham_so, than if phuong_thuc == "POST" else None, header)
 
     def tim_don(self, loc, page_size=100, page_token="", **them):
@@ -125,7 +99,6 @@ class TikTok:
 
 
 def cac_shop_tiktok(url_goc, ch):
-    """Client cho 2 shop. shop_cipher giả lấy đúng như data_builder.py đặt (§19.4)."""
     return {
         "Shop A": TikTok(url_goc, ch, "MOCK_CIPHER_SHOP_A", ch.TIKTOK_SHOP_A_ACCESS_TOKEN),
         "Shop B": TikTok(url_goc, ch, "MOCK_CIPHER_SHOP_B", ch.TIKTOK_SHOP_B_ACCESS_TOKEN),
@@ -140,12 +113,9 @@ def lam_moi_tiktok(url_goc, ch, refresh_token):
 
 
 def in_dong(nhan, ma_http, phan_hoi, them=""):
-    """In một dòng kết quả ngắn: nhãn | HTTP | mã lỗi | ghi chú."""
     ma = phan_hoi.get("error", phan_hoi.get("code"))
     print(f"  {nhan:<46} HTTP {ma_http}  {('ma=' + repr(ma)):<26} {them}")
 
-
-# ---------------------------------------------------------------- Các chế độ
 
 def tom_tat(url_goc, ch):
     """Gọi mỗi endpoint một lần, in kết quả ngắn."""
@@ -166,7 +136,6 @@ def tom_tat(url_goc, ch):
     for ten, khach in cac_shop_tiktok(url_goc, ch).items():
         ma_http, ph = khach.tim_don({"create_time_ge": DAU_NAM_2026, "create_time_lt": int(time.time())}, page_size=2)
         in_dong(f"orders/search {ten} (2 đơn)", ma_http, ph, f"total_count={ph.get('data', {}).get('total_count')}")
-        # Finance chỉ gọi cho đơn COMPLETED (§20.2) → lấy riêng một đơn như vậy.
         _, ph = khach.tim_don({"order_status": "COMPLETED"}, page_size=1)
         don = ph.get("data", {}).get("orders", [])
         if don:
@@ -188,7 +157,7 @@ def keo_du(url_goc, ch):
             if not ph["response"]["more"]:
                 break
             cursor = ph["response"]["next_cursor"]
-        tu_luc = den_luc + 1        # Shopee lấy cả 2 đầu cửa sổ (§20.2)
+        tu_luc = den_luc + 1
     so_dong = 0
     for dau in range(0, len(cac_ma), 50):
         _, ph = shopee.get("/api/v2/order/get_order_detail",
@@ -260,7 +229,6 @@ def lam_moi(url_goc, ch):
 
 
 def dem_loi(url_goc, ch, so_lan):
-    """Gửi so_lan yêu cầu hợp lệ mỗi sàn, đếm bao nhiêu bị lỗi quá tải (MOCK_FAULT_RATE)."""
     shopee = Shopee(url_goc, ch)
     khach = cac_shop_tiktok(url_goc, ch)["Shop A"]
     loi_shopee = sum(

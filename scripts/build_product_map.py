@@ -1,23 +1,6 @@
-"""Sinh backend/app/etl/mappings/product_map.json (SPEC §5.4).
-
-Vì sao cần script này thay vì gõ tay file JSON: bảng TikTok (33 SKU → 13 mã)
-được RÚT RA từ dữ liệu thật — cặp (`Seller SKU` đã làm sạch, `SKU Sản Phẩm`)
-trong file CSV. Giữ script lại để truy vết được nguồn gốc từng dòng của bảng:
-hội đồng hỏi "sao biết M3 pro thuộc M3 Plus" thì chạy lại là thấy.
-
-Phần Shopee (19 SKU) chép từ bảng §5.4 vì Shopee không có cột mã sản phẩm để
-rút ra. Gộp cả 2 phần vào đây để file JSON sinh lại được trọn vẹn từ một chỗ.
-
-Chỉ đọc 2 cột SKU của file CSV, KHÔNG đọc cột nào chứa thông tin cá nhân.
-
-CHẠY KHI NÀO: khi bảng SKU thay đổi (có sản phẩm mới) — hiếm. KHÔNG phải một phần của luồng chạy hệ thống:
-hệ thống chỉ đọc kết quả (product_map.json).
-Đầu vào: cột `Seller SKU` và `SKU Sản Phẩm` của CSV TikTok (mặc định bản ẩn danh trong data/samples/, hoặc đường dẫn truyền vào).
-Đầu ra: backend/app/etl/mappings/product_map.json (GHI ĐÈ). Chạy xong chạy lại test (tests/test_mappings.py).
-Cẩn thận: nếu truyền CSV GỐC thì đó là dữ liệu khách hàng thật — script chỉ đọc 2 cột SKU, nhưng không chép nội dung tệp ra ngoài.
-
-Cách chạy (từ gốc project):
-    backend\\.venv\\Scripts\\python scripts\\build_product_map.py [đường_dẫn_csv_tiktok]
+"""Sinh backend/app/etl/mappings/product_map.json: phần TikTok rút từ dữ liệu, phần Shopee chép tay.
+Chạy khi có sản phẩm mới (từ gốc project): backend\\.venv\\Scripts\\python scripts\\build_product_map.py [đường_dẫn_csv_tiktok]
+Chỉ đọc hai cột SKU; nếu truyền CSV gốc thì đó là dữ liệu thật, không chép nội dung ra ngoài.
 """
 
 import json
@@ -28,16 +11,14 @@ import pandas as pd
 
 THU_MUC_GOC = Path(__file__).resolve().parent.parent
 
-# Dùng chung hàm làm sạch SKU với hệ thống, không viết lại .strip().strip("'")
-# ở đây: nếu sau này quy tắc làm sạch đổi thì bảng sinh ra vẫn khớp với cách
-# hệ thống làm sạch SKU lúc tra bảng.
+# Dùng chung hàm làm sạch SKU với hệ thống để bảng sinh ra luôn khớp cách tra.
 sys.path.insert(0, str(THU_MUC_GOC / "backend"))
 from app.etl.cleaners import lam_sach_seller_sku_tiktok
 
 DUONG_DAN_CSV_MAC_DINH = THU_MUC_GOC / "data" / "samples" / "TikTok Tracking_Order.csv"
 DUONG_DAN_KET_QUA = THU_MUC_GOC / "backend" / "app" / "etl" / "mappings" / "product_map.json"
 
-# Chép nguyên bảng SPEC §5.4. Combo lấy mã của sản phẩm đứng đầu.
+# Combo lấy mã của sản phẩm đứng đầu.
 BANG_SHOPEE = {
     "BU01": "BU01",
     "M13": "M13",
@@ -60,7 +41,7 @@ BANG_SHOPEE = {
     "M9 MAX": "M9 MAX",
 }
 
-# 2 SKU TikTok có `SKU Sản Phẩm` rỗng ở mọi dòng — điền tay theo SPEC §5.4.
+# Hai SKU TikTok có mã sản phẩm rỗng ở mọi dòng, điền tay.
 SKU_TIKTOK_DIEN_TAY = {
     "BU_01": "BU01",
     "M3Plus": "M3 Plus",
@@ -68,14 +49,8 @@ SKU_TIKTOK_DIEN_TAY = {
 
 
 def doc_cap_sku_tiktok(duong_dan_csv):
-    """Đọc các cặp (SKU đã làm sạch, mã sản phẩm) khác nhau trong file TikTok.
-
-    Nhận: đường dẫn file CSV TikTok.
-    Trả: DataFrame 2 cột `sku`, `product_code`, mỗi cặp một dòng. Mã có thể NaN.
-    Cần hàm này để gom 7.540 dòng về vài chục cặp trước khi kiểm tra.
-    """
-    # usecols: chỉ nạp đúng 2 cột cần dùng. Vừa nhanh, vừa bảo đảm script
-    # không bao giờ chạm vào cột thông tin cá nhân (SPEC §15).
+    """Đọc các cặp (SKU đã làm sạch, mã sản phẩm) khác nhau trong file TikTok."""
+    # Chỉ nạp hai cột cần dùng, không chạm vào cột thông tin cá nhân.
     du_lieu = pd.read_csv(
         duong_dan_csv,
         encoding="utf-8-sig",
@@ -90,13 +65,7 @@ def doc_cap_sku_tiktok(duong_dan_csv):
 
 
 def tim_sku_mau_thuan(cap_sku):
-    """Tìm các SKU ứng với hơn 1 mã sản phẩm.
-
-    Nhận: DataFrame cặp (sku, product_code) từ doc_cap_sku_tiktok.
-    Trả: dict {sku: [các mã]} — rỗng nếu mọi SKU chỉ ứng 1 mã.
-    Cần hàm này vì bảng tra chỉ đúng khi 1 SKU ↔ 1 mã. Gặp mâu thuẫn thì
-    người phải quyết, script không được tự chọn một mã.
-    """
+    """Tìm các SKU ứng với hơn 1 mã sản phẩm."""
     cap_co_ma = cap_sku.dropna(subset=["product_code"])
     so_ma_moi_sku = cap_co_ma.groupby("sku")["product_code"].nunique()
     sku_nhieu_ma = so_ma_moi_sku[so_ma_moi_sku > 1].index
@@ -109,19 +78,14 @@ def tim_sku_mau_thuan(cap_sku):
 
 
 def lap_bang_tiktok(cap_sku):
-    """Lập bảng {sku: mã sản phẩm} cho TikTok, gồm cả 2 dòng điền tay.
-
-    Nhận: DataFrame cặp (sku, product_code) đã kiểm không mâu thuẫn.
-    Trả: (bảng, danh sách lỗi). Danh sách lỗi rỗng thì bảng dùng được.
-    Cần hàm này để mọi SKU xuất hiện trong dữ liệu đều có mã, không sót.
-    """
+    """Lập bảng {sku: mã sản phẩm} cho TikTok, gồm cả 2 dòng điền tay."""
     bang_tiktok = {}
     for dong in cap_sku.dropna(subset=["product_code"]).itertuples():
         bang_tiktok[dong.sku] = dong.product_code
 
     loi = []
     for sku, ma in SKU_TIKTOK_DIEN_TAY.items():
-        # Nếu dữ liệu đã có mã cho SKU này thì dòng điền tay là thừa hoặc sai.
+        # Dữ liệu đã có mã cho SKU này thì dòng điền tay là thừa hoặc sai.
         if sku in bang_tiktok and bang_tiktok[sku] != ma:
             loi.append(f"SKU '{sku}': điền tay '{ma}' nhưng dữ liệu ghi '{bang_tiktok[sku]}'")
         bang_tiktok[sku] = ma
@@ -133,7 +97,6 @@ def lap_bang_tiktok(cap_sku):
 
 
 def main():
-    """Đọc CSV, kiểm tra, ghi product_map.json. Có lỗi thì dừng, không ghi file."""
     if len(sys.argv) > 1:
         duong_dan_csv = Path(sys.argv[1])
     else:
@@ -155,7 +118,7 @@ def main():
             print(f"  {dong_loi}")
         sys.exit(1)
 
-    # sort_keys: file sinh lại ra đúng thứ tự cũ, git diff chỉ hiện dòng đổi thật.
+    # sort_keys để git diff chỉ hiện dòng đổi thật.
     bang_san_pham = {"shopee": BANG_SHOPEE, "tiktok": bang_tiktok}
     with open(DUONG_DAN_KET_QUA, "w", encoding="utf-8", newline="\n") as file_json:
         json.dump(bang_san_pham, file_json, ensure_ascii=False, indent=2, sort_keys=True)

@@ -1,18 +1,7 @@
-"""Test chữ ký và timestamp (SPEC §19.3 mục 1–2).
-
-Số liệu mẫu chép NGUYÊN từ tài liệu:
-- TikTok: test vector chính thức trong `Sign your API request.md` — bắt buộc pass (§19.3).
-- Shopee: ví dụ chuỗi cơ sở trong `shopeeapideveloperguidetomtat (1).md` mục 5.
-  Tài liệu không cho chữ ký kỳ vọng, nên chữ ký được so với một lần tính HMAC
-  độc lập bằng thư viện chuẩn ngay trong test.
-"""
-
 import hashlib
 import hmac
 
 import signature
-
-# ---------- TikTok: test vector chính thức ----------
 
 def test_tiktok_test_vector_chinh_thuc():
     app_secret = "e59af819cc"
@@ -26,7 +15,6 @@ def test_tiktok_test_vector_chinh_thuc():
 
 
 def test_tiktok_vi_du_co_shop_cipher_va_body():
-    """Ví dụ thứ 2 của tài liệu (Update Shop Webhook): chuỗi sau bước 4."""
     tham_so = {
         "timestamp": "1696909648",
         "shop_cipher": "ROW_xkMbgAAAeVAQra0eZWebFQq5aIK",
@@ -46,13 +34,10 @@ def test_tiktok_bo_sign_va_access_token_khoi_chuoi_ky():
 
 
 def test_tiktok_body_khac_mot_khoang_trang_la_chu_ky_khac():
-    """Bẫy §20.1: phải ký đúng chuỗi body đã gửi, serialize lại là lệch."""
     tham_so = {"app_key": "k", "timestamp": "1"}
     goc = signature.tinh_chu_ky_tiktok("s", "/p", tham_so, '{"a":1}')
     assert signature.tinh_chu_ky_tiktok("s", "/p", tham_so, '{"a": 1}') != goc
 
-
-# ---------- Shopee ----------
 
 def test_shopee_chuoi_co_so_dung_vi_du_tai_lieu():
     chuoi = signature.chuoi_co_so_shopee(
@@ -86,8 +71,6 @@ def test_shopee_doi_bat_ky_thanh_phan_nao_la_chu_ky_khac():
     assert signature.tinh_chu_ky_shopee("k", 1, "/a", 100, "tok", 8) != goc
 
 
-# ---------- So chữ ký, timestamp ----------
-
 def test_chu_ky_khop():
     assert signature.chu_ky_khop("abc", "abc")
     assert not signature.chu_ky_khop("abd", "abc")
@@ -97,8 +80,8 @@ def test_chu_ky_khop():
 def test_timestamp_trong_va_ngoai_5_phut():
     bay_gio = 1_700_000_000
     assert signature.thoi_gian_hop_le(bay_gio, bay_gio)
-    assert signature.thoi_gian_hop_le(str(bay_gio - 300), bay_gio)     # đúng 5 phút: còn hợp lệ
+    assert signature.thoi_gian_hop_le(str(bay_gio - 300), bay_gio)
     assert not signature.thoi_gian_hop_le(bay_gio - 301, bay_gio)
-    assert not signature.thoi_gian_hop_le(bay_gio + 301, bay_gio)      # timestamp ở tương lai cũng chặn
+    assert not signature.thoi_gian_hop_le(bay_gio + 301, bay_gio)
     assert not signature.thoi_gian_hop_le("abc", bay_gio)
     assert not signature.thoi_gian_hop_le(None, bay_gio)

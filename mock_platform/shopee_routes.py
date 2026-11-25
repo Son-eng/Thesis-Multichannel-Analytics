@@ -1,21 +1,4 @@
-"""4 endpoint Shopee của máy chủ giả lập (SPEC §19.2, §19.3).
-
-Mỗi yêu cầu đi qua cùng một trình tự kiểm (`kiem_tham_so_chung`):
-    đủ tham số chung → đúng partner_id → timestamp ±5 phút → đúng chữ ký
-    → (Shop API) access_token còn hạn và thuộc đúng shop
-rồi mới tới phần riêng của endpoint (giới hạn tham số, lấy dữ liệu).
-
-Mã lỗi theo tài liệu tóm tắt Shopee (mục mã lỗi):
-    error_param — thiếu/sai tham số, kể cả timestamp lệch
-    error_sign  — sai chữ ký
-    error_auth  — access_token / partner_id không hợp lệ
-    refresh_token_expired — refresh_token quá 30 ngày
-Refresh_token đã dùng / không tồn tại → error_auth: GIẢ ĐỊNH của bản giả lập,
-tài liệu không có mã riêng (§16 mục 7).
-
-Khuôn phản hồi theo mục 7 tài liệu: `request_id`, `error` ("" nếu thành
-công), `message`, `warning` (khi lô có phần lỗi), `response` (dữ liệu).
-"""
+"""Các endpoint Shopee của máy chủ giả lập; mọi yêu cầu đi qua kiem_tham_so_chung trước."""
 
 import json
 import secrets
@@ -35,42 +18,34 @@ DUONG_DAN_ORDER_DETAIL = "/api/v2/order/get_order_detail"
 DUONG_DAN_ESCROW_BATCH = "/api/v2/payment/get_escrow_detail_batch"
 DUONG_DAN_REFRESH = "/api/v2/auth/access_token/get"
 DUONG_DAN_CONVERSION = "/api/v2/ams/get_conversion_report"
-# Ủy quyền gian hàng (chỉ dẫn 026). Hai đường dẫn đầu là của Shopee thật (Pipeline/Shopee/shopee_auth.py);
-# đường dẫn thứ ba là của riêng bản giả lập (nơi biểu mẫu "Đồng ý / Từ chối" gửi về).
 DUONG_DAN_AUTH_PARTNER = "/api/v2/shop/auth_partner"
 DUONG_DAN_TOKEN_GET = "/api/v2/auth/token/get"
 DUONG_DAN_QUYET_DINH = "/mock/shopee/quyet-dinh"
-LOI_MA_UY_QUYEN_SAI = "invalid_code"   # tên lỗi thấy ở KHAO_SAT_API_SHOPEE.md:193 khi gửi code giả
+LOI_MA_UY_QUYEN_SAI = "invalid_code"
 
-# Giới hạn tham số theo tài liệu (§19.2).
 CUA_SO_TOI_DA_GIAY = 15 * 24 * 60 * 60
 PAGE_SIZE_TOI_THIEU = 1
 PAGE_SIZE_TOI_DA = 100
 SO_MA_DON_TOI_DA = 50
-# Escrow batch: tài liệu không ghi giới hạn; dùng 50 như Pipeline (§19.2).
+# Tài liệu không ghi giới hạn escrow, dùng 50.
 SO_MA_DON_ESCROW_TOI_DA = 50
 
 TRUONG_LOC_THOI_GIAN = {"create_time", "update_time"}
-# get_order_detail: mặc định trả ít trường; item_list và recipient_address
-# phải xin qua response_optional_fields (tài liệu, mục get_order_detail).
+# Mặc định trả ít trường; item_list và recipient_address phải xin qua response_optional_fields.
 TRUONG_DON_MAC_DINH = ["order_sn", "order_status", "create_time", "update_time"]
 TRUONG_DON_TUY_CHON = ["item_list", "recipient_address"]
 
-# Đơn không trả được escrow trong lô. Giá trị `fail_error` do bản giả lập tự
-# đặt, cố ý có tiền tố "mock_" để không ai nhầm là mã thật (§16 mục 6).
+# fail_error có tiền tố "mock_" để không ai nhầm là mã thật.
 LOI_ESCROW_KHONG_CO = "mock_escrow_not_available"
 
 
 def du_lieu_cua_shop(trang_thai, shop_id):
-    """Dữ liệu đơn của một shop theo shop_id. Shop C có dữ liệu dựng từ CSV; shop mới ủy quyền (Shop D) luôn RỖNG."""
     if str(shop_id) == str(trang_thai.cau_hinh.SHOPEE_SHOP_ID):
         return trang_thai.du_lieu_shopee
     return {"don_hang": {}, "escrow": {}, "affiliate": {}}
 
 
 class LoiShopee(Exception):
-    """Yêu cầu bị từ chối. Được đổi thành phản hồi Shopee có `error` khác rỗng."""
-
     def __init__(self, ma_loi, thong_diep, ma_http=200):
         super().__init__(f"{ma_loi}: {thong_diep}")
         self.ma_loi = ma_loi
@@ -79,16 +54,7 @@ class LoiShopee(Exception):
 
 
 async def xu_ly_loi_shopee(request, loi):
-    """Đổi LoiShopee thành phản hồi lỗi theo khuôn mục 7 tài liệu.
-
-    Mã HTTP — GIẢ ĐỊNH của bản giả lập (§16 mục 8): 429 cho quá tải
-    (`error_rate_limit`, theo tài liệu bàn giao Pipeline), 200 cho mọi lỗi
-    khác. Connector phải kiểm cả mã HTTP lẫn trường `error` (§20.1).
-    """
-    # Đọc cạn body trước khi trả lời: lỗi có thể xảy ra trước khi route kịp
-    # đọc body (quá tải, sai chữ ký ở route POST). Trả lời khi body còn nằm
-    # trên đường truyền thì uvicorn đóng kết nối và client nhận
-    # "connection reset" thay vì phản hồi lỗi (gặp khi chạy goi_thu.py).
+    # Đọc hết body trước khi trả lỗi, nếu không uvicorn đóng kết nối và client nhận "connection reset".
     await request.body()
     return JSONResponse(
         status_code=loi.ma_http,
@@ -97,7 +63,6 @@ async def xu_ly_loi_shopee(request, loi):
 
 
 def tra_loi_thanh_cong(du_lieu, canh_bao=None):
-    """Bọc dữ liệu vào khuôn phản hồi thành công (mục 7 tài liệu)."""
     phan_hoi = {"request_id": secrets.token_hex(16), "error": "", "message": "", "response": du_lieu}
     if canh_bao:
         phan_hoi["warning"] = canh_bao
@@ -105,7 +70,6 @@ def tra_loi_thanh_cong(du_lieu, canh_bao=None):
 
 
 def lay_tham_so(request, ten):
-    """Tham số query bắt buộc (chuỗi). Thiếu hoặc rỗng → error_param."""
     gia_tri = request.query_params.get(ten, "")
     if gia_tri == "":
         raise LoiShopee("error_param", f"Thiếu tham số {ten}")
@@ -113,7 +77,6 @@ def lay_tham_so(request, ten):
 
 
 def lay_so_nguyen(request, ten):
-    """Tham số query bắt buộc kiểu số nguyên. Không phải số → error_param."""
     gia_tri = lay_tham_so(request, ten)
     try:
         return int(gia_tri)
@@ -122,12 +85,10 @@ def lay_so_nguyen(request, ten):
 
 
 def tach_danh_sach(chuoi):
-    """"a, b,,c" → ["a", "b", "c"]: tài liệu nối các giá trị bằng dấu phẩy."""
     return [phan.strip() for phan in chuoi.split(",") if phan.strip()]
 
 
 async def doc_body_json(request):
-    """Body JSON dạng object của yêu cầu POST. Không đọc được → error_param."""
     try:
         than = json.loads(await request.body())
     except json.JSONDecodeError:
@@ -138,15 +99,7 @@ async def doc_body_json(request):
 
 
 def kiem_tham_so_chung(request, duong_dan, la_shop_api):
-    """Kiểm tham số chung, chữ ký, timestamp, (Shop API) access_token.
-
-    Nhận: request; đường dẫn API (là một phần chuỗi ký); la_shop_api — True
-    nếu cần access_token + shop_id, False với Public API (làm mới token).
-    Trả: (shop_id dạng chuỗi — "" với Public API, bay_gio epoch giây).
-    Ký trên đúng chuỗi client gửi lên, không đổi kiểu trước khi ký.
-    Mọi route Shopee gọi hàm này ĐẦU TIÊN, nên lỗi quá tải có chủ đích đặt ở
-    đây là chặn được trước mọi bước khác (§19.3 mục 5).
-    """
+    """Gọi đầu tiên ở mọi route Shopee; ký trên đúng chuỗi client gửi lên."""
     trang_thai = request.app.state
     cau_hinh = trang_thai.cau_hinh
 
@@ -179,13 +132,7 @@ def kiem_tham_so_chung(request, duong_dan, la_shop_api):
 
 @router.get(DUONG_DAN_ORDER_LIST)
 def get_order_list(request: Request):
-    """Danh sách order_sn trong một khoảng thời gian ≤ 15 ngày, phân trang bằng cursor.
-
-    Khoảng thời gian lấy CẢ HAI đầu [time_from, time_to] — tài liệu không nói,
-    GIẢ ĐỊNH (§16 mục 8); bên gọi chia cửa sổ nối tiếp thì nên để cửa sổ sau
-    bắt đầu từ time_to + 1. Thứ tự trả về: theo trường thời gian rồi order_sn,
-    để phân trang ổn định giữa các lần gọi.
-    """
+    """Danh sách order_sn trong một khoảng thời gian ≤ 15 ngày, phân trang bằng cursor."""
     shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ORDER_LIST, la_shop_api=True)
 
     truong_thoi_gian = lay_tham_so(request, "time_range_field")
@@ -201,7 +148,7 @@ def get_order_list(request: Request):
     if not PAGE_SIZE_TOI_THIEU <= so_moi_trang <= PAGE_SIZE_TOI_DA:
         raise LoiShopee("error_param", "page_size phải trong khoảng 1–100")
 
-    # cursor là chuỗi "mờ" với bên gọi; ở đây chính là vị trí bắt đầu trang.
+    # cursor là chuỗi mờ với bên gọi; ở đây chính là vị trí bắt đầu trang.
     cursor = request.query_params.get("cursor", "")
     if cursor != "" and not cursor.isdigit():
         raise LoiShopee("error_param", "cursor không hợp lệ")
@@ -217,7 +164,6 @@ def get_order_list(request: Request):
 
     trang = cac_don[vi_tri:vi_tri + so_moi_trang]
     con_nua = vi_tri + so_moi_trang < len(cac_don)
-    # Tài liệu: mặc định chỉ trả order_sn; order_status khi xin qua response_optional_fields.
     tra_trang_thai = "order_status" in tach_danh_sach(request.query_params.get("response_optional_fields", ""))
     danh_sach = [
         {"order_sn": don["order_sn"], **({"order_status": don["order_status"]} if tra_trang_thai else {})}
@@ -232,11 +178,6 @@ def get_order_list(request: Request):
 
 @router.get(DUONG_DAN_ORDER_DETAIL)
 def get_order_detail(request: Request):
-    """Chi tiết tối đa 50 đơn. item_list, recipient_address chỉ có khi xin qua response_optional_fields.
-
-    Mã đơn không tồn tại thì bỏ qua, không báo lỗi — tài liệu không mô tả,
-    GIẢ ĐỊNH (§16 mục 8). Backend chỉ hỏi mã vừa lấy từ get_order_list.
-    """
     shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ORDER_DETAIL, la_shop_api=True)
 
     cac_ma_don = tach_danh_sach(lay_tham_so(request, "order_sn_list"))
@@ -256,14 +197,6 @@ def get_order_detail(request: Request):
 
 @router.post(DUONG_DAN_ESCROW_BATCH)
 async def get_escrow_detail_batch(request: Request):
-    """Escrow của tối đa 50 đơn. Công tắc MOCK_ESCROW_MODE (§19.2).
-
-    Phần trong `escrow_detail` theo ESCROW_FIELD_REFERENCE.md
-    (`order_sn`, `order_income.items[]`). Lớp bọc của bản batch và cách báo
-    từng đơn lỗi là GIẢ ĐỊNH (§16 mục 6): đơn lỗi là phần tử
-    {order_sn, fail_error, fail_message}, kèm `warning` ở cấp ngoài — tài liệu
-    nói `warning` dùng khi "batch request có phần fail".
-    """
     shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_ESCROW_BATCH, la_shop_api=True)
 
     than = await doc_body_json(request)
@@ -297,16 +230,6 @@ async def get_escrow_detail_batch(request: Request):
 
 @router.get(DUONG_DAN_CONVERSION)
 def get_conversion_report(request: Request):
-    """Báo cáo affiliate (AMS): các đơn affiliate đặt trong [start, end], phân trang page_no.
-
-    Dùng để đánh `is_affiliate` (§21.4): đơn CÓ trong báo cáo → True.
-    Tên tham số thời gian (`place_order_time_start`, `place_order_time_end`) và
-    lỗi `error_param` khi thiếu cặp mốc thời gian lấy từ tài liệu bàn giao
-    (`TICKET_AMS_GOLIVE.md`). Mọi chi tiết còn lại là GIẢ ĐỊNH của bản giả lập
-    (§16 mục 10): khuôn `response.list[].order_sn` + `has_more` theo §19.2,
-    `page_no` bắt đầu từ 1, `page_size` 1–100, khoảng thời gian lấy cả hai đầu.
-    KHÔNG tái hiện giới hạn "chỉ 3 tháng gần nhất" của sàn thật (§16 mục 10).
-    """
     shop_id, _ = kiem_tham_so_chung(request, DUONG_DAN_CONVERSION, la_shop_api=True)
 
     tu_luc = lay_so_nguyen(request, "place_order_time_start")
@@ -334,13 +257,7 @@ def get_conversion_report(request: Request):
 
 @router.post(DUONG_DAN_REFRESH)
 async def refresh_access_token(request: Request):
-    """Đổi refresh_token lấy cặp token mới (Public API: chữ ký không có access_token, shop_id).
-
-    Body: refresh_token, partner_id, shop_id (tài liệu). Refresh_token cũ bị
-    vô hiệu sau khi dùng (§19.2). Trường trả về đặt trong `response` theo
-    khuôn chung mục 7 tài liệu — tài liệu không nói riêng cho endpoint này,
-    GIẢ ĐỊNH (§16 mục 8).
-    """
+    """Refresh_token cũ bị vô hiệu sau khi dùng."""
     _, bay_gio = kiem_tham_so_chung(request, DUONG_DAN_REFRESH, la_shop_api=False)
 
     than = await doc_body_json(request)
@@ -358,8 +275,7 @@ async def refresh_access_token(request: Request):
     except tokens.TokenKhongHopLe as loi:
         if loi.ly_do == tokens.LY_DO_TOKEN_HET_HAN:
             raise LoiShopee("refresh_token_expired", "refresh_token đã quá 30 ngày") from None
-        # GIẢ ĐỊNH (§16 mục 7): tài liệu không có mã riêng cho refresh_token
-        # đã dùng / không tồn tại; error_auth là mã tài liệu dùng cho token không hợp lệ.
+        # Tài liệu không có mã riêng cho refresh_token đã dùng, nên dùng error_auth.
         raise LoiShopee("error_auth", "refresh_token không hợp lệ hoặc đã dùng") from None
 
     return tra_loi_thanh_cong({
@@ -369,19 +285,12 @@ async def refresh_access_token(request: Request):
     })
 
 
-# ---------------------------------------------------------------- ủy quyền gian hàng (chỉ dẫn 026)
-
 def _trang_loi(thong_diep, ma_http=400):
     return HTMLResponse(f"<!doctype html><meta charset=utf-8><p>{thong_diep}</p>", status_code=ma_http)
 
 
 @router.get(DUONG_DAN_AUTH_PARTNER)
 def trang_uy_quyen(request: Request):
-    """Trang ủy quyền gian hàng (HTML). Ký như Public API: `partner_id + path + timestamp`.
-
-    Tham số: partner_id, timestamp, sign, redirect (đã xác minh — shopee_auth.py:100-116). Sai tham số / chữ ký thì
-    trả lỗi JSON như mọi endpoint Shopee của bản giả lập (sàn thật hiện trang lỗi — không xác minh được khuôn).
-    """
     _, bay_gio = kiem_tham_so_chung(request, DUONG_DAN_AUTH_PARTNER, la_shop_api=False)
     redirect = lay_tham_so(request, "redirect")
     trang_thai = request.app.state
@@ -393,12 +302,7 @@ def trang_uy_quyen(request: Request):
 
 @router.post(DUONG_DAN_QUYET_DINH)
 async def quyet_dinh_uy_quyen(request: Request):
-    """Chủ shop bấm Đồng ý / Từ chối. Đồng ý → về `redirect` kèm `code` + `shop_id` (đã xác minh: redirect chỉ có hai
-    tham số này, không có `state`); từ chối → về `redirect` kèm `error=access_denied` (GIẢ ĐỊNH: không có tài liệu).
-
-    Phiên dùng MỘT lần, hết hạn sau 10 phút. Query có sẵn trong `redirect` (ví dụ `?state=…` do phần mềm tự gắn để
-    chống giả mạo) được GIỮ, tham số của sàn nối thêm bằng `&` (GIẢ ĐỊNH: chưa xác minh sàn thật xử lý như vậy).
-    """
+    """Shopee chỉ trả code và shop_id, không trả state; query có sẵn trong redirect được giữ."""
     trang_thai = request.app.state
     bay_gio = int(trang_thai.dong_ho())
     form = await request.form()
@@ -422,13 +326,7 @@ async def quyet_dinh_uy_quyen(request: Request):
 
 @router.post(DUONG_DAN_TOKEN_GET)
 async def doi_ma_lay_token(request: Request):
-    """Đổi `code` lấy cặp token (Public API: chữ ký `partner_id + path + timestamp`).
-
-    Body: code, partner_id, shop_id (tùy chọn) — đã xác minh (shopee_auth.py:134-153). Trường trả về
-    (access_token 4 giờ, refresh_token 30 ngày, expire_in, shop_id_list) đã xác minh; lớp bọc `response` là GIẢ ĐỊNH
-    giống endpoint làm mới (§16 mục 8). `code` dùng MỘT lần, hết hạn sau 10 phút; chữ ký/partner sai thì KHÔNG tiêu mã.
-    Ủy quyền lại một shop đang có: cấp cặp token MỚI, token cũ vẫn dùng tới hạn (GIẢ ĐỊNH, §16).
-    """
+    """code dùng một lần, hết hạn sau 10 phút; chữ ký sai thì không tiêu mã."""
     _, bay_gio = kiem_tham_so_chung(request, DUONG_DAN_TOKEN_GET, la_shop_api=False)
     than = await doc_body_json(request)
     for ten in ["code", "partner_id"]:

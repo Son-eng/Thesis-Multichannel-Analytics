@@ -1,16 +1,4 @@
-"""Điểm khởi động máy chủ giả lập API sàn (SPEC §19). Cổng 8001.
-
-Chạy (từ mock_platform/, đã có .env):
-    ..\\backend\\.venv\\Scripts\\python -m uvicorn main:tao_ung_dung_tu_env --factory --port 8001
-
-Dùng chế độ --factory (uvicorn gọi hàm để lấy app) thay vì biến `app` tạo
-sẵn lúc import: tạo app cần .env, mà test chỉ muốn import hàm tao_ung_dung()
-rồi truyền cấu hình mẫu và đồng hồ giả vào — không được đòi .env thật.
-
-Lúc khởi động: dựng dữ liệu từ CSV (data_builder) và nạp token ban đầu từ
-.env vào bảng token. Mọi trạng thái giữ trong `app.state`, mất khi tắt máy
-chủ — đúng ý: mỗi lần chạy là một "sàn" sạch.
-"""
+"""Máy chủ giả lập API sàn, cổng 8001; mọi trạng thái giữ trong bộ nhớ, mỗi lần chạy là một sàn sạch."""
 
 import time
 
@@ -26,14 +14,7 @@ import uy_quyen
 
 
 def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tiktok=None):
-    """Tạo app FastAPI của máy chủ giả lập.
-
-    Nhận: cau_hinh — CauHinhMock; dong_ho — hàm trả epoch giây hiện tại
-    (test truyền đồng hồ giả để "tua" thời gian khi kiểm token hết hạn);
-    du_lieu_shopee, du_lieu_tiktok — dữ liệu đã dựng sẵn (test truyền vào để
-    khỏi đọc CSV lại cho mỗi test), None thì tự dựng.
-    Trả: app FastAPI.
-    """
+    """dong_ho và dữ liệu dựng sẵn để test truyền vào, None thì tự dựng."""
     ung_dung = FastAPI(title="Máy chủ giả lập API sàn (bản demo khóa luận)")
     ung_dung.state.cau_hinh = cau_hinh
     ung_dung.state.dong_ho = dong_ho
@@ -41,20 +22,18 @@ def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tikto
     bay_gio = int(dong_ho())
     ung_dung.state.du_lieu_shopee = du_lieu_shopee or data_builder.dung_du_lieu_shopee()
     du_lieu_tiktok = du_lieu_tiktok or data_builder.dung_du_lieu_tiktok()
-    # Yêu cầu TikTok chỉ mang shop_cipher, nên tra dữ liệu theo cipher.
+    # Yêu cầu TikTok chỉ mang shop_cipher nên tra dữ liệu theo cipher.
     ung_dung.state.du_lieu_tiktok_theo_cipher = {shop["shop_cipher"]: shop for shop in du_lieu_tiktok.values()}
 
     kho_shopee = tokens.KhoToken(
         cau_hinh.MOCK_SHOPEE_ACCESS_TTL_SECONDS, tokens.SHOPEE_HAN_REFRESH_GIAY, vo_hieu_refresh_cu=True
     )
-    # Token gắn với shop_id dạng chuỗi — đúng như giá trị đọc từ query.
     kho_shopee.nap_san(
         str(cau_hinh.SHOPEE_SHOP_ID), cau_hinh.SHOPEE_ACCESS_TOKEN, cau_hinh.SHOPEE_REFRESH_TOKEN, bay_gio
     )
     ung_dung.state.kho_token_shopee = kho_shopee
 
-    # TikTok: mỗi shop một cặp token, gắn với shop_cipher (§19.4). Refresh
-    # "sống tới năm 2123" → không hết hạn, không vô hiệu token cũ (§19.3 mục 3).
+    # Refresh TikTok coi như không hết hạn và không vô hiệu token cũ.
     kho_tiktok = tokens.KhoToken(cau_hinh.MOCK_TIKTOK_ACCESS_TTL_SECONDS, None, vo_hieu_refresh_cu=False)
     token_ban_dau = {
         "Shop A": (cau_hinh.TIKTOK_SHOP_A_ACCESS_TOKEN, cau_hinh.TIKTOK_SHOP_A_REFRESH_TOKEN),
@@ -65,8 +44,7 @@ def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tikto
         kho_tiktok.nap_san(shop["shop_cipher"], access_token, refresh_token, bay_gio)
     ung_dung.state.kho_token_tiktok = kho_tiktok
 
-    # Ủy quyền gian hàng (chỉ dẫn 026): thêm MỘT shop mới mỗi sàn, chưa có đơn nào. Dữ liệu của shop mới luôn rỗng và
-    # nằm ngoài dữ liệu dựng từ CSV, nên không thể làm đổi số liệu Shop A/B/C.
+    # Thêm một shop mới chưa có đơn mỗi sàn; dữ liệu luôn rỗng nên không đổi số liệu Shop A/B/C.
     ten_shopee_moi, id_shopee_moi = uy_quyen.SHOP_SHOPEE_MOI
     ung_dung.state.cac_shop_shopee = {str(cau_hinh.SHOPEE_SHOP_ID): "Shop C", str(id_shopee_moi): ten_shopee_moi}
     ten_tiktok_moi, cipher_tiktok_moi = uy_quyen.SHOP_TIKTOK_MOI
@@ -87,5 +65,4 @@ def tao_ung_dung(cau_hinh, dong_ho=time.time, du_lieu_shopee=None, du_lieu_tikto
 
 
 def tao_ung_dung_tu_env():
-    """Hàm uvicorn gọi (--factory): đọc mock_platform/.env rồi tạo app."""
     return tao_ung_dung(config.doc_cau_hinh())

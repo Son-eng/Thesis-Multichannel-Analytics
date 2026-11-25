@@ -1,46 +1,29 @@
-"""Luồng ỦY QUYỀN gian hàng của máy chủ giả lập (chỉ dẫn 026, giai đoạn 2).
-
-Đóng vai TRANG ỦY QUYỀN của sàn: chủ shop đăng nhập trên trang của sàn và bấm "Đồng ý", sàn chuyển trình duyệt về
-địa chỉ của phần mềm kèm MÃ ỦY QUYỀN; phần mềm đổi mã lấy token ở máy chủ (khóa ứng dụng không bao giờ ra trình duyệt).
-
-Hai kho trong bộ nhớ (mất khi tắt máy chủ, như bảng token):
-- `KhoPhienUyQuyen`: một "lần mở trang ủy quyền" — nhớ redirect/state và các shop được chọn, dùng MỘT lần, hết hạn
-  sau 10 phút. Có phiên này để nút Đồng ý không tin vào ô ẩn (không cho tự sửa địa chỉ chuyển về).
-- `KhoMaUyQuyen`: mã ủy quyền sàn cấp sau khi bấm Đồng ý — dùng MỘT lần, hết hạn theo tài liệu từng sàn
-  (Shopee 10 phút, TikTok 30 phút).
-
-Mọi giá trị "giả" (shop D/E, mã, khóa) có tiền tố MOCK hoặc là số tự đặt, không phải của shop thật nào (QUY_TRINH §2.5).
-
-Nguồn khuôn: báo cáo 026 mục (a) — các điểm "đã xác minh" lấy từ `Pipeline/` (Shopee: `shopee_auth.py`,
-`shopeeapideveloperguidetomtat (1).md`; TikTok: `tiktok_auth.py`, `Authorization/Get Authorized Shops.md`);
-điểm chưa xác minh được ghi rõ GIẢ ĐỊNH ở nơi dùng và ở SPEC §16.
-"""
+"""Trang ủy quyền giả của sàn; phiên và mã ủy quyền giữ trong bộ nhớ, dùng một lần và có hạn."""
 
 import html
 import secrets
 from urllib.parse import urlencode
 
 HAN_PHIEN_GIAY = 10 * 60
-SHOPEE_HAN_MA_GIAY = 10 * 60        # tài liệu tóm tắt Shopee: code "hết hạn sau 10 phút"
-TIKTOK_HAN_MA_GIAY = 30 * 60        # tài liệu bàn giao TikTok: auth_code "hết hạn sau 30 phút"
+SHOPEE_HAN_MA_GIAY = 10 * 60
+TIKTOK_HAN_MA_GIAY = 30 * 60
 
-# Shop MỚI chưa có đơn nào, để thử luồng "thêm gian hàng" (chỉ dẫn 026). Dữ liệu của chúng luôn RỖNG:
-# không đụng dữ liệu Shop A/B/C (số bất biến).
+# Shop mới chưa có đơn để thử luồng thêm gian hàng; không đụng dữ liệu Shop A/B/C.
 SHOP_SHOPEE_MOI = ("Shop D", 200004)
 SHOP_TIKTOK_MOI = ("Shop E", "MOCK_CIPHER_SHOP_E")
 ID_TIKTOK_GIA = {"Shop A": "7000000000000000001", "Shop B": "7000000000000000002", "Shop E": "7000000000000000005"}
 
 
 class PhienKhongHopLe(Exception):
-    """Phiên ủy quyền không có / đã dùng / hết hạn."""
+    """(giữ một dòng)"""
 
 
 class MaKhongHopLe(Exception):
-    """Mã ủy quyền không có / đã dùng / hết hạn — bên gọi đổi thành mã lỗi của từng sàn."""
+    """(giữ một dòng)"""
 
 
 class _KhoMotLan:
-    """Kho giá trị dùng MỘT lần, có hạn. Lấy ra là xóa (kể cả khi hết hạn) nên không thử đi thử lại được."""
+    """Kho giá trị dùng một lần, có hạn."""
 
     def __init__(self, loi):
         self._du_lieu = {}
@@ -52,13 +35,11 @@ class _KhoMotLan:
         return ma
 
     def xem(self, ma, bay_gio):
-        """Đọc không xóa (để vẽ trang). Không hợp lệ → ném lỗi."""
         if ma not in self._du_lieu or bay_gio >= self._du_lieu[ma][1]:
             raise self._loi()
         return self._du_lieu[ma][0]
 
     def lay_mot_lan(self, ma, bay_gio):
-        """Lấy giá trị và XÓA. Hết hạn hay không có → ném lỗi."""
         if ma not in self._du_lieu:
             raise self._loi()
         gia_tri, het_han = self._du_lieu.pop(ma)
@@ -85,18 +66,11 @@ class KhoMaUyQuyen(_KhoMotLan):
 
 
 def noi_query(dia_chi, tham_so):
-    """Nối tham số vào địa chỉ, giữ query đã có (`?state=…`): thêm bằng `&` nếu đã có `?`, nếu không thì `?`."""
     dau = "&" if "?" in dia_chi else "?"
     return dia_chi + dau + urlencode(tham_so)
 
 
 def trang_uy_quyen(san, ten_ung_dung, cac_shop, phien, duong_dan_quyet_dinh, ten_o_chon):
-    """HTML (tiếng Việt) của trang ủy quyền.
-
-    Nhận: san ("Shopee"/"TikTok Shop"); ten_ung_dung; cac_shop — danh sách tên shop để chọn (ô đầu được chọn sẵn);
-    phien — mã phiên (ô ẩn); duong_dan_quyet_dinh — nơi gửi biểu mẫu; ten_o_chon — tên trường ô chọn shop.
-    Mọi chuỗi chèn vào trang đều qua html.escape.
-    """
     cac_o = "\n".join(
         f'<label class="shop"><input type="radio" name="{html.escape(ten_o_chon)}" value="{html.escape(gia_tri)}"'
         f'{" checked" if i == 0 else ""}> <span>{html.escape(ten)}</span></label>'

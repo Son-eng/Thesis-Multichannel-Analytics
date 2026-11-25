@@ -1,14 +1,3 @@
-"""Test 3 endpoint TikTok qua tầng HTTP bằng TestClient (SPEC §19.2, §19.3, §19.4).
-
-Như test Shopee: mỗi yêu cầu được ký đúng thuật toán TikTok (đường dẫn + query
-sắp xếp + body, bọc app_secret) như một client thật, rồi sửa từng thành phần
-để xem máy chủ từ chối đúng mã. Mã 9990xxx là mã quy ước của bản giả lập
-(§19.2, §16 mục 7).
-
-Số kỳ vọng tính thẳng từ CSV ẩn danh theo từng shop, cộng các số đã chốt:
-7.526 đơn, 7.540 dòng (§17.1), 139 dòng hoàn (§3.2).
-"""
-
 import json
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -21,7 +10,6 @@ import signature
 import tiktok_routes
 
 GIO_VN = timezone(timedelta(hours=7))
-# "Bây giờ" của máy chủ: sau toàn bộ dữ liệu mẫu TikTok (01/01–23/08/2026).
 T0 = int(datetime(2026, 9, 1, tzinfo=GIO_VN).timestamp())
 DAU_NAM = int(datetime(2026, 1, 1, tzinfo=GIO_VN).timestamp())
 
@@ -49,8 +37,6 @@ def csv_tiktok():
 
 
 class KhachTikTok:
-    """Client TikTok tối giản trong test: tự ký mọi yêu cầu open-api của một shop."""
-
     def __init__(self, client, cau_hinh, dong_ho, shop_cipher, access_token):
         self.client = client
         self.cau_hinh = cau_hinh
@@ -59,12 +45,6 @@ class KhachTikTok:
         self.access_token = access_token
 
     def goi(self, phuong_thuc, duong_dan, tham_so_rieng=None, than=None, sua_sau_khi_ky=None, **sua):
-        """Gửi một yêu cầu đã ký, trả JSON.
-
-        `sua`: ghi đè tham số query TRƯỚC khi ký (chữ ký vẫn đúng với giá trị đã sửa).
-        `sua_sau_khi_ky`: ghi đè SAU khi ký (để làm chữ ký sai, hoặc xóa tham số khi giá trị là None).
-        `than`: dict → serialize MỘT lần, dùng cùng chuỗi đó để ký và để gửi (bẫy §20.1).
-        """
         tham_so = {
             "app_key": self.cau_hinh.TIKTOK_APP_KEY,
             "timestamp": str(self.dong_ho["bay_gio"]),
@@ -90,7 +70,6 @@ class KhachTikTok:
         return self.goi("POST", DUONG_DAN_SEARCH, {"page_size": "100"}, than or {}, sua_sau_khi_ky, **sua)
 
     def keo_het(self, than, page_size=100, **tham_so):
-        """Đi hết page_token, trả danh sách đơn theo đúng thứ tự trả về."""
         cac_don = []
         page_token = ""
         while True:
@@ -114,8 +93,6 @@ def khach_b(client, cau_hinh, dong_ho, du_lieu_tiktok):
     return KhachTikTok(client, cau_hinh, dong_ho, du_lieu_tiktok["Shop B"]["shop_cipher"], cau_hinh.TIKTOK_SHOP_B_ACCESS_TOKEN)
 
 
-# ---------- Kéo đủ dữ liệu theo từng shop ----------
-
 @pytest.mark.parametrize("ten_shop", ["Shop A", "Shop B"])
 def test_keo_du_moi_don_va_finance_theo_shop(ten_shop, request, csv_tiktok):
     khach = request.getfixturevalue("khach_a" if ten_shop == "Shop A" else "khach_b")
@@ -124,7 +101,6 @@ def test_keo_du_moi_don_va_finance_theo_shop(ten_shop, request, csv_tiktok):
     cac_don = khach.keo_het({"create_time_ge": DAU_NAM, "create_time_lt": T0}, sort_order="ASC")
     ma_don = [don["id"] for don in cac_don]
     assert len(ma_don) == len(set(ma_don)) == csv_shop["Order ID"].nunique()
-    # Số dòng chuẩn = số cặp (đơn, sku_id) khác nhau; số line item = tổng Quantity.
     so_dong = len({(don["id"], li["sku_id"]) for don in cac_don for li in don["line_items"]})
     assert so_dong == len(csv_shop)
     assert sum(len(don["line_items"]) for don in cac_don) == pd.to_numeric(csv_shop["Quantity"]).sum()
@@ -132,7 +108,7 @@ def test_keo_du_moi_don_va_finance_theo_shop(ten_shop, request, csv_tiktok):
     dong_hoan = []
     for don in cac_don:
         if don["status"] != "COMPLETED":
-            continue        # §20.2: chỉ gọi Finance cho đơn COMPLETED
+            continue
         phan_hoi = khach.goi("GET", duong_dan_finance(don["id"]))
         assert phan_hoi["code"] == 0
         for gd in phan_hoi["data"]["sku_transactions"]:
@@ -143,7 +119,6 @@ def test_keo_du_moi_don_va_finance_theo_shop(ten_shop, request, csv_tiktok):
 
 
 def test_tong_hai_shop_khop_so_da_chot(khach_a, khach_b, csv_tiktok):
-    """Cộng 2 shop ra đúng số đã chốt §17.1; tổng dòng hoàn của 2 shop là 139 (test trên kiểm từng dòng)."""
     khoang = {"create_time_ge": DAU_NAM, "create_time_lt": T0}
     cac_don = khach_a.keo_het(khoang) + khach_b.keo_het(khoang)
     assert len(cac_don) == 7526
@@ -151,10 +126,7 @@ def test_tong_hai_shop_khop_so_da_chot(khach_a, khach_b, csv_tiktok):
     assert (csv_tiktok["Cancelation/Return Type"] == "Return/Refund").sum() == 139
 
 
-# ---------- orders/search: lọc, sắp xếp, phân trang ----------
-
 def test_ge_lay_moc_lt_khong_lay_moc(khach_a, du_lieu_tiktok):
-    """Tài liệu: `_ge` = "on or after", `_lt` = "before"."""
     don = next(iter(du_lieu_tiktok["Shop A"]["don_hang"].values()))
     moc = don["create_time"]
     co = [d["id"] for d in khach_a.keo_het({"create_time_ge": moc, "create_time_lt": moc + 1})]
@@ -182,7 +154,7 @@ def test_sap_xep_mac_dinh_moi_nhat_truoc_va_phan_trang_on_dinh(khach_a):
     tung_trang = khach_a.keo_het(khoang, page_size=7)
     assert [d["id"] for d in tung_trang] == [d["id"] for d in ca_trang]
     thoi_gian = [d["create_time"] for d in ca_trang]
-    assert thoi_gian == sorted(thoi_gian, reverse=True)       # mặc định DESC theo create_time
+    assert thoi_gian == sorted(thoi_gian, reverse=True)
 
 
 def test_total_count_va_trang_cuoi(khach_a):
@@ -198,10 +170,7 @@ def test_don_tra_ve_du_khuon_21_2(khach_a):
     assert set(don["line_items"][0]) >= {"sku_id", "seller_sku", "original_price", "sale_price", "seller_discount"}
 
 
-# ---------- Finance ----------
-
 def test_finance_don_chua_completed_tra_rong(khach_a, du_lieu_tiktok):
-    """Phương án (a), §16 mục 5: code 0, sku_transactions rỗng, total_count 0."""
     don = next(d for d in du_lieu_tiktok["Shop A"]["don_hang"].values() if d["status"] != "COMPLETED")
     phan_hoi = khach_a.goi("GET", duong_dan_finance(don["id"]))
     assert phan_hoi["code"] == 0
@@ -218,7 +187,6 @@ def test_finance_don_completed(khach_a, du_lieu_tiktok):
 
 
 def test_finance_ky_theo_duong_dan_co_order_id(khach_a, du_lieu_tiktok):
-    """Ký bằng đường dẫn của đơn khác → sai chữ ký: order_id nằm trong chuỗi ký."""
     ma_1, ma_2 = list(du_lieu_tiktok["Shop A"]["finance"])[:2]
     tham_so = {
         "app_key": khach_a.cau_hinh.TIKTOK_APP_KEY, "timestamp": str(T0), "shop_cipher": khach_a.shop_cipher,
@@ -229,8 +197,6 @@ def test_finance_ky_theo_duong_dan_co_order_id(khach_a, du_lieu_tiktok):
     ).json()
     assert phan_hoi["code"] == tiktok_routes.MA_SAI_CHU_KY
 
-
-# ---------- Xác thực và giới hạn tham số ----------
 
 @pytest.mark.parametrize("page_size", ["101", "0", "muoi"])
 def test_page_size_ngoai_khoang(khach_a, page_size):
@@ -256,7 +222,6 @@ def test_sai_chu_ky(khach_a):
 
 
 def test_body_serialize_lai_la_sai_chu_ky(khach_a):
-    """Ký trên '{"a":1}' nhưng gửi '{"a": 1}' → sai chữ ký (bẫy §20.1)."""
     tham_so = {"app_key": khach_a.cau_hinh.TIKTOK_APP_KEY, "timestamp": str(T0),
                "shop_cipher": khach_a.shop_cipher, "page_size": "10"}
     tham_so["sign"] = signature.tinh_chu_ky_tiktok(
@@ -282,7 +247,6 @@ def test_thieu_tham_so_chung_hoac_app_key_sai(khach_a):
 def test_token_sai_va_token_cua_shop_khac(khach_a, cau_hinh):
     khach_a.access_token = "token_bia"
     assert khach_a.tim_don({})["code"] == tiktok_routes.MA_TOKEN_SAI
-    # Token của Shop B gửi kèm shop_cipher của Shop A.
     khach_a.access_token = cau_hinh.TIKTOK_SHOP_B_ACCESS_TOKEN
     assert khach_a.tim_don({})["code"] == tiktok_routes.MA_TOKEN_SAI
 
@@ -301,8 +265,6 @@ def test_phan_hoi_dung_khuon(khach_a):
     assert set(loi) == {"code", "message", "request_id"} and loi["request_id"]
 
 
-# ---------- token/refresh ----------
-
 def lam_moi(client, cau_hinh, refresh_token, **sua):
     tham_so = {"app_key": cau_hinh.TIKTOK_APP_KEY, "app_secret": cau_hinh.TIKTOK_APP_SECRET,
                "refresh_token": refresh_token, "grant_type": "refresh_token", **sua}
@@ -314,19 +276,17 @@ def lam_moi(client, cau_hinh, refresh_token, **sua):
 def test_lam_moi_cap_token_moi_dung_duoc(khach_a, cau_hinh):
     phan_hoi = lam_moi(khach_a.client, cau_hinh, cau_hinh.TIKTOK_SHOP_A_REFRESH_TOKEN)
     assert phan_hoi["code"] == 0
-    assert set(phan_hoi["data"]) == {"access_token", "refresh_token"}     # đúng như SDK thể hiện
+    assert set(phan_hoi["data"]) == {"access_token", "refresh_token"}
     khach_a.access_token = phan_hoi["data"]["access_token"]
     assert khach_a.tim_don({})["code"] == 0
 
 
 def test_lam_moi_dung_shop_cua_refresh_token(khach_b, cau_hinh):
-    """Refresh của Shop A cấp token cho Shop A — dùng với shop_cipher Shop B bị từ chối."""
     khach_b.access_token = lam_moi(khach_b.client, cau_hinh, cau_hinh.TIKTOK_SHOP_A_REFRESH_TOKEN)["data"]["access_token"]
     assert khach_b.tim_don({})["code"] == tiktok_routes.MA_TOKEN_SAI
 
 
 def test_refresh_cu_van_dung_lai_duoc(client, cau_hinh, dong_ho):
-    """TikTok: tài liệu không nói refresh cũ bị vô hiệu, refresh sống tới 2123 (§19.3 mục 3)."""
     assert lam_moi(client, cau_hinh, cau_hinh.TIKTOK_SHOP_A_REFRESH_TOKEN)["code"] == 0
     dong_ho["bay_gio"] = T0 + 10 * 365 * 86400
     assert lam_moi(client, cau_hinh, cau_hinh.TIKTOK_SHOP_A_REFRESH_TOKEN)["code"] == 0
@@ -353,8 +313,6 @@ def test_ma_quy_uoc_khong_trung_ma_that():
     assert Counter(len(str(ma)) for ma in cac_ma) == {7: 6}
 
 
-# ---------- affiliate_seller/orders/search ----------
-
 DUONG_DAN_AFFILIATE = "/affiliate_seller/202410/orders/search"
 
 
@@ -372,7 +330,6 @@ def keo_het_affiliate(khach, than, page_size=100):
 @pytest.mark.parametrize("ten_shop, so_dong", [("Shop A", 2763), ("Shop B", 1534)])
 def test_affiliate_keo_du_theo_shop(request, du_lieu_tiktok, ten_shop, so_dong):
     khach = request.getfixturevalue("khach_a" if ten_shop == "Shop A" else "khach_b")
-    # 3 tháng/yêu cầu (tài liệu) → chia cửa sổ 90 ngày [ge, lt) nối tiếp như connector sẽ làm.
     cac_don, ge = [], DAU_NAM
     while ge < T0:
         lt = min(ge + 90 * 86400, T0)
@@ -400,7 +357,7 @@ def test_affiliate_ranh_gioi_ge_lt(khach_a, du_lieu_tiktok):
     def ma(than):
         return [d["id"] for d in keo_het_affiliate(khach_a, than)]
     assert ma_x in ma({"create_time_ge": moc, "create_time_lt": moc + 1})
-    assert ma_x not in ma({"create_time_ge": moc - 100, "create_time_lt": moc})        # _lt không lấy mốc
+    assert ma_x not in ma({"create_time_ge": moc - 100, "create_time_lt": moc})
 
 
 def test_affiliate_mac_dinh_ba_thang_gan_nhat_va_khong_lo_pii(khach_a, dong_ho):
