@@ -23,13 +23,9 @@ import { MUC_THOI_GIAN, NHAN_MUC, maKyChuaNgay, maKyHopLe, danhSachKy, congNgay,
 import { dinhDangNgay, dinhDangTien, dinhDangPhanTram } from '../utils/format.js';
 import { chuThuong, dongKyChuaDuNgay } from '../utils/vanBanDashboard.js';
 
-/** Tên hiển thị của từng sàn. */
 export const TEN_SAN = { shopee: 'Shopee', tiktok: 'TikTok Shop' };
 
-/**
- * Mức ngày: biểu đồ cột chồng chỉ lấy 31 ngày kết thúc ở ngày đang chọn (không vẽ cả 200+ cột).
- * Mức khác lấy toàn bộ khoảng dữ liệu (không truyền date_from/date_to).
- */
+/** Mức ngày chỉ lấy 31 ngày kết thúc ở ngày đang chọn, không vẽ cả 200+ cột. */
 function khoangXuHuong(muc, ky, ngayMin) {
   if (muc !== 'day') {
     return {};
@@ -45,15 +41,7 @@ function dongGianHang(loc) {
   return `Gian hàng ${loc.shops[0]}`;
 }
 
-/**
- * MỘT trang dashboard dùng chung cho cả hai sàn (route /dashboard/:platform).
- * Hai sàn cùng khuôn, cùng hợp đồng JSON, chỉ khác tham số `platform` (SPEC §13).
- *
- * Lựa chọn của người dùng (mức, kỳ, gian hàng, mã sản phẩm) nằm trên địa chỉ (?muc=&ky=&shop=&ma=),
- * nên tải lại trang hay gửi đường dẫn vẫn giữ nguyên kỳ đang xem. Mặc định mỗi sàn mở ở kỳ chứa
- * `data_max_date` của CHÍNH sàn đó (hai sàn có khoảng dữ liệu khác nhau).
- * Mỗi khối gọi endpoint riêng, tự xử lý đang tải / lỗi / không có dữ liệu của mình.
- */
+/** Một trang dùng chung cho hai sàn; lựa chọn nằm trên địa chỉ nên tải lại trang vẫn giữ kỳ đang xem. */
 export default function Dashboard() {
   const { platform: san } = useParams();
   const [thamSoUrl, setThamSoUrl] = useSearchParams();
@@ -72,7 +60,6 @@ export default function Dashboard() {
   const ma = thamSoUrl.get('ma') || '';
   const thamSo = { shop_name: shop, product_code: ma };
 
-  /** Ghi lựa chọn mới lên địa chỉ; giá trị rỗng thì bỏ khỏi địa chỉ cho gọn. */
   const capNhat = (thayDoi) => {
     const moi = { muc: mucUrl || '', ky: kyUrl || '', shop, ma, ...thayDoi };
     const p = new URLSearchParams();
@@ -84,7 +71,6 @@ export default function Dashboard() {
     setThamSoUrl(p, { replace: true });
   };
 
-  /** Nút "Xuất Excel": tải tệp của đúng kỳ và bộ lọc đang xem; lỗi thì hiện thông báo của máy chủ. */
   const xuatExcel = async () => {
     setDangXuat(true);
     setGhiChu('Đang tạo tệp Excel…');

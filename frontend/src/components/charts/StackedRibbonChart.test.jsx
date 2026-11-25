@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import StackedRibbonChart from './StackedRibbonChart.jsx';
 
-// Dữ liệu tự dựng, không gọi API. Màu dùng từ khóa CSS (test không được viết mã hex).
 const DANH_SACH_LOP = [
   { ma: 'M15', nhan: 'M15', mau: 'navy' },
   { ma: null, nhan: 'Mã khác', mau: 'teal' },
@@ -30,7 +29,6 @@ function ve(thang, rieng = {}) {
   return render(<StackedRibbonChart thang={thang} danhSachLop={DANH_SACH_LOP} kyDangChon={thang[thang.length - 1].key} ariaLabel="Doanh thu" donVi="ngày" {...rieng} />);
 }
 
-// jsdom không có bố cục: giả lập khung rộng 720 để tọa độ chuột (clientX) trùng tọa độ SVG.
 function gaKhung() {
   return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, right: 720, bottom: 286, width: 720, height: 286, x: 0, y: 0, toJSON() {} });
 }
@@ -135,12 +133,11 @@ describe('StackedRibbonChart — khung chú thích khi rê chuột', () => {
     ve(tao(8));
     const khung = screen.getByTestId('khung-bieu-do');
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
-    // 8 cột: mỗi ô rộng 88 đơn vị, cột thứ 3 (chỉ số 2) nằm trong khoảng 8+176 .. 8+264.
     fireEvent.mouseMove(khung, { clientX: 220, clientY: 100 });
     const ct = screen.getByRole('tooltip');
     expect(within(ct).getByText('03/08/2026')).toBeInTheDocument();
     expect(within(ct).getByText('Doanh thu')).toBeInTheDocument();
-    expect(within(ct).getByText('38.000.000 đ')).toBeInTheDocument(); // 30 tr + 2 × 4 tr
+    expect(within(ct).getByText('38.000.000 đ')).toBeInTheDocument();
     expect(within(ct).getByText('M15')).toBeInTheDocument();
     expect(within(ct).getByText('Mã khác')).toBeInTheDocument();
     expect(within(ct).getByText('60%')).toBeInTheDocument();
@@ -177,7 +174,6 @@ describe('StackedRibbonChart — khung chú thích khi rê chuột', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Phóng to biểu đồ' }));
     fireEvent.click(screen.getByRole('button', { name: 'Phóng to biểu đồ' }));
     const dau = screen.getByText(/Đang xem 15\/31 ngày \((\d\d)\/08/).textContent.match(/\((\d\d)\/08/)[1];
-    // Cột đầu của đoạn đang xem: ô đầu tiên (chỉ số 0), x vào khoảng 8..56.
     fireEvent.mouseMove(screen.getByTestId('khung-bieu-do'), { clientX: 30, clientY: 100 });
     expect(within(screen.getByRole('tooltip')).getByText(`${dau}/08/2026`)).toBeInTheDocument();
   });
@@ -195,7 +191,7 @@ describe('StackedRibbonChart — nhãn trên đầu cột theo số cột', () =
     const thang = tao(15);
     const { container } = ve(thang, { canhBaoTheoKy: { [thang[2].key]: -30.5 } });
     expect(container.textContent).not.toContain('· −');
-    expect(container.textContent).toContain('34 tr'); // tổng của cột có i % 7 = 1
+    expect(container.textContent).toContain('34 tr');
     expect(container.querySelectorAll('[data-testid="cham-canh-bao"]').length).toBe(0);
   });
 

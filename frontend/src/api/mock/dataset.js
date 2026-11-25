@@ -1,9 +1,4 @@
-// Bộ dữ liệu theo NGÀY của hai sàn, sinh một lần, cố định (không ngẫu nhiên).
-// Vì sao theo ngày: mọi mức thời gian (ngày, tháng, quý, năm) và mọi phép cắt cùng-số-ngày
-// (SPEC §9.2) đều tính được từ cùng một nguồn, nên các khối trên một trang luôn khớp nhau.
-//
-// Ràng buộc số thật (realFigures.js): doanh thu từng tháng, doanh thu kỳ trước đã cắt, tổng số đơn,
-// số đơn tháng 7 TikTok... được giữ ĐÚNG. Cách chia thành từng ngày là minh họa.
+// Dữ liệu mock theo ngày, cố định; số thật trong realFigures.js được giữ đúng, cách chia theo ngày là minh họa.
 
 import {
   KHOANG_DU_LIEU,
@@ -16,13 +11,7 @@ import {
 import { DON_HOP_LE_THANG_SHOPEE, TY_TRONG_SAN_PHAM, M22_BAT_DAU, TY_TRONG_AFFILIATE } from './illustrativeFigures.js';
 import { congNgay, demNgay, ngayCuoiKy } from '../../utils/period.js';
 
-/**
- * Chia một số nguyên thành nhiều phần nguyên theo trọng số, tổng các phần BẰNG ĐÚNG số ban đầu
- * (phương pháp phần dư lớn nhất). Vì sao cần: tổng theo ngày phải bằng doanh thu tháng thật, không lệch 1 đồng.
- * @param {number} tong số nguyên cần chia
- * @param {number[]} trongSo trọng số không âm
- * @returns {number[]}
- */
+/** Chia số nguyên theo trọng số mà tổng các phần bằng đúng số ban đầu (phần dư lớn nhất). */
 export function chiaTheoTrongSo(tong, trongSo) {
   const tongTrongSo = trongSo.reduce((a, b) => a + b, 0);
   if (!(tongTrongSo > 0)) {
@@ -41,7 +30,6 @@ export function chiaTheoTrongSo(tong, trongSo) {
   return nguyen;
 }
 
-/** Danh sách ngày liên tiếp từ `tu` đến `den` (gồm cả hai đầu). */
 function lietKeNgay(tu, den) {
   const soNgay = demNgay(tu, den);
   const kq = [];
@@ -51,13 +39,11 @@ function lietKeNgay(tu, den) {
   return kq;
 }
 
-/** Thứ trong tuần của một ngày ISO (0 = Chủ nhật). */
 function thuTrongTuan(iso) {
   const [nam, thang, ngay] = iso.split('-').map(Number);
   return new Date(Date.UTC(nam, thang - 1, ngay)).getUTCDay();
 }
 
-/** Trọng số doanh thu của một ngày: dao động nhẹ, cuối tuần nhỉnh hơn. Minh họa. */
 function trongSoNgay(iso, viTri, hat) {
   let w = 1 + 0.25 * Math.sin(viTri * 0.8 + hat) + 0.12 * Math.cos(viTri * 1.7 + hat * 2);
   const thu = thuTrongTuan(iso);
@@ -67,12 +53,6 @@ function trongSoNgay(iso, viTri, hat) {
   return w;
 }
 
-/**
- * Chia mục tiêu theo tháng, cho phép ghim một số tháng ở giá trị thật.
- * @param {number} tong tổng toàn bộ
- * @param {number[]} trongSo trọng số từng tháng cho phần chưa ghim
- * @param {(number|null)[]} codinh giá trị ghim từng tháng (null = chưa ghim)
- */
 function chiaCoGhim(tong, trongSo, codinh) {
   const daGhim = codinh.reduce((a, v) => a + (v === null ? 0 : v), 0);
   const trongSoConLai = trongSo.map((w, i) => (codinh[i] === null ? w : 0));
@@ -80,10 +60,7 @@ function chiaCoGhim(tong, trongSo, codinh) {
   return codinh.map((v, i) => (v === null ? phan[i] : v));
 }
 
-/**
- * Dựng danh sách đoạn doanh thu: mỗi tháng một đoạn, riêng tháng có kỳ trước đã cắt thì tách làm hai
- * đoạn để tổng 01 -> ngày cắt bằng ĐÚNG số thật (SPEC §9.4).
- */
+/** Tháng có kỳ trước đã cắt thì tách làm hai đoạn để tổng đến ngày cắt bằng đúng số thật. */
 function dungDoan(san) {
   const ngayMax = KHOANG_DU_LIEU[san].max;
   const doan = [];
@@ -104,7 +81,6 @@ function dungDoan(san) {
   return doan;
 }
 
-/** Trọng số sản phẩm của một tháng (minh họa): tỷ trọng nền, lệch nhẹ theo tháng. */
 function trongSoSanPhamThang(san, thang) {
   const ma = Object.keys(TY_TRONG_SAN_PHAM[san]);
   const soThang = Number(thang.slice(5, 7));
@@ -118,11 +94,7 @@ function trongSoSanPhamThang(san, thang) {
   });
 }
 
-/**
- * Doanh thu từng mã của một tháng. Tổng các mã BẰNG doanh thu tháng.
- * TikTok tháng 7: năm mã đầu ghim ĐÚNG số thật (SPEC §10), phần còn lại chia cho các mã khác.
- * TikTok tháng 6: dựng ngược từ mức thay đổi thật (§10) để pct_change tính ra đúng 26,8; 41,1; 266,7; 12,7; 97,4.
- */
+/** Tổng các mã bằng doanh thu tháng; TikTok tháng 6, 7 dựng để ra đúng số thật. */
 function doanhThuMaTrongThang(san, thang, tongThang) {
   const trongSo = trongSoSanPhamThang(san, thang);
   let ghim = {};
@@ -151,11 +123,6 @@ function doanhThuMaTrongThang(san, thang, tongThang) {
 
 const BO_NHO_DEM = {};
 
-/**
- * Bộ dữ liệu theo ngày của một sàn. Dựng lần đầu rồi giữ lại.
- * @returns {{ngay: object[], ngayMin: string, ngayMax: string, thang: Object<string, {rev: number, ma: Object<string, number>}>}}
- *   mỗi ngày: {date, thang, rev, orders, ordersAll, returns, qty, affPct}
- */
 function layBoDuLieu(san) {
   if (BO_NHO_DEM[san]) {
     return BO_NHO_DEM[san];
@@ -171,12 +138,11 @@ function layBoDuLieu(san) {
     });
   });
 
-  // Gom theo tháng.
   const dsThang = Object.keys(DOANH_THU_THANG[san]);
   const doanhThuThang = dsThang.map((t) => DOANH_THU_THANG[san][t]);
   const tong = TONG_TOAN_BO[san];
 
-  // Đơn hợp lệ theo tháng: Shopee tách theo hằng minh họa; TikTok ghim tháng 7 = 510 (§10), còn lại chia theo doanh thu.
+  // TikTok ghim tháng 7 = 510 đơn hợp lệ, còn lại chia theo doanh thu.
   let donHopLe;
   if (san === 'shopee') {
     donHopLe = dsThang.map((t) => DON_HOP_LE_THANG_SHOPEE[t]);
@@ -221,10 +187,6 @@ function layBoDuLieu(san) {
   return BO_NHO_DEM[san];
 }
 
-/**
- * Cộng dồn dữ liệu các ngày trong [tu, den], đã cắt theo khoảng dữ liệu của sàn.
- * @returns {object} coDuLieu = false khi không có ngày nào trong khoảng.
- */
 export function gopKhoang(san, tu, den) {
   const bo = layBoDuLieu(san);
   const tuThuc = tu > bo.ngayMin ? tu : bo.ngayMin;
@@ -262,10 +224,7 @@ export function gopKhoang(san, tu, den) {
   return kq;
 }
 
-/**
- * Doanh thu từng mã trong một khoảng đã gộp. Mỗi tháng đóng góp theo tỷ lệ doanh thu khoảng/tháng.
- * Tổng các mã BẰNG doanh thu khoảng; khoảng là nguyên một tháng thì trả đúng số của tháng.
- */
+/** Tổng các mã bằng doanh thu khoảng. */
 export function doanhThuTheoMa(san, gop) {
   const bo = layBoDuLieu(san);
   const trongSo = {};

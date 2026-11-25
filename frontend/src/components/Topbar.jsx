@@ -3,8 +3,6 @@ import { mau, chuDao, coChu, boGoc, bong, khoangCach } from '../theme/tokens.js'
 import { useAuth, NHAN_VAI_TRO } from '../context/AuthContext.jsx';
 import Icon from './Icon.jsx';
 
-// Thanh trên: đường dẫn trang bên trái; tên người dùng, vai trò, nút Đăng xuất bên phải.
-
 const TEN_TRANG = {
   '/dashboard/shopee': ['Dashboard', 'Shopee'],
   '/dashboard/tiktok': ['Dashboard', 'TikTok Shop'],
@@ -14,7 +12,6 @@ const TEN_TRANG = {
   '/admin/users': ['Quản trị', 'Người dùng'],
 };
 
-/** Hai chữ cái đầu của tên đăng nhập, in hoa, để làm ảnh đại diện. */
 function chuVietTat(ten) {
   const phan = ten.split('.');
   if (phan.length >= 2) {

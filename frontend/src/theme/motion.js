@@ -1,20 +1,16 @@
-// Thông số chuyển động: thời lượng, độ trễ, đường cong khai báo MỘT lần ở đây.
-// Muốn tắt toàn bộ chuyển động: đặt TAT_CHUYEN_DONG = true.
-// Muốn nhanh / chậm hơn: sửa thoiLuong và troGiup.
+// Thông số chuyển động khai báo một lần ở đây; đặt TAT_CHUYEN_DONG = true để tắt toàn bộ.
 
-/** Cờ tắt toàn bộ chuyển động. Nội dung trang vẫn đầy đủ, chỉ hiện ngay ở trạng thái cuối. */
+/** Nội dung vẫn đầy đủ, chỉ hiện ngay ở trạng thái cuối. */
 export const TAT_CHUYEN_DONG = false;
 
-/** Đường cong dùng chung: nhanh lúc đầu, chậm dần về cuối. */
 export const duongCong = 'cubic-bezier(.16,1,.3,1)';
 
-/** Thời lượng (ms). */
 export const thoiLuong = {
-  demSo: 1200, // số chạy từ 0 (hoặc giá trị cũ) đến giá trị mới
-  theHien: 600, // thẻ hiện dần
-  theTroiLen: 800, // thẻ trồi lên
-  cotChong: 700, // một lớp của cột chồng mọc từ đáy
-  dai: 700, // dải nối giữa các cột
+  demSo: 1200,
+  theHien: 600,
+  theTroiLen: 800,
+  cotChong: 700,
+  dai: 700,
   cotNgay: 650,
   nhanDinh: 400,
   thanhTyTrong: 800,
@@ -25,24 +21,19 @@ export const thoiLuong = {
   hienDong: 450,
 };
 
-/** Độ trễ (ms). */
 export const troGiup = {
-  batDau: 120, // trễ trước thẻ đầu tiên
-  giuaThe: 80, // thẻ sau trễ hơn thẻ trước
-  giuaCot: 90, // giữa các tháng của cột chồng
-  giuaLop: 70, // giữa các lớp trong một cột
+  batDau: 120,
+  giuaThe: 80,
+  giuaCot: 90,
+  giuaLop: 70,
   giuaNgay: 22,
   giuaGio: 18,
-  giuaDong: 70, // giữa các dòng bảng
+  giuaDong: 70,
 };
 
-/** Độ trồi lên của thẻ khi hiện (px). */
 export const doTroiLen = 16;
 
-/**
- * Hệ điều hành có bật "giảm chuyển động" không.
- * Vì sao cần: người dùng bật cờ này thì mọi thứ phải hiện ngay, không chạy.
- */
+/** Người dùng bật "giảm chuyển động" thì mọi thứ phải hiện ngay. */
 function heDieuHanhGiamChuyenDong() {
   if (typeof window === 'undefined' || !window.matchMedia) {
     return false;
@@ -50,7 +41,6 @@ function heDieuHanhGiamChuyenDong() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/** Chuyển động có đang tắt không (cờ tắt hoặc hệ điều hành yêu cầu giảm). */
 export function chuyenDongDangTat() {
   return TAT_CHUYEN_DONG || heDieuHanhGiamChuyenDong();
 }

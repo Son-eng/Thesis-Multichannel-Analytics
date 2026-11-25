@@ -1,16 +1,13 @@
 import { LoiApi, dungMock, layToken, xoaToken, SU_KIEN_HET_PHIEN } from './client.js';
 
-// Xuất báo cáo Excel (UC13, SPEC §12.1.4.4). Tệp nhị phân nên KHÔNG đi qua goiApi (chỉ đọc JSON):
-// ở đây gọi fetch riêng, vẫn kèm tiêu đề Authorization và vẫn báo hết phiên khi gặp 401.
-// PDF để hướng phát triển: nút PDF không gọi API, chỉ hiện "Chưa hỗ trợ trong bản demo".
+// Tệp Excel là nhị phân nên gọi fetch riêng, vẫn kèm Authorization và vẫn báo hết phiên khi gặp 401.
 
-/** Tên tệp từ tiêu đề Content-Disposition; không đọc được thì dùng tên dự phòng. */
 export function tenTepTuTieuDe(tieuDe, duPhong = 'bao-cao.xlsx') {
   const khop = /filename="?([^";]+)"?/i.exec(tieuDe || '');
   return khop ? khop[1] : duPhong;
 }
 
-/** Cho trình duyệt tải một Blob về máy với tên `ten`. Tách riêng để test thay được. */
+/** Tách riêng để test thay được. */
 function luuTepVeMay(blob, ten) {
   const url = URL.createObjectURL(blob);
   const thePhu = document.createElement('a');
@@ -22,13 +19,6 @@ function luuTepVeMay(blob, ten) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Tải báo cáo Excel của một sàn, một kỳ, rồi lưu về máy.
- * @param {'shopee'|'tiktok'} san
- * @param {{granularity, period, shop_name, product_code}} thamSo cùng tham số với dashboard
- * @returns {Promise<string>} tên tệp đã lưu
- * @throws {LoiApi}
- */
 export async function taiBaoCaoExcel(san, thamSo, luu = luuTepVeMay) {
   if (dungMock()) {
     throw new LoiApi(0, { code: 'mock', message: 'Xuất Excel cần chạy với máy chủ thật (đặt VITE_USE_MOCK=false)' });

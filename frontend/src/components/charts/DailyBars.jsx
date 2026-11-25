@@ -3,17 +3,7 @@ import { thoiLuong, troGiup } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';
 import { rutGonTien } from '../../utils/format.js';
 
-/**
- * Cột doanh thu từng ngày. Mọi cột xám nhạt; ngày cao nhất tô màu chủ đạo chuyển sắc và có nhãn giá trị.
- * Cột mọc lần lượt, nhãn của cột cao nhất hiện cuối cùng.
- *
- * Nhận dữ liệu qua props, KHÔNG gọi API.
- *
- * @param {{khoa: string, nhan: string, giaTri: number, goiY: string}[]} ngay mỗi phần tử một ngày;
- *   `khoa` duy nhất (ví dụ ngày ISO), `nhan` là chữ ghi dưới cột ("1", "2"... hoặc "16/08")
- * @param {number} [chieuCao] chiều cao vùng cột (px)
- * @param {number} [nhanMoiN] cứ N cột ghi một nhãn (ngoài cột đầu và cột cao nhất); nhiều cột thì tăng lên cho khỏi đè
- */
+/** Cột doanh thu từng ngày; ngày cao nhất tô màu chủ đạo và có nhãn giá trị. */
 export default function DailyBars({ ngay, chieuCao = 150, nhanMoiN = 5 }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);
@@ -31,7 +21,7 @@ export default function DailyBars({ ngay, chieuCao = 150, nhanMoiN = 5 }) {
       <div style={{ position: 'relative', marginTop: 14, height: chieuCao, display: 'flex', alignItems: 'flex-end', gap: 3 }}>
         {ngay.map((d, i) => {
           const laDinh = i === viTriDinh;
-          // Số 0 thật vẫn vẽ cột thấp nhất (3%), không biến mất.
+          // Số 0 thật vẫn vẽ cột thấp nhất, không biến mất.
           const cao = moc ? Math.max(3, (d.giaTri / lonNhat) * 82) : 0;
           return (
             <div key={d.khoa} title={d.goiY} style={{ flex: '1 1 0', minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', position: 'relative' }}>

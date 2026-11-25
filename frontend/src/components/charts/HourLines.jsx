@@ -2,27 +2,16 @@ import { mau, coChu } from '../../theme/tokens.js';
 import { thoiLuong } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';
 
-// Khung vẽ (đơn vị SVG), theo bản thiết kế trang Đối chiếu.
 const X_TRAI = 36;
 const X_PHAI = 592;
 const Y_DAY = 200;
 const Y_CAO = 180;
 
-/**
- * Hai (hoặc một) đường tỷ lệ đơn theo giờ, tự vẽ từ trái sang phải khi mở trang.
- * Dùng tỷ lệ (share_pct) để so được dù tổng số đơn của hai sàn khác nhau.
- *
- * Nhận dữ liệu và màu qua props, KHÔNG gọi API.
- *
- * @param {{khoa: string, mau: string, giaTri: number[], vungDuoi?: boolean, tre: number}[]} duong
- *   mỗi đường: 24 giá trị % theo giờ 0..23; `vungDuoi` tô nhẹ vùng dưới đường; `tre` độ trễ chuyển động (ms)
- * @param {string} ariaLabel mô tả cho trình đọc màn hình
- */
+/** Dùng tỷ lệ share_pct để so được dù tổng số đơn hai sàn khác nhau. */
 export default function HourLines({ duong, ariaLabel }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);
   const lonNhat = Math.max(...duong.flatMap((d) => d.giaTri), 1);
-  // Trục đứng chia 3 khoảng bằng nhau, mỗi khoảng là số nguyên %: 12%, 8%, 4%, 0%.
   const yToiDa = Math.max(3, Math.ceil(lonNhat / 3) * 3);
   const buoc = yToiDa / 3;
   const toaDo = (v, gio) => {

@@ -2,8 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { goiApi } from './client.js';
 import { luonGiaLap, nhomCuaDuongDan, NHOM_LUON_GIA_LAP } from './cheDo.js';
 
-// Chế độ giả lập lai (F02 việc B): VITE_USE_MOCK=false vẫn giả lập các nhóm backend chưa có.
-
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -30,7 +28,6 @@ describe('danh sách nhóm luôn giả lập', () => {
     expect(luonGiaLap('/api/insights/generate')).toBe(false);
     expect(luonGiaLap('/api/shopee/kpi')).toBe(false);
     expect(luonGiaLap('/api/sync/status')).toBe(false);
-    // Tên nhóm phải khớp nguyên đoạn, không khớp tiền tố.
     expect(luonGiaLap('/api/authx/login')).toBe(false);
   });
 });
@@ -76,7 +73,7 @@ describe('VITE_USE_MOCK=false', () => {
     expect(nghe).toHaveBeenCalledTimes(1);
     window.localStorage.setItem('dak_token', 'x');
     await expect(goiApi('POST', '/api/auth/login', { username: 'a', password: 'b' })).rejects.toMatchObject({ status: 401 });
-    expect(nghe).toHaveBeenCalledTimes(1);     // đăng nhập sai không bị coi là hết phiên
+    expect(nghe).toHaveBeenCalledTimes(1);
     window.removeEventListener('dak-het-phien', nghe);
   });
 

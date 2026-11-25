@@ -7,7 +7,6 @@ import { useTaiDuLieu } from '../../hooks/useTaiDuLieu.js';
 import { layTheoGio } from '../../api/dashboard.js';
 import { dinhDangPhanTram } from '../../utils/format.js';
 
-/** Khối "Đơn hàng theo khung giờ": 24 cột, giờ cao điểm tô màu chủ đạo (by-hour). */
 export default function KhoiKhungGio({ san, muc, thamSo, ky, thuTu }) {
   const tt = useTaiDuLieu(
     () => layTheoGio(san, { ...thamSo, granularity: muc, period: ky }),

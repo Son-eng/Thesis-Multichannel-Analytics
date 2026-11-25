@@ -1,9 +1,6 @@
 import { goiApi } from './client.js';
 
-/**
- * Đối chiếu hai sàn đặt cạnh nhau (§12.1.2). Kết quả chỉ có hai khóa `shopee` và `tiktok`, KHÔNG có tổng.
- * @param {{granularity?: string, period?: string}} tham
- */
+/** Đối chiếu hai sàn: kết quả chỉ có hai khóa shopee và tiktok, không có tổng. */
 export function soSanhHaiSan(tham) {
   return goiApi('GET', '/api/compare/platforms', tham);
 }

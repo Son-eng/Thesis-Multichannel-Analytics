@@ -9,7 +9,6 @@ import { nhanKy } from '../../utils/period.js';
 import { chuThuong, cauKhongSoCaKy } from '../../utils/vanBanDashboard.js';
 import { docLoi } from '../../api/client.js';
 
-/** Chữ ghi dưới cột: tháng ghi số ngày trong tháng; quý, năm ghi dd/mm và thưa hơn cho khỏi đè. */
 function dungNhanNgay(muc, daily) {
   return daily.map((d) => {
     const goiY = `Ngày ${dinhDangNgayNgan(d.date)}: ${dinhDangTien(d.current)}`;
@@ -20,10 +19,7 @@ function dungNhanNgay(muc, daily) {
   });
 }
 
-/**
- * Khối "Doanh thu từng ngày" lấy từ kpi.daily và các thanh so sánh Kỳ này / Kỳ trước / Cả kỳ trước.
- * Câu giải thích lấy previous_full.pct_change_if_used từ API, frontend không tự tính (quy tắc 7).
- */
+/** Câu giải thích lấy previous_full.pct_change_if_used từ API, frontend không tự tính. */
 export default function KhoiDoanhThuNgay({ tt, muc, thuTu }) {
   return (
     <Card thuTu={thuTu} aria-label="Doanh thu từng ngày" style={{ flex: '1 1 340px', padding: '18px 20px 16px', display: 'flex', flexDirection: 'column' }}>
@@ -56,7 +52,6 @@ function NoiDung({ kpi, muc }) {
   const tuoi = kpi.metrics.revenue;
   const nhanMoiN = muc === 'month' ? 5 : Math.max(5, Math.ceil(ngay.length / 6));
 
-  // Chiều dài thanh tính theo giá trị lớn nhất trong các thanh đang vẽ.
   const giaTriCacThanh = [tuoi.value];
   if (tuoi.previous !== null) {
     giaTriCacThanh.push(tuoi.previous);

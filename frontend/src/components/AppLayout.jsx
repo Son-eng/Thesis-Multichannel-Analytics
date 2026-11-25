@@ -4,10 +4,7 @@ import { useTrangThaiDongBo } from '../hooks/useTrangThaiDongBo.js';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 
-/**
- * Khung ứng dụng sau khi đăng nhập: menu trái, thanh trên, vùng nội dung.
- * Nội dung tối đa 1320px, canh giữa (theo thiết kế), để ảnh chụp 1440px không bị kéo giãn.
- */
+/** Khung ứng dụng sau khi đăng nhập: menu trái, thanh trên, vùng nội dung. */
 export default function AppLayout() {
   const { trangThai, lamMoi } = useTrangThaiDongBo();
   return (

@@ -68,7 +68,7 @@ describe('chọn 2026-03: cánh Shopee không có dữ liệu, cánh TikTok vẫ
     expect(shopee.textContent).not.toMatch(/(^|\D)0 đ/);
     const hang = screen.getByTestId('hang-cancel_rate');
     expect(hang.textContent).toContain('Không có dữ liệu');
-    expect(hang.textContent).toMatch(/\d+,\d%/); // tỷ lệ hủy của TikTok vẫn hiện
+    expect(hang.textContent).toMatch(/\d+,\d%/);
   });
 
   it('bảng sản phẩm: cột Shopee ghi "Không có dữ liệu", cột Bán trên ghi "Chưa so được"', async () => {
@@ -127,7 +127,6 @@ describe('bảng theo sản phẩm', () => {
     for (const ma of ['B3', 'M22', 'M23']) {
       const dong = (await within(bang).findByText(ma)).closest('tr');
       expect(within(dong).getByText('Chỉ TikTok Shop')).toBeInTheDocument();
-      // Shopee không bán: ghi "Không bán", không ghi 0.
       expect(dong.textContent).toContain('Không bán');
       expect(dong.textContent).not.toMatch(/(^|\D)0 đ/);
     }
@@ -162,10 +161,8 @@ describe('biểu đồ khung giờ', () => {
 describe('đổi kỳ', () => {
   it('chọn Tháng 7/2026 thì banner và số liệu đổi theo', async () => {
     mo();
-    // Chờ trang tải xong hẳn rồi mới lấy ô chọn: lúc đang tải, ô chọn nằm ở nhánh dựng khác và sẽ bị thay.
     await waitFor(() => expect(screen.getByRole('note').textContent).toContain('chưa kết thúc'));
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Kỳ' }), '2026-07');
-    // Trang dựng lại khi đổi kỳ, nên mỗi lần chờ phải tìm lại phần tử.
     await waitFor(() => expect(screen.getByRole('note').textContent).toContain('đã đủ ngày'));
     await waitFor(() => expect(screen.getByTestId('canh-tiktok').textContent).toContain('814.595.996'));
   });

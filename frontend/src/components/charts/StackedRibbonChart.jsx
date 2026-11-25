@@ -4,21 +4,16 @@ import { thoiLuong, troGiup } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';
 import { rutGonTien, dinhDangTien, dinhDangPhanTram } from '../../utils/format.js';
 
-// Kích thước hình vẽ (đơn vị SVG), theo bản thiết kế Dashboard.
 const RONG = 720;
-const DAY_CHAN = 248; // đường đáy của cột
-const CAO_TOI_DA = 196; // chiều cao cột lớn nhất
-const KHE_LOP = 3; // khe giữa các lớp chồng
+const DAY_CHAN = 248;
+const CAO_TOI_DA = 196;
+const KHE_LOP = 3;
 const NHAN_THANG_Y = 270;
 
-// Phóng to / thu nhỏ: chỉ có nghĩa khi nhiều cột (mức ngày).
-const NGUONG_PHONG_TO = 14; // nhiều hơn số này mới hiện nút phóng to
-const TOI_THIEU_CO_THE_XEM = 7; // phóng to tối đa còn 7 cột
-const HE_SO_PHONG = 0.7; // mỗi lần bấm +: số cột hiện còn 70%
-// Nhãn trên đầu cột theo số cột đang hiện (cột càng sít càng bớt chữ; chi tiết luôn có ở khung chú thích):
-//   <= NGUONG_NHAN_PHAN_TRAM : tổng + % giảm của kỳ vượt ngưỡng
-//   <= NGUONG_NHAN_TONG      : chỉ tổng (kỳ vượt ngưỡng ghi đỏ)
-//   nhiều hơn                : chấm đỏ cho kỳ vượt ngưỡng, nhãn tổng chỉ cho kỳ đang chọn
+const NGUONG_PHONG_TO = 14;
+const TOI_THIEU_CO_THE_XEM = 7;
+const HE_SO_PHONG = 0.7;
+// Cột càng sít càng bớt chữ trên đầu cột; chi tiết luôn có ở khung chú thích.
 const NGUONG_NHAN_PHAN_TRAM = 10;
 const NGUONG_NHAN_TONG = 20;
 
@@ -26,23 +21,7 @@ function kep(x, thap, cao) {
   return Math.max(thap, Math.min(cao, x));
 }
 
-/**
- * Cột chồng theo kỳ, mỗi lớp một mã sản phẩm, có dải nối cùng màu giữa các cột.
- * Nhiều cột thì có phóng to/thu nhỏ theo thời gian (nút +/−, Ctrl + lăn chuột, kéo để lướt) và rê chuột vào
- * từng cột hiện khung chú thích (ngày, tổng, từng mã sản phẩm, cảnh báo).
- *
- * Nhận dữ liệu và màu qua props, KHÔNG gọi API.
- *
- * @param {object[]} thang mỗi phần tử một kỳ: {key, nhanNgan, nhanDayDu, tong, daDu, lop}
- *   - tong: tổng doanh thu kỳ (null = kỳ không có dữ liệu, không vẽ cột)
- *   - daDu: kỳ đã đủ ngày; chưa đủ thì cột nhạt màu và nhãn có dấu *
- *   - lop: [{ma, doanhThu}] đúng thứ tự của danhSachLop (tổng bằng tong)
- * @param {{ma: string|null, nhan: string, mau: string}[]} danhSachLop các lớp từ dưới lên; lớp cuối là "Mã khác"
- * @param {string} kyDangChon key của kỳ đang chọn (có nền nhạt phía sau)
- * @param {Object<string, number>} canhBaoTheoKy key kỳ -> % giảm (âm) cho kỳ vượt ngưỡng; kỳ đó ghi đỏ kèm %
- * @param {string} ariaLabel mô tả cho trình đọc màn hình
- * @param {string} [donVi] tên đơn vị kỳ ("ngày", "tháng"...), dùng trong chữ hướng dẫn
- */
+/** Cột chồng theo kỳ, mỗi lớp một mã sản phẩm; nhiều cột thì phóng to, kéo để lướt, rê chuột xem chi tiết. */
 export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, canhBaoTheoKy = {}, ariaLabel, donVi = 'kỳ' }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);
@@ -50,9 +29,9 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
   const coThePhongTo = soCotTong > NGUONG_PHONG_TO;
   const toiThieu = Math.min(TOI_THIEU_CO_THE_XEM, soCotTong);
 
-  // Đoạn đang xem: null = xem tất cả; ngược lại {tu: cột đầu, so: số cột}.
+  // null là xem tất cả, ngược lại {tu: cột đầu, so: số cột}.
   const [cua, datCua] = useState(null);
-  const [ro, datRo] = useState(null); // cột đang rê chuột: {chiSo, x, y} (tọa độ trong khung biểu đồ)
+  const [ro, datRo] = useState(null);
   const khungRef = useRef(null);
   const keoRef = useRef(null);
 
@@ -60,7 +39,7 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
   const tu = cua ? kep(cua.tu, 0, soCotTong - so) : 0;
   const dangPhongTo = so < soCotTong;
 
-  // Đổi dữ liệu (đổi mức, kỳ, bộ lọc) thì xem lại từ đầu.
+  // Đổi dữ liệu thì xem lại từ đầu.
   const keyDau = soCotTong > 0 ? thang[0].key : '';
   const keyCuoi = soCotTong > 0 ? thang[soCotTong - 1].key : '';
   useEffect(() => {
@@ -77,7 +56,7 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
     }
   }
 
-  /** Đổi số cột hiện, giữ nguyên cột ở vị trí con trỏ (tamPhanSo: 0 = mép trái, 1 = mép phải). */
+  /** Giữ nguyên cột ở vị trí con trỏ khi đổi số cột. */
   function phongTo(heSo, tamPhanSo = 0.5) {
     const soMoi = kep(Math.round(so * heSo), toiThieu, soCotTong);
     if (soMoi === so) {
@@ -91,7 +70,7 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
     datDoan(so, tu + soCot);
   }
 
-  // Ctrl (hoặc ⌘) + lăn chuột để phóng to / thu nhỏ; lăn thường vẫn cuộn trang.
+  // Ctrl + lăn chuột để phóng to, lăn thường vẫn cuộn trang.
   const phongToRef = useRef(phongTo);
   phongToRef.current = phongTo;
   useEffect(() => {
@@ -114,13 +93,12 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
 
   const hien = thang.slice(tu, tu + so);
   const soCot = hien.length;
-  // Thang chiều cao tính trên TOÀN BỘ dữ liệu để cột không đổi chiều cao khi lướt.
+  // Thang chiều cao tính trên toàn bộ dữ liệu để cột không đổi chiều cao khi lướt.
   const lonNhat = thang.reduce((a, m) => (m.tong !== null && m.tong > a ? m.tong : a), 1);
   const o = (RONG - 16) / Math.max(soCot, 1);
   const rongCot = Math.min(72, o * 0.46);
   const day = soCot > NGUONG_NHAN_TONG;
   const coPhanTram = soCot <= NGUONG_NHAN_PHAN_TRAM;
-  // Nhiều cột thì thưa bớt nhãn để không đè nhau.
   const buocNhan = soCot > 14 ? Math.ceil(soCot / 12) : 1;
   const chiSoDangChon = hien.findIndex((m) => m.key === kyDangChon);
 
@@ -157,7 +135,6 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
     }
   }
 
-  // ---- rê chuột và kéo để lướt
   function khiRe(e) {
     if (keoRef.current) {
       return;
@@ -185,7 +162,7 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch (loi) {
-        // Không bắt được con trỏ (ví dụ môi trường thử): vẫn kéo được trong khung.
+        // Không bắt được con trỏ (ví dụ môi trường test) thì vẫn kéo được trong khung.
       }
     }
     datRo(null);
@@ -293,7 +270,6 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
             const coCanhBao = pct !== undefined;
             const x = (c.x + rongCot / 2).toFixed(1);
             if (day) {
-              // Cột sít nhau: chỉ chấm đỏ cho kỳ vượt ngưỡng và nhãn tổng của kỳ đang chọn; còn lại xem ở khung chú thích.
               if (coCanhBao) {
                 return <circle key={`canh-bao-${c.i}`} data-testid="cham-canh-bao" cx={x} cy={(c.dinh - 8).toFixed(1)} r="3.5" fill={canhBao.chinh} />;
               }
@@ -322,7 +298,7 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
             const dangChon = c.i === chiSoDangChon;
             const coCanhBao = canhBaoTheoKy[c.m.key] !== undefined;
             const dungBuoc = c.i % buocNhan === 0;
-            // Kỳ đang chọn luôn có nhãn; nhãn theo bước ở sát nó thì bỏ để không đè.
+            // Nhãn theo bước sát kỳ đang chọn thì bỏ để không đè.
             const satDangChon = chiSoDangChon >= 0 && !dangChon && Math.abs(c.i - chiSoDangChon) < buocNhan;
             const hienNhan = dangChon || (dungBuoc && !satDangChon) || (!day && coCanhBao);
             if (!hienNhan) {
@@ -348,7 +324,6 @@ export default function StackedRibbonChart({ thang, danhSachLop, kyDangChon, can
   );
 }
 
-/** Khung chú thích nổi khi rê chuột vào một cột: ngày, tổng, từng mã sản phẩm, cảnh báo. */
 function KhungChuThich({ cot, danhSachLop, canhBaoTheoKy, ro }) {
   const m = cot.m;
   const pct = canhBaoTheoKy[m.key];

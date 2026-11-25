@@ -1,7 +1,5 @@
-// Bộ định tuyến của mock: nhận (phương thức, đường dẫn, tham số) như API thật và trả JSON theo hợp đồng SPEC §12.1.
-// Phần nào tính từ số liệu thì gọi engine.js; phần nào là trạng thái (đồng bộ, người dùng, lịch sử) thì giữ ở đây.
-//
-// Tài khoản mock là tài khoản GIẢ: admin.vh (admin) và quanly.kd (user), mật khẩu giả `demo123`.
+// Bộ định tuyến của mock: phần số liệu gọi engine.js, phần trạng thái (đồng bộ, người dùng) giữ ở đây.
+// Tài khoản mock là tài khoản giả: admin.vh và quanly.kd, mật khẩu demo123.
 
 import { TAI_KHOAN_GIA, CHAT_LUONG_TEP_MAU, GIAN_HANG } from './realFigures.js';
 import { TOKEN_GIA, CHU_KY_DONG_BO_PHUT, THOI_DIEM_HIEN_TAI } from './illustrativeFigures.js';
@@ -9,36 +7,27 @@ import * as engine from './engine.js';
 import { LoiMock, loiCoMa, kiemTraSan } from './engine.js';
 import { dinhDangNgay, rutGonTien, dinhDangTien, dinhDangPhanTram } from '../../utils/format.js';
 
-/**
- * Cấu hình mock. Test và cờ gỡ lỗi chỉnh ở đây, không có nút nào trên giao diện.
- * - doTre: độ trễ giả (ms) để thấy trạng thái đang tải.
- * - thoiGianDongBo: một lượt "Đồng bộ ngay" chạy bao lâu (ms).
- * - llmLoi: true thì /api/insights/generate trả 503.
- * - loiKhoi: endpoint dashboard nào trả 500 (để test một khối lỗi không làm hỏng khối khác).
- */
+/** Cấu hình mock cho test và gỡ lỗi, không có nút nào trên giao diện. */
 export const cauHinhMock = {
   doTre: 300,
   thoiGianDongBo: 5000,
   llmLoi: false,
-  loiKhoi: [], // danh sách endpoint dashboard cố ý trả 500, ví dụ ['by-hour']; chỉ test dùng
-  themShopDongBo: [], // gian hàng thêm vào /api/sync/status ({platform, shop_name}), mô phỏng shop mới kết nối chưa có đơn; chỉ test dùng
+  loiKhoi: [], // endpoint dashboard cố ý trả 500, chỉ test dùng
+  themShopDongBo: [], // gian hàng mới kết nối chưa có đơn, chỉ test dùng
 };
 
 export function datCauHinhMock(thayDoi) {
   Object.assign(cauHinhMock, thayDoi);
 }
 
-// ----- Trạng thái trong bộ nhớ -----
-
 let nguoiDung = TAI_KHOAN_GIA.map((t) => ({ ...t }));
 let idNguoiDungKeTiep = 3;
-let dangChay = { shopee: null, tiktok: null }; // thời điểm bắt đầu (ISO) hoặc null
+let dangChay = { shopee: null, tiktok: null };
 let lichSu = [];
 let idLuotKeTiep = 1000;
 let hanhDongHen = [];
 
 function taoLichSuMau() {
-  // 137 lượt minh họa, mới nhất trước (đúng con số ví dụ §12.1.3.4: total 137).
   const ds = [];
   const cacShop = [
     { platform: 'shopee', shop: 'Shop C' },
@@ -74,7 +63,7 @@ function taoLichSuMau() {
       quality: { rows_sku_fallback: 0, rows_sku_unknown: 0, rows_status_unknown: 0, rows_province_unmapped: 0, rows_product_unmapped: 0 },
     });
   }
-  // Hai lượt nạp tệp mẫu với bộ đếm THẬT (SPEC §3.3): Shopee 6 / 19, TikTok toàn 0.
+  // Hai lượt nạp tệp mẫu với bộ đếm thật.
   ds[60] = {
     ...ds[60],
     platform: 'shopee',
@@ -95,7 +84,7 @@ function taoLichSuMau() {
   ds[61] = {
     ...ds[61],
     platform: 'tiktok',
-    shop_name: null, // tệp TikTok chứa nhiều gian hàng (§12.1.3.1)
+    shop_name: null,
     source: 'file_auto',
     trigger_type: 'schedule',
     triggered_by: null,
@@ -112,13 +101,12 @@ function taoLichSuMau() {
   return ds;
 }
 
-/** Đổi Date sang chuỗi ISO giờ Việt Nam (+07:00) như backend trả ra. */
 function chuyenGioVN(d) {
   const bu = new Date(d.getTime() + 7 * 3600000);
   return bu.toISOString().slice(0, 19) + '+07:00';
 }
 
-/** Đặt lại toàn bộ trạng thái mock về ban đầu. Test gọi trước mỗi ca. */
+/** Test gọi trước mỗi ca. */
 export function datLaiMock() {
   nguoiDung = TAI_KHOAN_GIA.map((t) => ({ ...t }));
   idNguoiDungKeTiep = 3;
@@ -131,8 +119,6 @@ export function datLaiMock() {
   cauHinhMock.loiKhoi = [];
 }
 datLaiMock();
-
-// ----- Phiên đăng nhập giả -----
 
 function tokenCua(u) {
   return `mock-token-${u.username}`;
@@ -161,8 +147,6 @@ function canAdmin(nguCanh) {
   }
   return u;
 }
-
-// ----- Đồng bộ -----
 
 function trangThaiDongBo() {
   const gianHang = TOKEN_GIA.map((t) => ({ ...t }));
@@ -237,8 +221,6 @@ function danhSachLuot(q) {
   return { total: ds.length, page: trang, page_size: co, items: ds.slice((trang - 1) * co, trang * co) };
 }
 
-// ----- Nạp tệp -----
-
 function napTep(san, thamSo, ngDung) {
   const tep = thamSo.get ? thamSo.get('file') : thamSo.file;
   const shop = thamSo.get ? thamSo.get('shop_name') : thamSo.shop_name;
@@ -246,7 +228,7 @@ function napTep(san, thamSo, ngDung) {
   if (san === 'shopee' && !shop) {
     throw loiCoMa(400, 'shop_required', 'Tệp Shopee cần chọn gian hàng');
   }
-  // Chỉ dẫn 06/11/2026: tên tệp có "khong-doc-duoc" -> 422 invalid_file; khác với missing_columns ở chỗ không có danh sách cột.
+  // Tên tệp có "khong-doc-duoc" thì trả 422 invalid_file.
   if (tenTep.includes('khong-doc-duoc')) {
     throw loiCoMa(422, 'invalid_file', 'Tệp không đọc được, không dòng nào được ghi');
   }
@@ -274,14 +256,12 @@ function napTep(san, thamSo, ngDung) {
     orders_fetched: 0,
     rows_total: san === 'shopee' ? 1774 : 7540,
     rows_inserted: 0,
-    rows_updated: san === 'shopee' ? 1774 : 7540, // nạp lại tệp mẫu: upsert cập nhật, không thêm dòng mới (§4)
+    rows_updated: san === 'shopee' ? 1774 : 7540, // nạp lại tệp mẫu: upsert cập nhật, không thêm dòng mới
     quality: { ...CHAT_LUONG_TEP_MAU[san] },
   };
   lichSu.unshift(luot);
   return luot;
 }
-
-// ----- Người dùng -----
 
 function xuLyNguoiDung(phuongThuc, doan, thamSo, nguCanh) {
   const nguoiGoi = canAdmin(nguCanh);
@@ -328,12 +308,7 @@ function xuLyNguoiDung(phuongThuc, doan, thamSo, nguCanh) {
   throw new LoiMock(404, 'Không tìm thấy');
 }
 
-// ----- Nhận định (LLM giả) -----
-
-/**
- * Sinh nhận định từ chính số mock, đúng nguyên tắc SPEC §10: chỉ diễn giải số đã tính, không tự tính thêm.
- * Đây là văn bản giả lập, không gọi mô hình ngôn ngữ nào.
- */
+/** Văn bản giả lập từ chính số mock, không gọi mô hình ngôn ngữ nào. */
 function sinhNhanDinh(thamSo) {
   if (cauHinhMock.llmLoi) {
     throw loiCoMa(503, 'llm_unavailable', 'Dịch vụ nhận định tự động tạm thời không dùng được');
@@ -371,16 +346,6 @@ function sinhNhanDinh(thamSo) {
   };
 }
 
-// ----- Bộ định tuyến -----
-
-/**
- * Xử lý một lời gọi mock.
- * @param {string} phuongThuc GET | POST | PATCH | DELETE
- * @param {string} duongDan ví dụ "/api/shopee/kpi"
- * @param {object|FormData} thamSo query (GET, DELETE) hoặc body (POST, PATCH)
- * @param {{token: string|null}} nguCanh
- * @returns {Promise<object|null>} dữ liệu JSON, hoặc null với phản hồi 204
- */
 export async function xuLyMock(phuongThuc, duongDan, thamSo = {}, nguCanh = { token: null }) {
   const doan = duongDan.replace(/^\/api\//, '').split('/').filter(Boolean);
   const [dau, hai, ba] = doan;

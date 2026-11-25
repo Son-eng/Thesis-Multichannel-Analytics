@@ -108,7 +108,6 @@ describe('biểu đồ và bảng', () => {
     const { container } = mo('/dashboard/tiktok');
     await waitFor(() => expect(container.querySelectorAll('[data-lop]').length).toBeGreaterThan(0));
     const lop = new Set(Array.from(container.querySelectorAll('[data-lop]')).map((e) => e.getAttribute('data-lop')));
-    // TikTok: 4 mã dẫn đầu + "Mã khác".
     expect(lop.size).toBe(5);
     expect(lop.has('khac')).toBe(true);
   });
@@ -272,7 +271,6 @@ describe('đầu trang và ô chọn', () => {
       if (String(url).includes('/api/export/')) {
         return { ok: true, status: 200, headers: { get: () => 'attachment; filename="bao-cao-shopee-2026-07.xlsx"' }, blob: async () => new Blob(['x']) };
       }
-      // Các endpoint dữ liệu khác: dùng chính bộ xử lý mock làm "máy chủ thật" để trang dựng được.
       const { xuLyMock } = await import('../api/mock/handlers.js');
       const u = new URL(url);
       const thamSo = Object.fromEntries(u.searchParams);

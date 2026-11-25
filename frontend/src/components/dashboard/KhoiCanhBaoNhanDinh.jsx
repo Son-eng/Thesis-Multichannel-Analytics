@@ -10,18 +10,11 @@ import { dinhDangPhanTram } from '../../utils/format.js';
 import { nhanKy } from '../../utils/period.js';
 import { chuThuong, dongChatLuongDuLieu } from '../../utils/vanBanDashboard.js';
 
-/**
- * Thẻ gộp ba phần: "Cảnh báo biến động", "Chất lượng dữ liệu" (quy tắc 10), "Nhận định tự động".
- * Nhận định chỉ gọi khi bấm nút; lỗi thì chỉ phần nhận định báo lỗi, các khối khác không bị ảnh hưởng.
- *
- * @param {object} props.ttKpi kết quả useTaiDuLieu của /kpi
- * @param {object} props.ttCanhBao kết quả useTaiDuLieu của /alerts
- * @param {(ky: string) => void} props.chonKy chuyển sang kỳ đã chọn (từ liên kết "kỳ vượt ngưỡng")
- */
+/** Nhận định chỉ gọi khi bấm nút; lỗi thì chỉ phần nhận định báo lỗi. */
 export default function KhoiCanhBaoNhanDinh({ san, muc, ky, ttKpi, ttCanhBao, chonKy, thuTu }) {
   const [nhanDinh, setNhanDinh] = useState({ trangThai: 'chua', van: '', loi: '' });
 
-  // Đổi sàn / kỳ / mức thì bỏ nhận định cũ: nó diễn giải số của kỳ khác.
+  // Đổi sàn, kỳ hay mức thì bỏ nhận định cũ vì nó diễn giải số của kỳ khác.
   useEffect(() => {
     setNhanDinh({ trangThai: 'chua', van: '', loi: '' });
   }, [san, muc, ky]);
@@ -65,7 +58,6 @@ export default function KhoiCanhBaoNhanDinh({ san, muc, ky, ttKpi, ttCanhBao, ch
   );
 }
 
-/** Phần "Cảnh báo biến động": kỳ này vượt ngưỡng / có kỳ khác vượt ngưỡng / không có. */
 function PhanCanhBao({ ttKpi, ttCanhBao, muc, ky, chonKy }) {
   if (ttKpi.duLieu === null || ttCanhBao.duLieu === null) {
     return <KhungXam cao={72} />;
@@ -117,7 +109,7 @@ function PhanCanhBao({ ttKpi, ttCanhBao, muc, ky, chonKy }) {
   );
 }
 
-/** Phần "Chất lượng dữ liệu" (quy tắc 10): luôn hiện số dòng `unknown`; Shopee hiện thêm số dòng NMV tạm tính. */
+/** Luôn hiện số dòng unknown; Shopee hiện thêm số dòng NMV tạm tính. */
 function PhanChatLuong({ ttKpi }) {
   if (ttKpi.duLieu === null) {
     return <KhungXam cao={48} />;

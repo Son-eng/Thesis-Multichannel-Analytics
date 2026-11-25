@@ -10,7 +10,6 @@ import { nhanKy, nhanKyNgan } from '../../utils/period.js';
 
 const DON_VI_KY = { day: 'ngày', month: 'tháng', quarter: 'quý', year: 'năm' };
 
-/** Màu của lớp theo mã sản phẩm; mã ngoài bảng màu dùng màu mặc định. */
 function mauLop(ma) {
   if (ma === null) {
     return maSanPham.day[4];
@@ -19,14 +18,7 @@ function mauLop(ma) {
   return dinhNghia.dam;
 }
 
-/**
- * Khối "Doanh thu theo tháng": cột chồng theo mã sản phẩm (revenue-trend) + tổng toàn bộ.
- * Tháng vượt ngưỡng ghi đỏ kèm % giảm lấy từ /alerts (ttCanhBao). Tháng chưa đủ ngày nhạt màu, có dấu *.
- *
- * @param {object} props.thamSo tham số truy vấn dùng chung {granularity, shop_name, product_code}
- * @param {{date_from?: string, date_to?: string}} props.khoang giới hạn khoảng (chỉ dùng cho mức ngày)
- * @param {object} props.ttCanhBao kết quả useTaiDuLieu của /alerts
- */
+/** Tháng vượt ngưỡng ghi đỏ kèm % giảm lấy từ /alerts; tháng chưa đủ ngày nhạt màu, có dấu *. */
 export default function KhoiDoanhThuThang({ san, muc, thamSo, khoang, kyDangChon, ttCanhBao, thuTu }) {
   const tt = useTaiDuLieu(
     () => layXuHuong(san, { ...thamSo, granularity: muc, ...khoang }),

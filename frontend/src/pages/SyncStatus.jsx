@@ -20,7 +20,7 @@ const NHAN_NGUON = { api: 'API', file_auto: 'Tệp tự động', file_manual: '
 const NHAN_KET_QUA = { success: 'Thành công', failed: 'Thất bại', running: 'Đang chạy' };
 const SO_DONG_MOI_TRANG = 20;
 
-/** Nhãn trạng thái kết nối của một gian hàng, viết cho người không kỹ thuật. Không có chỗ nào hiện giá trị token, chỉ có hạn. */
+/** Không có chỗ nào hiện giá trị token, chỉ có hạn. */
 function trangThaiGianHang(shop, dangChay) {
   if (dangChay) {
     return { nhan: 'Đang đồng bộ', nen: nhanThayDoi.trungTinh.nen, chu: nhanThayDoi.trungTinh.chu, quay: true };
@@ -34,7 +34,6 @@ function trangThaiGianHang(shop, dangChay) {
   return { nhan: 'Đang hoạt động', nen: nhanThayDoi.tot.nen, chu: nhanThayDoi.tot.chu };
 }
 
-/** Thông báo sau khi quay về từ trang ủy quyền của sàn (địa chỉ có `ket_noi=thanh_cong|loi`). Chỉ chứa văn bản, không có mã nào. */
 const THONG_BAO_LOI_KET_NOI = {
   state_khong_hop_le: 'Phiên kết nối đã hết hạn hoặc không hợp lệ. Hãy bấm kết nối lại từ đầu.',
   chu_shop_tu_choi: 'Chủ shop đã từ chối ủy quyền. Chưa có gì thay đổi.',
@@ -60,7 +59,6 @@ function thongBaoKetNoi(tham) {
   return null;
 }
 
-/** Hộp thoại "Kết nối gian hàng mới": chọn sàn (Shopee thì nhập thêm tên hiển thị) rồi sang trang ủy quyền của sàn. */
 function HopKetNoiMoi({ moHop, dong }) {
   const [maSan, setMaSan] = useState('shopee');
   const [tenShop, setTenShop] = useState('');
@@ -141,11 +139,6 @@ function HopKetNoiMoi({ moHop, dong }) {
   );
 }
 
-/**
- * Thanh trượt danh sách gian hàng (slider hai chiều).
- * Giữ toàn bộ thẻ gian hàng trên một hàng ngang duy nhất, cuộn mượt sang hai bên
- * kèm 2 nút điều hướng chuyển động trước / sau và đếm số lượng gian hàng.
- */
 function ThanhTruotGianHang({ children, soLuong = 0 }) {
   const vungCuonRef = useRef(null);
   const [coTheLui, setCoTheLui] = useState(false);
@@ -218,7 +211,7 @@ function ThanhTruotGianHang({ children, soLuong = 0 }) {
 function TheGianHang({ shop, dangChay, laAdmin, khiKetNoiLai, loiKetNoi }) {
   const tt = trangThaiGianHang(shop, dangChay);
   const mauSan = san[shop.platform].chinh;
-  // Hạn hiển thị là hạn của refresh token (hết mới phải ủy quyền lại); TikTok không có thì dùng hạn của access token (§12.1.3.2).
+  // TikTok không có hạn refresh token thì dùng hạn của access token.
   const hanDen = shop.refresh_expires_at || shop.access_expires_at;
   const sapHet = shop.token_status !== 'ok';
   return (
@@ -256,7 +249,6 @@ function TheGianHang({ shop, dangChay, laAdmin, khiKetNoiLai, loiKetNoi }) {
   );
 }
 
-/** Ô chọn có nhãn nhỏ phía trước (Sàn / Nguồn / Kết quả). */
 function OLoc({ nhan, giaTri, khiDoi, luaChon }) {
   return (
     <label className="chip">
@@ -272,10 +264,7 @@ function OLoc({ nhan, giaTri, khiDoi, luaChon }) {
   );
 }
 
-/**
- * Đồng bộ dữ liệu (UC04, UC05, UC07): nút đồng bộ từng sàn, thẻ từng gian hàng, lịch sử mọi lượt đưa dữ liệu vào.
- * Nút khóa khi sàn đang chạy; trong lúc có sàn chạy, hỏi lại trạng thái mỗi 3 giây (SPEC §12.1.3.3).
- */
+/** Trong lúc có sàn đang chạy, hỏi lại trạng thái mỗi 3 giây. */
 export default function SyncStatus() {
   const ngCanh = useOutletContext();
   const { laAdmin } = useAuth();
@@ -285,16 +274,14 @@ export default function SyncStatus() {
   const [loiDongBo, setLoiDongBo] = useState('');
   const [thongBaoKN, setThongBaoKN] = useState(() => thongBaoKetNoi(thamTruyVan));
   const [moHopKN, setMoHopKN] = useState(false);
-  const [loiKetNoiLai, setLoiKetNoiLai] = useState({}); // {`${sàn}-${tên}`: thông điệp}
+  const [loiKetNoiLai, setLoiKetNoiLai] = useState({});
 
-  // Vừa quay về từ trang ủy quyền: thông báo đã đọc từ địa chỉ, nên xóa tham số khỏi địa chỉ (tải lại trang không báo lại)
-  // và làm mới danh sách gian hàng để thấy gian hàng mới / hạn mới.
+  // Vừa quay về từ trang ủy quyền thì xóa tham số khỏi địa chỉ để tải lại trang không báo lại.
   useEffect(() => {
     if (thamTruyVan.get('ket_noi')) {
       datThamTruyVan({}, { replace: true });
       lamMoi();
     }
-    // chỉ chạy một lần lúc vào trang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -315,7 +302,7 @@ export default function SyncStatus() {
     setChuKy(dangChayBatKy ? 3000 : 30000);
   }, [dangChayBatKy]);
 
-  // Khi một lượt vừa xong (running chuyển true -> false): tải lại lịch sử và cập nhật ô ở chân menu.
+  // Một lượt vừa xong thì tải lại lịch sử và ô ở chân menu.
   const daChay = useRef(false);
   const [lanXong, setLanXong] = useState(0);
   useEffect(() => {

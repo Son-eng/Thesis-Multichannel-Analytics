@@ -5,20 +5,7 @@ import Icon from '../Icon.jsx';
 import { useDemSo } from '../../hooks/useDemSo.js';
 import { dinhDangSo, dinhDangThapPhan, KHONG_CO_DU_LIEU } from '../../utils/format.js';
 
-/**
- * Một thẻ chỉ số: biểu tượng, nhãn, số lớn chạy từ giá trị cũ sang giá trị mới, nhãn thay đổi, dòng phụ.
- *
- * @param {number} thuTu vị trí trong trình tự mở trang
- * @param {string} nhan tiêu đề thẻ
- * @param {string} goiY nội dung tooltip ở dấu "i"
- * @param {string} bieuTuong tên biểu tượng
- * @param {number|null} giaTri giá trị (null: kỳ này không có dữ liệu -> ghi "Không có dữ liệu", KHÔNG hiện 0)
- * @param {number} soThapPhan số chữ số thập phân (0 cho tiền và số đơn, 1 cho tỷ lệ)
- * @param {string} [donVi] "đ" hoặc "%"
- * @param {object} nhanThayDoi kết quả taoNhanThayDoi()
- * @param {string[]} dongPhu các dòng chữ nhỏ bên dưới
- * @param {string} testId để test tìm thẻ
- */
+/** giaTri null nghĩa là kỳ này không có dữ liệu, ghi "Không có dữ liệu" chứ không hiện 0. */
 export default function TheChiSo({ thuTu, nhan, goiY, bieuTuong, giaTri, soThapPhan = 0, donVi, nhanThayDoi, dongPhu, testId }) {
   const dangHien = useDemSo(giaTri);
   let chuSo = KHONG_CO_DU_LIEU;

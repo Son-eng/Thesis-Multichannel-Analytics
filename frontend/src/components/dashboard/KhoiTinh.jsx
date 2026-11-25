@@ -8,7 +8,6 @@ import { useTaiDuLieu } from '../../hooks/useTaiDuLieu.js';
 import { layTheoTinh } from '../../api/dashboard.js';
 import { dinhDangPhanTram } from '../../utils/format.js';
 
-/** Số tỉnh hiện riêng; phần còn lại gộp thành một dòng "N tỉnh/thành còn lại". */
 const SO_TINH_RIENG = 5;
 
 function DongTinh({ ten, phanTram, tiLe, mauThanh, mauChu, nghieng, tre }) {
@@ -27,10 +26,7 @@ function DongTinh({ ten, phanTram, tiLe, mauThanh, mauChu, nghieng, tre }) {
   );
 }
 
-/**
- * Khối "Tỉnh/thành": danh sách có thanh. Nhóm "Khác" luôn cuối, in nghiêng.
- * Ghi "N tỉnh/thành có đơn", KHÔNG ghi "x/63" (SPEC §12.1.1.6).
- */
+/** Nhóm "Khác" luôn cuối; ghi "N tỉnh/thành có đơn", không ghi "x/63". */
 export default function KhoiTinh({ san, muc, thamSo, ky, thuTu }) {
   const tt = useTaiDuLieu(
     () => layTheoTinh(san, { ...thamSo, granularity: muc, period: ky }),

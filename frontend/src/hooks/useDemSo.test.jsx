@@ -17,7 +17,6 @@ describe('useDemSo', () => {
   it('giá trị null không bao giờ thành 0 (quy tắc 1)', () => {
     const { result } = renderHook(() => useDemSo(null, { tat: true }));
     expect(result.current).toBeNull();
-    // Cả khi chuyển động bật: null chưa bao giờ biến thành 0 ở giá trị cuối.
     window.matchMedia = (truyVan) => ({ matches: false, media: truyVan, addEventListener() {}, removeEventListener() {} });
     const { result: r2 } = renderHook(() => useDemSo(null));
     expect(r2.current).toBeNull();

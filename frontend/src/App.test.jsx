@@ -5,8 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { xuLyMock, datCauHinhMock } from './api/mock/handlers.js';
 
-// Khung ứng dụng, router, phân quyền menu.
-
 function mo(duongDan, token) {
   if (token) {
     window.localStorage.setItem('dak_token', token);
@@ -18,10 +16,6 @@ function mo(duongDan, token) {
   );
 }
 
-/**
- * Chờ tới khi tiêu đề xuất hiện. Dùng waitFor thay vì findByRole vì trang dashboard dựng lại phần tiêu đề
- * khi bộ lọc tải xong, nên phần tử tìm được lúc đầu có thể bị thay trước khi kiểm tra.
- */
 async function coTieuDe(ten) {
   await waitFor(() => expect(screen.getByRole('heading', { name: ten })).toBeInTheDocument());
 }
@@ -133,8 +127,6 @@ describe('nút "Đồng bộ ngay" ở chân menu (F02 việc A2)', () => {
     mo('/compare', ADMIN);
     const nut = await screen.findByRole('button', { name: 'Đồng bộ ngay' });
     await waitFor(() => expect(screen.getByText('Tự đồng bộ mỗi 10 phút')).toBeInTheDocument());
-    // Mỗi lời gọi mock chờ 400ms: trạng thái được đọc ở ~400ms, hai lệnh POST xử lý ở ~800ms.
-    // Chen một lượt TikTok vào quãng giữa (~600ms) thì POST tiktok nhận 409.
     datCauHinhMock({ doTre: 400 });
     await userEvent.click(nut);
     await new Promise((xong) => {

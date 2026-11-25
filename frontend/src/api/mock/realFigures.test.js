@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import * as that from './realFigures.js';
 import { xuLyMock } from './handlers.js';
 
-// Số ở VẾ PHẢI được chép tay từ SPEC (mục ghi bên cạnh). Nếu ai sửa realFigures.js lệch SPEC, test này hỏng.
-
 describe('realFigures.js khớp SPEC', () => {
   it('§17.2: tổng doanh thu, số đơn, AOV của hai sàn', () => {
     expect(that.TONG_TOAN_BO.shopee.revenue).toBe(1908961059);

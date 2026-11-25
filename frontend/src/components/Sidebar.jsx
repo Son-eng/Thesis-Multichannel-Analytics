@@ -9,9 +9,6 @@ import Icon from './Icon.jsx';
 import logoShopee from '../assets/shopee.png';
 import logoTiktok from '../assets/tiktok.png';
 
-// Menu trắng bên trái (theo bản thiết kế): nhóm TỔNG QUAN, nhóm QUẢN TRỊ (chỉ admin thấy),
-// chân menu là ô "Tự đồng bộ mỗi N phút · Gần nhất ..." và nút "Đồng bộ ngay" (chỉ admin).
-
 function MucMenu({ den, children, bieuTuongSan }) {
   return (
     <NavLink
@@ -34,7 +31,6 @@ const SAN_DONG_BO = [
   { ma: 'tiktok', ten: 'TikTok Shop' },
 ];
 
-/** Câu thông báo sau "Đồng bộ ngay": "Đã bắt đầu đồng bộ Shopee. TikTok Shop đang đồng bộ nên bỏ qua." */
 function dungThongBaoDongBo(batDau, boQua) {
   const phan = [];
   if (batDau.length > 0) {
@@ -46,7 +42,6 @@ function dungThongBaoDongBo(batDau, boQua) {
   return phan.join(' ');
 }
 
-/** Lần đồng bộ thành công gần nhất của mọi gian hàng (mới nhất). */
 function lanGanNhat(trangThai) {
   const danhSach = trangThai.shops.map((s) => s.last_success_at).filter((t) => t !== null);
   if (danhSach.length === 0) {
@@ -55,10 +50,6 @@ function lanGanNhat(trangThai) {
   return danhSach.reduce((a, b) => (a > b ? a : b));
 }
 
-/**
- * @param {object|null} trangThai kết quả /api/sync/status (null khi đang tải)
- * @param {() => void} lamMoi hỏi lại trạng thái sau khi bấm "Đồng bộ ngay"
- */
 export default function Sidebar({ trangThai, lamMoi }) {
   const { laAdmin } = useAuth();
   const [thongBao, boThongBao] = message.useMessage();
@@ -66,11 +57,7 @@ export default function Sidebar({ trangThai, lamMoi }) {
   const soSapHetQuyen = trangThai ? trangThai.shops.filter((s) => s.token_status === 'expiring').length : 0;
   const dangChayCaHai = trangThai ? trangThai.platforms.shopee.running && trangThai.platforms.tiktok.running : false;
 
-  /**
-   * "Đồng bộ ngay" ở chân menu. Đọc trạng thái MỚI NHẤT trước, chỉ gọi sàn không đang chạy;
-   * sàn đang chạy được bỏ qua và ghi trong thông báo (không phải lỗi). Nếu giữa lúc đọc và lúc gọi
-   * sàn kia kịp chạy (409) thì cũng coi là "đang đồng bộ, bỏ qua". Lỗi khác vẫn báo là lỗi.
-   */
+  /** Đọc trạng thái mới nhất rồi chỉ gọi sàn không đang chạy; sàn đang chạy (kể cả 409) thì bỏ qua, không coi là lỗi. */
   const dongBoNgay = async () => {
     let tt;
     try {

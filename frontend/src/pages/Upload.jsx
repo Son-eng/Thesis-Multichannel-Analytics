@@ -13,14 +13,12 @@ import { dinhDangSo, dinhDangThoiDiem } from '../utils/format.js';
 
 const TEN_SAN = { shopee: 'Shopee', tiktok: 'TikTok Shop' };
 
-/** Hợp (không lặp, sắp theo tên) gian hàng Shopee từ bộ lọc dashboard và từ danh sách gian hàng đã kết nối. */
 function hopGianHangShopee(boLoc, trangThaiDongBo) {
   const tenCoDon = boLoc ? boLoc.shops : [];
   const tenDaKetNoi = trangThaiDongBo ? trangThaiDongBo.shops.filter((s) => s.platform === 'shopee').map((s) => s.shop_name) : [];
   return [...new Set([...tenCoDon, ...tenDaKetNoi])].sort((a, b) => a.localeCompare(b, 'vi'));
 }
 
-/** Dung lượng dễ đọc: "1,4 MB". */
 function dinhDangDungLuong(byte) {
   if (byte < 1024) {
     return `${byte} B`;
@@ -31,12 +29,7 @@ function dinhDangDungLuong(byte) {
   return `${(byte / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
 }
 
-/**
- * Nạp tệp CSV dự phòng (admin) (SPEC §2.4, §12.1.3.5).
- * - Shopee bắt buộc chọn gian hàng (tệp Shopee không có cột gian hàng); TikTok tự nhận từ cột trong tệp.
- * - Lỗi 422 nói rõ "không dòng nào được ghi"; `missing_columns` liệt kê cột thiếu, `invalid_file` thì không có danh sách cột.
- * - Khối "Kết quả lần nạp gần nhất" vẽ trực tiếp từ SyncRun mà API trả về.
- */
+/** Shopee bắt buộc chọn gian hàng vì tệp Shopee không có cột gian hàng; lỗi 422 nghĩa là không dòng nào được ghi. */
 export default function Upload() {
   const [maSan, setMaSan] = useState('shopee');
   const [gianHang, setGianHang] = useState('');
@@ -46,8 +39,7 @@ export default function Upload() {
   const [loi, setLoi] = useState(null);
   const [ketQua, setKetQua] = useState(null);
   const oChonTep = useRef(null);
-  // Gian hàng chọn được = gian hàng đã có đơn (bộ lọc) HỢP gian hàng đã kết nối (trạng thái đồng bộ):
-  // shop Shopee mới kết nối chưa có đơn nào vẫn phải chọn được để nạp tệp đầu tiên.
+  // Shop Shopee mới kết nối chưa có đơn vẫn phải chọn được để nạp tệp đầu tiên.
   const ttLoc = useTaiDuLieu(() => layBoLoc('shopee'), []);
   const ttDongBo = useTaiDuLieu(() => layTrangThaiDongBo(), []);
   const dsGianHang = hopGianHangShopee(ttLoc.duLieu, ttDongBo.duLieu);
@@ -85,7 +77,6 @@ export default function Upload() {
     }
   };
 
-  // Shopee chưa chọn gian hàng thì khóa nút "Nạp tệp".
   const khoaNut = tep === null || dangGui || (maSan === 'shopee' && gianHang === '');
 
   return (
@@ -191,7 +182,6 @@ export default function Upload() {
   );
 }
 
-/** Kết quả một lượt nạp tệp, vẽ trực tiếp từ SyncRun (SPEC §12.1.3.1). */
 function KetQuaNap({ luot }) {
   return (
     <>

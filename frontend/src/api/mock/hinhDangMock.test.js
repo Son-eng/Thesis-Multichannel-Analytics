@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { xuLyMock, datCauHinhMock } from './handlers.js';
 
-// Hình dạng JSON của mock phải đúng hợp đồng SPEC §12.1 để chuyển sang backend thật không phải sửa trang.
-
 const SAN = ['shopee', 'tiktok'];
 
-/** Duyệt mọi object lồng nhau, gọi `kiemTra` cho từng object. */
 function duyet(giaTri, kiemTra, duongDan = '$') {
   if (Array.isArray(giaTri)) {
     giaTri.forEach((v, i) => duyet(v, kiemTra, `${duongDan}[${i}]`));
@@ -112,7 +109,6 @@ describe('mọi object có pct_change đều có previous_zero (SPEC §12.1.0.2)
   it('previous_zero = true thì pct_change = null và không bao giờ có trong alerts', async () => {
     const kq = await xuLyMock('GET', '/api/tiktok/top-products', { granularity: 'month', period: '2026-08' });
     const m22 = kq.items.find((m) => m.product_code === 'M22');
-    // M22 phải nằm trong top mặc định (10) để dashboard có ví dụ "kỳ trước không có doanh thu".
     expect(m22).toBeDefined();
     expect(m22.previous_zero).toBe(true);
     expect(m22.pct_change).toBeNull();

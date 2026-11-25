@@ -13,7 +13,6 @@ import { dinhDangNgay } from '../utils/format.js';
 
 const NHAN_VAI_TRO = { admin: 'Admin', user: 'Người dùng' };
 
-/** Nhãn vai trò: Admin màu chủ đạo, Người dùng màu trung tính. */
 function NhanVaiTro({ vaiTro }) {
   const laAdmin = vaiTro === 'admin';
   return (
@@ -23,15 +22,11 @@ function NhanVaiTro({ vaiTro }) {
   );
 }
 
-/**
- * Quản lý người dùng (UC03, admin): danh sách, thêm, đổi vai trò, đặt lại mật khẩu, xóa (có xác nhận).
- * Dòng của chính mình không có nút Xóa và Đổi vai trò (không tự xóa, không tự hạ quyền).
- * Không có nút khóa tài khoản: bảng `users` không có cột trạng thái (SPEC §12.1.4.2).
- */
+/** Không có nút xóa và đổi vai trò ở dòng của chính mình; không có khóa tài khoản vì bảng users không có cột trạng thái. */
 export default function Users() {
   const { nguoiDung } = useAuth();
   const tt = useTaiDuLieu(() => layDanhSachNguoiDung(), []);
-  const [hop, setHop] = useState(null); // {loai: 'vaiTro'|'matKhau'|'xoa', nguoi}; giữ lại sau khi đóng để nội dung không biến mất giữa chừng lúc hộp thoại khép lại
+  const [hop, setHop] = useState(null); // giữ lại sau khi đóng để nội dung không biến mất lúc hộp thoại khép lại
   const [hopMo, setHopMo] = useState(false);
   const [giaTriNhap, setGiaTriNhap] = useState('');
   const [loiHop, setLoiHop] = useState('');
@@ -48,7 +43,6 @@ export default function Users() {
   };
   const dongHop = () => setHopMo(false);
 
-  /** Chạy một thao tác của hộp thoại: thành công thì đóng và tải lại danh sách, lỗi thì hiện trong hộp. */
   const chayThaoTac = async (viec) => {
     setDangGui(true);
     setLoiHop('');
@@ -180,8 +174,7 @@ export default function Users() {
         </Card>
       </div>
 
-      {/* Modal của Ant Design lo phần trợ năng: đưa con trỏ vào trong khi mở, giữ Tab trong hộp, trả con trỏ về nút đã bấm khi đóng, Esc để đóng.
-          Màu và bo góc lấy từ token qua ConfigProvider (theme/antdTheme.js). */}
+      {/* Modal của Ant Design lo phần trợ năng: giữ Tab trong hộp, trả con trỏ về nút đã bấm, Esc để đóng. */}
       <Modal
         open={hopMo}
         title={hop ? { vaiTro: `Đổi vai trò của ${hop.nguoi.username}`, matKhau: `Đặt lại mật khẩu của ${hop.nguoi.username}`, xoa: `Xóa tài khoản ${hop.nguoi.username}` }[hop.loai] : ''}

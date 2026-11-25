@@ -9,10 +9,8 @@ import { layTopSanPham } from '../../api/dashboard.js';
 import { taoNhanThayDoi } from '../../utils/delta.js';
 import { dinhDangTien, dinhDangPhanTram } from '../../utils/format.js';
 
-/** Số sản phẩm hiện trong bảng. */
 const SO_DONG_TOI_DA = 7;
 
-/** Một dòng của bảng: ô mã, thanh tỷ trọng kéo dài ra, doanh thu, thay đổi so với kỳ trước. */
 function DongSanPham({ sp, chiSo, tiLeThanh, status }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);
@@ -47,7 +45,6 @@ function DongSanPham({ sp, chiSo, tiLeThanh, status }) {
   );
 }
 
-/** Khối "Sản phẩm bán chạy": bảng top theo product_code (SPEC §7.3), có thanh tỷ trọng. */
 export default function KhoiSanPham({ san, muc, thamSo, ky, thuTu }) {
   const tt = useTaiDuLieu(
     () => layTopSanPham(san, { ...thamSo, granularity: muc, period: ky, limit: SO_DONG_TOI_DA }),

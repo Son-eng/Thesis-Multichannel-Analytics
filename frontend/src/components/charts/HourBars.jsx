@@ -2,15 +2,7 @@ import { mau, chuDao, coChu } from '../../theme/tokens.js';
 import { thoiLuong, troGiup } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';
 
-/**
- * 24 cột theo khung giờ, giờ cao điểm tô màu chủ đạo chuyển sắc. Cột mọc lần lượt.
- *
- * Nhận dữ liệu qua props, KHÔNG gọi API.
- *
- * @param {{gio: number, giaTri: number, goiY: string}[]} gio luôn đủ 24 phần tử (giờ 0 đến 23)
- * @param {number} chieuCao chiều cao vùng cột (px)
- * Nhãn trục: giờ chia hết cho 3 có nhãn "0h", "3h"...
- */
+/** 24 cột theo khung giờ, giờ cao điểm tô màu chủ đạo. */
 export default function HourBars({ gio, chieuCao = 130 }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);

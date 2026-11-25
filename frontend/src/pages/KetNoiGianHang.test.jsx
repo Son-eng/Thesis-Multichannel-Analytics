@@ -9,10 +9,6 @@ import { LoiApi } from '../api/client.js';
 import { datCauHinhMock } from '../api/mock/handlers.js';
 import { batDauKetNoi, chuyenTrinhDuyet } from '../api/connections.js';
 
-// Kết nối gian hàng bằng ủy quyền (chỉ dẫn 026, giai đoạn 4). Hai hàm gọi ra ngoài (lấy địa chỉ trang ủy quyền, chuyển trình
-// duyệt) được thay bằng hàm giả: test kiểm GIAO DIỆN — nút nào hiện cho ai, bấm thì gọi gì, quay về thì báo gì.
-// Chế độ dữ liệu giả (không có backend) kiểm riêng ở QuanTri.test.jsx.
-
 vi.mock('../api/connections.js', async (goc) => ({
   ...(await goc()),
   batDauKetNoi: vi.fn(),
@@ -46,7 +42,7 @@ describe('Kết nối gian hàng — nút và phân quyền', () => {
     const c = await screen.findByTestId('shop-Shop C');
     expect(within(c).getByRole('button', { name: 'Kết nối lại' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Kết nối gian hàng mới/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Kết nối lại' })).toHaveLength(3); // Shop C, Shop A, Shop B
+    expect(screen.getAllByRole('button', { name: 'Kết nối lại' })).toHaveLength(3);
     expect(screen.queryByRole('button', { name: 'Ủy quyền lại' })).not.toBeInTheDocument();
   });
 
@@ -67,7 +63,7 @@ describe('Kết nối gian hàng — nút và phân quyền', () => {
     );
     expect(await screen.findByTestId('shop-Shop C')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Kết nối/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Đồng bộ Shopee' })).toBeInTheDocument();   // trang vẫn dựng bình thường
+    expect(screen.getByRole('button', { name: 'Đồng bộ Shopee' })).toBeInTheDocument();
   });
 
   it('nhãn trạng thái dễ hiểu: Đang hoạt động / Sắp hết hạn / Mất quyền, kèm lời nhắc kết nối lại', async () => {
@@ -105,12 +101,12 @@ describe('Kết nối gian hàng — bấm nút', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Kết nối gian hàng mới/ }));
     const hop = await screen.findByRole('dialog');
     const nut = within(hop).getByRole('button', { name: 'Sang trang của sàn' });
-    expect(nut).toBeDisabled();                                  // Shopee chưa có tên
+    expect(nut).toBeDisabled();
     await userEvent.type(within(hop).getByLabelText('Tên hiển thị của gian hàng'), '  Shop D ');
     expect(nut).toBeEnabled();
     await userEvent.click(nut);
     await waitFor(() => expect(chuyenTrinhDuyet).toHaveBeenCalledWith('http://localhost:8001/trang-uy-quyen'));
-    expect(batDauKetNoi).toHaveBeenCalledWith('shopee', 'Shop D');   // đã cắt khoảng trắng
+    expect(batDauKetNoi).toHaveBeenCalledWith('shopee', 'Shop D');
   });
 
   it('hộp thoại: TikTok không cần nhập tên (tên lấy từ sàn)', async () => {

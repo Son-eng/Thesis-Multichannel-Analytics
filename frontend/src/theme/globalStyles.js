@@ -1,7 +1,6 @@
 import { mau, chuDao, boGoc, bong, font, canhBao, tranhDangNhap, khoangCach } from './tokens.js';
 
-// CSS toàn cục sinh từ token. Viết ở dạng chuỗi JS (không phải file .css)
-// để mọi mã màu nằm trong src/theme/ và test quét hex không bị vướng.
+// CSS toàn cục viết dạng chuỗi JS để mọi mã màu nằm trong src/theme/.
 export const cssToanCuc = `
 html, body, #root { margin: 0; min-height: 100%; }
 body { background: ${mau.nenTrang}; font-family: ${font.chu}; font-size: 14px; line-height: 1.5; color: ${mau.chuChinh}; }

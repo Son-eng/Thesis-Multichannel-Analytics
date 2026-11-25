@@ -2,12 +2,10 @@ import { mau, coChu } from '../theme/tokens.js';
 import { docLoi } from '../api/client.js';
 import { KHONG_CO_DU_LIEU } from '../utils/format.js';
 
-/** Khung xám giữ chỗ khi đang tải (không dùng spinner). */
 export function KhungXam({ cao = 120, style }) {
   return <div className="khung-xam" aria-hidden="true" style={{ height: cao, ...style }} />;
 }
 
-/** Chữ "Không có dữ liệu" khi khối trả status = no_data. */
 export function KhongCoDuLieu({ cao = 80 }) {
   return (
     <div style={{ minHeight: cao, display: 'grid', placeItems: 'center', color: mau.chuNhan, fontSize: coChu.nho }}>
@@ -16,14 +14,7 @@ export function KhongCoDuLieu({ cao = 80 }) {
   );
 }
 
-/**
- * Bao một khối: tự xử lý đang tải (khung xám), lỗi và dữ liệu của CHÍNH khối đó.
- * Vì sao: một khối lỗi không được làm hỏng khối khác.
- *
- * @param {{duLieu: object|null, loi: object|null, dangTai: boolean, thuLai: Function}} tt kết quả useTaiDuLieu
- * @param {number} cao chiều cao khung xám giữ chỗ
- * @param {(duLieu: object) => React.ReactNode} children hàm vẽ khi đã có dữ liệu
- */
+/** Mỗi khối tự xử lý đang tải, lỗi và dữ liệu của chính nó, để một khối lỗi không làm hỏng khối khác. */
 export default function KhoiDuLieu({ tt, cao = 120, children }) {
   if (tt.loi) {
     const { message } = docLoi(tt.loi);

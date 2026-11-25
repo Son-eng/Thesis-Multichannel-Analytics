@@ -11,8 +11,6 @@ import {
 } from './format.js';
 import { taoNhanThayDoi } from './delta.js';
 
-// Mười quy tắc hiển thị (PROMPT_FRONTEND, mục "Quy tắc hiển thị"). Quy tắc 7, 8, 10 test ở lượt 2B.
-
 describe('Quy tắc 1: null -> "Không có dữ liệu", không bao giờ hiện 0 thay cho null', () => {
   it('tiền, số đếm, phần trăm null', () => {
     expect(dinhDangTien(null)).toBe(KHONG_CO_DU_LIEU);

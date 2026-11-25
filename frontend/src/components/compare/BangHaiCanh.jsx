@@ -6,7 +6,7 @@ import { HANG_CHI_SO, dungO, toiDaCuaHang } from './hangChiSo.js';
 
 const CUNG_LUOI = 'minmax(0, 1fr) 200px minmax(0, 1fr)';
 
-/** Thanh ngang của một cánh: mọc từ GIỮA ra ngoài (cánh trái neo bên phải, cánh phải neo bên trái). */
+/** Thanh mọc từ giữa ra ngoài: cánh trái neo bên phải, cánh phải neo bên trái. */
 function ThanhCanh({ phanTram, mauThanh, ben, tre }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);
@@ -36,11 +36,7 @@ function NoiDungO({ o, ben }) {
   );
 }
 
-/**
- * Bảng "hai cánh": Shopee bên trái, tên chỉ số ở giữa, TikTok Shop bên phải.
- * Thanh ngang chỉ vẽ cho các tỷ lệ. Mỗi cánh có mức thay đổi so với kỳ trước của chính nó.
- * Không có hàng hay ô nào cộng hai sàn.
- */
+/** Không có hàng hay ô nào cộng hai sàn. */
 export default function BangHaiCanh({ shopee, tiktok, thuTu }) {
   return (
     <Card thuTu={thuTu} aria-label="Chỉ số hai sàn" style={{ padding: '8px 20px 14px', overflowX: 'auto' }}>

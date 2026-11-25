@@ -24,7 +24,6 @@ function MotKenh({ nhan, mauThanh, phanTram, doanhThu }) {
   );
 }
 
-/** Khối "Doanh thu theo kênh bán": bán nguyệt tiếp thị liên kết / shop tự bán, từ by-affiliate. */
 export default function KhoiKenhBan({ san, muc, thamSo, ky, thuTu }) {
   const tt = useTaiDuLieu(
     () => layKenhBan(san, { ...thamSo, granularity: muc, period: ky }),

@@ -1,12 +1,6 @@
 import { nhanThayDoi, boGoc, coChu, kieu } from '../theme/tokens.js';
 
-/**
- * Nhãn viên hiện mức thay đổi so với kỳ trước.
- * Nhận kết quả của taoNhanThayDoi() (utils/delta.js), nên không tự quyết quy tắc nào:
- * chữ, màu (tốt/xấu/trung tính) đều do utils quyết, nhãn chỉ vẽ.
- *
- * @param {{text: string, tone: 'tot'|'xau'|'trungTinh', laThongBao: boolean}} nhan
- */
+/** Chỉ vẽ nhãn; chữ và màu tốt/xấu do utils/delta.js quyết định. */
 export default function DeltaBadge({ nhan, style }) {
   const mau = nhanThayDoi[nhan.tone];
   return (

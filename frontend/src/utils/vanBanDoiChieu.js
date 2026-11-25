@@ -1,19 +1,11 @@
 import { dinhDangNgayNgan } from './format.js';
 import { nhanKy, demNgay } from './period.js';
 
-// Câu chữ của banner trang Đối chiếu. Mọi ngày đọc từ API (data_max_date, current, previous);
-// frontend không tự tính khoảng ngày nào.
+// Mọi ngày đọc từ API, frontend không tự tính khoảng ngày nào.
 
 const TEN_SAN = { shopee: 'Shopee', tiktok: 'TikTok Shop' };
 
-/**
- * Banner hai dòng: dòng chính nói mỗi sàn có dữ liệu đến ngày nào và được so với kỳ trước của chính nó;
- * dòng phụ nhắc tránh so trực tiếp tổng tiền khi hai sàn khác số ngày, hoặc giải thích "Không có dữ liệu".
- *
- * @param {string} muc mức thời gian
- * @param {{period: string, shopee: object, tiktok: object}} dl kết quả /api/compare/platforms
- * @returns {{chinh: string, phu: string}}
- */
+/** Dòng phụ nhắc tránh so trực tiếp tổng tiền khi hai sàn khác số ngày. */
 export function dungBanner(muc, dl) {
   const kyChu = nhanKy(muc, dl.period);
   const canh = { shopee: dl.shopee, tiktok: dl.tiktok };

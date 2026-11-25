@@ -1,7 +1,4 @@
-// Máy tính số liệu của mock: nhận cùng tham số như API thật (SPEC §12.1) và trả JSON đúng hợp đồng.
-// Mọi số bắt nguồn từ dataset.js (số thật được ghim, số còn lại là minh họa).
-// Quy tắc nghiệp vụ được giữ ĐÚNG như backend để giao diện chạy mock hay chạy thật đều không đổi:
-// cắt cùng số ngày (§9.2), kỳ trước bằng 0 (§12.1.0.2), không tồn tại kỳ trước (§9.3b), null khác 0.
+// Tính số liệu mock với đúng quy tắc nghiệp vụ của backend: cắt cùng số ngày, kỳ trước bằng 0, null khác 0.
 
 import { KHOANG_DU_LIEU, GIAN_HANG, MA_SAN_PHAM, NGUONG_CANH_BAO_PCT, DONG_UNKNOWN_SHOPEE, TONG_TOAN_BO } from './realFigures.js';
 import { TY_TRONG_GIO, TY_TRONG_GIAN_HANG, DANH_SACH_TINH, TY_TRONG_KHAC, DONG_NMV_TAM_TINH } from './illustrativeFigures.js';
@@ -18,7 +15,6 @@ import {
   demNgay,
 } from '../../utils/period.js';
 
-/** Lỗi giả lập: mang mã HTTP và `detail` đúng dạng FastAPI. */
 export class LoiMock extends Error {
   constructor(status, detail) {
     super(typeof detail === 'string' ? detail : detail.message);
@@ -27,7 +23,6 @@ export class LoiMock extends Error {
   }
 }
 
-/** Tạo lỗi có mã riêng: {"detail": {"code", "message"}} (SPEC §12.1.0). */
 export function loiCoMa(status, code, message, them = {}) {
   return new LoiMock(status, { code, message, ...them });
 }
@@ -43,14 +38,12 @@ function phanTram(tu, mau) {
   return lamTron1((tu / mau) * 100);
 }
 
-/** Kiểm tra tên sàn trong đường dẫn. */
 export function kiemTraSan(san) {
   if (san !== 'shopee' && san !== 'tiktok') {
     throw new LoiMock(404, 'Không tìm thấy');
   }
 }
 
-/** Đọc và kiểm tra mức thời gian. */
 function docMuc(q) {
   const muc = q.granularity || 'month';
   if (!MUC_THOI_GIAN.includes(muc)) {
@@ -59,10 +52,7 @@ function docMuc(q) {
   return muc;
 }
 
-/**
- * Xác định kỳ hiện tại, kỳ trước (đã cắt cùng số ngày khi cần) của một sàn.
- * SPEC §9.2 (cắt), §9.3a (mức ngày không cắt), §12.1 "Cài đặt bước 13" (kỳ trước tồn tại khi ngày đầu >= ngày nhỏ nhất).
- */
+/** Kỳ trước tồn tại khi ngày đầu của nó không sớm hơn ngày dữ liệu nhỏ nhất. */
 function xacDinhKy(san, muc, maKy) {
   const { min, max } = KHOANG_DU_LIEU[san];
   const ma = maKy || maKyChuaNgay(muc, max);
@@ -78,7 +68,7 @@ function xacDinhKy(san, muc, maKy) {
   const cuoiTruocLich = ngayCuoiKy(muc, maTruoc);
   const coTruoc = dauTruoc >= min;
   let denTruoc = cuoiTruocLich;
-  // Kỳ chưa đủ ngày: cắt kỳ trước về cùng số ngày (§9.2). Mức ngày không cắt (§9.3a).
+  // Kỳ chưa đủ ngày thì cắt kỳ trước về cùng số ngày; mức ngày không cắt.
   if (!dayDu && muc !== 'day' && den >= dau) {
     const soNgay = demNgay(dau, den);
     const denCat = congNgay(dauTruoc, soNgay - 1);
@@ -95,10 +85,6 @@ function xacDinhKy(san, muc, maKy) {
   };
 }
 
-/**
- * Lấy số liệu một khoảng ngày sau khi áp bộ lọc gian hàng và mã sản phẩm.
- * @param {{shop?: string, product?: string}} loc
- */
 function layKhoang(san, tu, den, loc = {}) {
   const gop = gopKhoang(san, tu, den);
   const rong = { coDuLieu: false, rev: 0, orders: 0, ordersAll: 0, returns: 0, qty: 0, affRev: 0, affOrders: 0, ngay: [], ma: {} };
@@ -155,7 +141,6 @@ function layKhoang(san, tu, den, loc = {}) {
   };
 }
 
-/** Đọc bộ lọc từ query. */
 function docLoc(san, q) {
   const loc = {};
   if (q.shop_name) {
@@ -167,9 +152,6 @@ function docLoc(san, q) {
   return loc;
 }
 
-// ----- Dựng chỉ số -----
-
-/** Chỉ số số đếm / tiền: value, previous, pct_change, previous_zero (SPEC §12.1.0.2). */
 function chiSoSo(giaTri, truoc, tinhTrang) {
   if (tinhTrang === 'no_data' || giaTri === null) {
     return { value: null, previous: null, pct_change: null, previous_zero: false };
@@ -183,7 +165,7 @@ function chiSoSo(giaTri, truoc, tinhTrang) {
   return { value: giaTri, previous: truoc, pct_change: lamTron1(((giaTri - truoc) / truoc) * 100), previous_zero: false };
 }
 
-/** Chỉ số tỷ lệ: không có pct_change, thay bằng change_pp (điểm %). */
+/** Chỉ số tỷ lệ không có pct_change mà dùng change_pp (điểm %). */
 function chiSoTyLe(giaTri, truoc, tinhTrang) {
   if (tinhTrang === 'no_data' || giaTri === null) {
     return { value: null, previous: null, change_pp: null };
@@ -223,7 +205,6 @@ function tyTrongAffiliate(k) {
   return (k.affRev / k.rev) * 100;
 }
 
-/** Khối `metrics` của §12.1.1.2, dùng chung cho kpi và compare. */
 function dungMetrics(hienTai, truoc, tinhTrang) {
   const gt = (k, ten) => (k && k.coDuLieu ? k[ten] : null);
   const tr = (k, ten) => {
@@ -238,7 +219,7 @@ function dungMetrics(hienTai, truoc, tinhTrang) {
     order_count: chiSoSo(gt(hienTai, 'orders'), tr(truoc, 'orders'), tinhTrang),
     order_count_all: chiSoSo(gt(hienTai, 'ordersAll'), tr(truoc, 'ordersAll'), tinhTrang),
     quantity_sold: chiSoSo(gt(hienTai, 'qty'), tr(truoc, 'qty'), tinhTrang),
-    // AOV kỳ trước không xác định (không có đơn hợp lệ) -> previous = null, previous_zero = true (§12.1 "Cài đặt bước 13").
+    // AOV kỳ trước không xác định thì previous = null, previous_zero = true.
     aov: chiSoSo(aovCua(hienTai), truoc ? (aovTruoc === null ? null : aovTruoc) : undefined, tinhTrang),
     cancel_rate: chiSoTyLe(tyLeHuy(hienTai), tyLeHuy(truoc), tinhTrang),
     return_rate: chiSoTyLe(tyLeHoan(hienTai), tyLeHoan(truoc), tinhTrang),
@@ -246,7 +227,6 @@ function dungMetrics(hienTai, truoc, tinhTrang) {
   };
 }
 
-/** Tính hiện tại + trước cho một kỳ và trả trạng thái. Dùng chung kpi, top-products, compare, alerts. */
 function tinhKyVoiTruoc(san, ky, loc) {
   const hienTai = layKhoang(san, ky.dau, ky.den, loc);
   const truoc = ky.truoc ? layKhoang(san, ky.truoc.dau, ky.truoc.den, loc) : null;
@@ -262,8 +242,6 @@ function tinhKyVoiTruoc(san, ky, loc) {
 function khoangCua(ky) {
   return { date_from: ky.dau, date_to: ky.den };
 }
-
-// ----- Endpoint -----
 
 export function filters(san) {
   return {
@@ -283,7 +261,6 @@ export function kpi(san, q) {
   const dayDuTinhThuc = ky.dayDu;
   const metrics = dungMetrics(hienTai, truoc, tinhTrang);
 
-  // previous_full: chỉ khi kỳ chưa đủ ngày và có kỳ trước (§12.1.1.2, bổ sung 29/10/2026).
   let truocNguyen = null;
   if (!dayDuTinhThuc && muc !== 'day' && ky.truoc && hienTai.coDuLieu) {
     const full = layKhoang(san, ky.truoc.dau, ky.truoc.cuoiLich, loc);
@@ -296,7 +273,7 @@ export function kpi(san, q) {
     }
   }
 
-  // Cảnh báo dùng pct_change CHƯA làm tròn (§12.1 "Cài đặt bước 13"): −29,96 không bị làm tròn thành −30,0.
+  // Cảnh báo dùng pct_change chưa làm tròn: −29,96 không bị làm tròn thành −30,0.
   let kichHoat = false;
   if (tinhTrang === 'ok' && truoc && truoc.coDuLieu && truoc.rev > 0) {
     const thoCuaKyNay = ((hienTai.rev - truoc.rev) / truoc.rev) * 100;
@@ -372,7 +349,6 @@ export function revenueTrend(san, q) {
     return { m, k };
   });
 
-  // top_product_codes: tối đa 4 mã có doanh thu lớn nhất trên TOÀN khoảng trả về (§12.1.1.3).
   const tongTheoMa = {};
   items.forEach(({ k }) => {
     Object.keys(k.ma).forEach((c) => {
@@ -459,13 +435,12 @@ export function byAffiliate(san, q) {
   };
 }
 
-/** Danh sách tỉnh đã sắp (nhóm "Khác" cuối), dùng chung cho by-province và compare. */
 function thongKeTinh(san, k) {
   const ds = DANH_SACH_TINH[san].map(([ten, w]) => ({ ten, w, laKhac: false }));
   ds.push({ ten: 'Khác', w: TY_TRONG_KHAC, laKhac: true });
   const trongSo = ds.map((t) => t.w);
   const donTheoTinh = chiaTheoTrongSo(k.orders, trongSo);
-  // Tỉnh không có đơn thì không có doanh thu: dùng đơn làm trọng số để hai số luôn nhất quán.
+  // Tỉnh không có đơn thì không có doanh thu, nên dùng đơn làm trọng số.
   const doanhThuTheoTinh = chiaTheoTrongSo(
     k.rev,
     donTheoTinh.map((d, i) => (d > 0 ? trongSo[i] : 0)),
@@ -502,7 +477,6 @@ export function byProvince(san, q) {
   };
 }
 
-/** 24 phần tử giờ 0..23 (SPEC §12.1.1.7), dùng chung cho by-hour và compare. */
 function thongKeGio(san, k) {
   const donTheoGio = chiaTheoTrongSo(k.orders, TY_TRONG_GIO[san]);
   const doanhThuTheoGio = chiaTheoTrongSo(k.rev, TY_TRONG_GIO[san]);
@@ -534,7 +508,7 @@ export function alerts(san, q) {
   for (let i = 0; i < 5000; i += 1) {
     const ky = xacDinhKy(san, muc, ma);
     const { hienTai, truoc, tinhTrang } = tinhKyVoiTruoc(san, ky, loc);
-    // Không bao giờ cảnh báo khi: không có kỳ trước, kỳ trước bằng 0, kỳ này không có dòng (SPEC §9.1 "Cài đặt").
+    // Không cảnh báo khi không có kỳ trước, kỳ trước bằng 0, hoặc kỳ này không có dòng.
     if (tinhTrang === 'ok' && truoc && truoc.coDuLieu && truoc.rev > 0) {
       const tho = ((hienTai.rev - truoc.rev) / truoc.rev) * 100;
       if (tho <= NGUONG_CANH_BAO_PCT) {
@@ -557,7 +531,6 @@ export function alerts(san, q) {
   return { platform: san, granularity: muc, threshold_pct: NGUONG_CANH_BAO_PCT, items };
 }
 
-/** Một cánh (một sàn) của trang đối chiếu (SPEC §12.1.2). */
 function canhSoSanh(san, muc, maKy) {
   const ky = xacDinhKy(san, muc, maKy);
   const { hienTai, truoc, tinhTrang } = tinhKyVoiTruoc(san, ky, {});
@@ -590,10 +563,7 @@ function canhSoSanh(san, muc, maKy) {
   return khoi;
 }
 
-/**
- * Đối chiếu hai sàn. Chỉ có hai khóa sàn, KHÔNG có `total` (SPEC §12, §12.1.2).
- * Không có `period`: dùng kỳ chứa ngày dữ liệu mới nhất của CẢ HAI sàn (§12.1 "Cài đặt bước 13").
- */
+/** Không cộng gộp hai sàn; dùng kỳ chứa ngày dữ liệu mới nhất của cả hai sàn. */
 export function comparePlatforms(q) {
   const muc = docMuc(q);
   const ngayMoiNhat = KHOANG_DU_LIEU.shopee.max > KHOANG_DU_LIEU.tiktok.max ? KHOANG_DU_LIEU.shopee.max : KHOANG_DU_LIEU.tiktok.max;

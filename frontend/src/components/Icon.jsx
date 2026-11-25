@@ -1,5 +1,4 @@
-// Bộ biểu tượng nét mảnh dùng trong menu, thẻ chỉ số, tiêu đề khối (theo bản thiết kế).
-// Vẽ bằng stroke="currentColor" nên màu theo chữ xung quanh, không cần mã màu ở đây.
+// Vẽ bằng stroke="currentColor" nên màu theo chữ xung quanh.
 
 const DUONG_VE = {
   sync: 'M13.5 6.5A5.5 5.5 0 0 0 3 5M2.5 9.5A5.5 5.5 0 0 0 13 11M3 2v3h3M13 14v-3h-3',
@@ -30,12 +29,6 @@ const DUONG_VE = {
   chevronRight: 'M6 3.5 10.5 8 6 12.5',
 };
 
-/**
- * Biểu tượng 16x16.
- * @param {string} ten khóa trong DUONG_VE
- * @param {number} [kichThuoc]
- * @param {boolean} [vongTron] vẽ thêm vòng tròn (dùng cho info, clock)
- */
 export default function Icon({ ten, kichThuoc = 16, vongTron = false, doDay = 1.5 }) {
   return (
     <svg

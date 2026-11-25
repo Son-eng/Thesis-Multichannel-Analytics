@@ -13,7 +13,6 @@ const LOC = [
   { khoa: 'tiktok', nhan: 'Chỉ TikTok Shop' },
 ];
 
-/** Nhãn "Bán trên": màu nền theo loại. Màu sàn chỉ dùng để nhận diện sàn. */
 const NHAN_LOAI = {
   both: { chu: 'Cả hai sàn', nen: chuDao.nhat, mau: chuDao.dam },
   tiktok: { chu: 'Chỉ TikTok Shop', nen: san.tiktok.nhat, mau: san.tiktok.chu },
@@ -25,7 +24,7 @@ function OTien({ giaTri, sanKhongCoDuLieu }) {
   if (sanKhongCoDuLieu) {
     return <span style={{ color: mau.chuMo }}>{KHONG_CO_DU_LIEU}</span>;
   }
-  // Sàn không bán mã này: ghi "Không bán", KHÔNG ghi 0 (0 đ nghĩa là có bán mà không có doanh thu).
+  // Sàn không bán mã này thì ghi "Không bán", không ghi 0.
   if (giaTri === null) {
     return <span style={{ color: mau.chuMo }}>Không bán</span>;
   }
@@ -52,10 +51,7 @@ function DongSanPham({ sp, chiSo, shopeeKhongCoDuLieu }) {
   );
 }
 
-/**
- * Bảng theo mã sản phẩm: doanh thu Shopee, doanh thu TikTok Shop, "Bán trên" (cả hai / chỉ một sàn).
- * Cột "Bán trên" do frontend tự ghép từ hai `by_product`, không có khóa gộp nào từ API.
- */
+/** Cột "Bán trên" do frontend tự ghép từ hai by_product. */
 export default function BangSanPham({ shopee, tiktok, thuTu }) {
   const [loc, setLoc] = useState('tatCa');
   const tatCa = ghepSanPham(shopee, tiktok);

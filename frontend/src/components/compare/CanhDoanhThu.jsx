@@ -6,14 +6,7 @@ import { taoNhanThayDoi } from '../../utils/delta.js';
 import { dinhDangSo, dinhDangTien, KHONG_CO_DU_LIEU } from '../../utils/format.js';
 import { dinhDangKhoang } from '../../utils/period.js';
 
-/**
- * Thẻ doanh thu của MỘT sàn (cánh trái hoặc phải). KHÔNG có thẻ tổng hai sàn (SPEC §12).
- * Mức thay đổi so với kỳ trước của CHÍNH sàn đó, khoảng ngày lấy từ API.
- *
- * @param {string} ten tên sàn
- * @param {string} mauSan màu nhận diện sàn (chấm nhỏ cạnh tên)
- * @param {object} khoi nhánh `shopee` hoặc `tiktok` của /api/compare/platforms
- */
+/** Thẻ doanh thu của một sàn; không có thẻ tổng hai sàn. */
 export default function CanhDoanhThu({ ten, mauSan, khoi, thuTu, testId }) {
   const doanhThu = khoi.metrics.revenue;
   const dangHien = useDemSo(doanhThu.value);

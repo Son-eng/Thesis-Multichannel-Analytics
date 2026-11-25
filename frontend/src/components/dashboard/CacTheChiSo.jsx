@@ -7,10 +7,7 @@ import { taoNhanThayDoi } from '../../utils/delta.js';
 import { dinhDangSo, dinhDangTien, dinhDangPhanTram, KHONG_CO_DU_LIEU, KHONG_DU_DU_LIEU } from '../../utils/format.js';
 import { TOOLTIP_DOANH_THU, tieuDeDoanhThu, chuKyDemRaSoSanh } from '../../utils/vanBanDashboard.js';
 
-/**
- * Dòng "so với ..." dưới số lớn. Khi không có kỳ trước thì nói rõ, không để trống.
- * @param {string} tienToKyTruoc ví dụ "Kỳ trước" -> "Kỳ trước 380 đơn"
- */
+/** Không có kỳ trước thì nói rõ, không để trống. */
 function dongSoSanh(kpi, chiSo, dinhDang, tienTo) {
   if (kpi.status === 'no_data') {
     return 'Kỳ này không có dòng dữ liệu nào';
@@ -24,7 +21,6 @@ function dongSoSanh(kpi, chiSo, dinhDang, tienTo) {
   return `${tienTo} ${dinhDang(chiSo.previous)}`;
 }
 
-/** Bốn thẻ chỉ số đầu trang: Doanh thu, Số đơn hợp lệ, Giá trị đơn trung bình, Tỷ lệ hủy. */
 export default function CacTheChiSo({ tt }) {
   const khungCho = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: khoangCach.giuaThe }}>

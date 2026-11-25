@@ -1,11 +1,6 @@
 import { mau, coChu } from '../../theme/tokens.js';
 import Icon from '../Icon.jsx';
 
-/**
- * Tiêu đề nhỏ của một khối: biểu tượng + tên khối, và dòng chú thích bên phải (nếu có).
- * @param {string} bieuTuong tên biểu tượng trong Icon.jsx
- * @param {string} [chuThich] chữ nhỏ bên phải
- */
 export default function TieuDeKhoi({ bieuTuong, children, chuThich, vongTron = false }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

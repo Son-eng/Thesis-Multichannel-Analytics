@@ -3,19 +3,9 @@ import { thoiLuong } from '../../theme/motion.js';
 import { useChuyenDong, kieuChuyen, daMoc } from '../../hooks/useChuyenDong.jsx';
 
 const CUNG = 'M 24 120 A 96 96 0 0 1 216 120';
-const KHE = 0.6; // khe giữa hai đoạn (đơn vị % của nửa vòng)
+const KHE = 0.6;
 
-/**
- * Bán nguyệt hai đoạn (ví dụ tiếp thị liên kết / shop tự bán), quét từ trái sang phải.
- *
- * Nhận dữ liệu và màu qua props, KHÔNG gọi API.
- *
- * @param {number} phanTramA tỷ trọng của đoạn A (0..100); đoạn B là phần còn lại
- * @param {string} mauA màu đoạn A
- * @param {string} mauB màu đoạn B
- * @param {string} nhanGiua dòng chữ đặt ở giữa
- * @param {string} ariaLabel mô tả cho trình đọc màn hình
- */
+/** Bán nguyệt hai đoạn, ví dụ tiếp thị liên kết và shop tự bán. */
 export default function HalfGauge({ phanTramA, mauA, mauB, nhanGiua, ariaLabel }) {
   const cd = useChuyenDong();
   const moc = daMoc(cd);

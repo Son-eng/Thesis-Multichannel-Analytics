@@ -19,7 +19,6 @@ import { MUC_THOI_GIAN, NHAN_MUC, maKyChuaNgay, maKyHopLe, danhSachKy } from '..
 import { dungBanner } from '../utils/vanBanDoiChieu.js';
 import { dinhDangPhanTram } from '../utils/format.js';
 
-/** Giờ cao điểm của một nhánh: "21h – 22h (8,1%)"; sàn không có dữ liệu thì "không có dữ liệu". */
 function chuCaoDiem(khoi) {
   if (khoi.status === 'no_data' || khoi.by_hour.length === 0) {
     return 'không có dữ liệu';
@@ -33,11 +32,7 @@ function chuCaoDiem(khoi) {
   return `${dinh.hour}h – ${dinh.hour + 1}h (${dinhDangPhanTram(dinh.share_pct)})`;
 }
 
-/**
- * Trang Đối chiếu hai sàn: đặt hai sàn cạnh nhau trong cùng kỳ, KHÔNG cộng gộp số liệu (SPEC §12).
- * Mỗi sàn được so với kỳ trước của CHÍNH nó, cắt theo ngày dữ liệu mới nhất của chính nó.
- * Kỳ và mức nằm trên địa chỉ (?muc=&ky=) như trang dashboard.
- */
+/** Đặt hai sàn cạnh nhau trong cùng kỳ, không cộng gộp; mỗi sàn so với kỳ trước của chính nó. */
 export default function ComparePlatforms() {
   const [thamSoUrl, setThamSoUrl] = useSearchParams();
   const ttShopee = useTaiDuLieu(() => layBoLoc('shopee'), []);
@@ -49,7 +44,6 @@ export default function ComparePlatforms() {
   const muc = MUC_THOI_GIAN.includes(mucUrl) ? mucUrl : 'month';
   const kyUrl = thamSoUrl.get('ky');
   const coLoc = locShopee !== null && locTiktok !== null;
-  // Khoảng dữ liệu chung = từ ngày sớm nhất đến ngày muộn nhất của cả hai sàn.
   const ngayMin = coLoc ? (locShopee.data_min_date < locTiktok.data_min_date ? locShopee.data_min_date : locTiktok.data_min_date) : null;
   const ngayMax = coLoc ? (locShopee.data_max_date > locTiktok.data_max_date ? locShopee.data_max_date : locTiktok.data_max_date) : null;
   const kyMacDinh = coLoc ? maKyChuaNgay(muc, ngayMax) : null;
@@ -127,7 +121,7 @@ export default function ComparePlatforms() {
   }
 
   return (
-    // key theo kỳ và mức: đổi kỳ thì chạy lại trình tự (hai đường khung giờ tự vẽ lại).
+    // key theo kỳ và mức để đổi kỳ thì chạy lại chuyển động.
     <TrangChuyenDong key={`${muc}-${ky}`}>
       {tieuDe}
       <Card

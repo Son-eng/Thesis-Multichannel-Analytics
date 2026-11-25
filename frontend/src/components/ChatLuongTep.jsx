@@ -1,10 +1,6 @@
 import { mau, canhBao } from '../theme/tokens.js';
 import { dinhDangSo } from '../utils/format.js';
 
-/**
- * Năm bộ đếm chất lượng dữ liệu của một lượt đưa dữ liệu vào (SPEC §3.3).
- * `nhan` ngắn cho tiêu đề cột bảng lịch sử; `nhanDai` đầy đủ cho khối "Dòng cần xem lại" của trang Upload.
- */
 export const COT_CHAT_LUONG = [
   { khoa: 'rows_sku_fallback', nhan: 'SKU dự phòng', nhanDai: 'Phải lấy SKU dự phòng', goiY: 'Dòng phải lấy SKU dự phòng' },
   { khoa: 'rows_sku_unknown', nhan: 'Thiếu SKU', nhanDai: 'Không xác định được SKU', goiY: 'Dòng không xác định được SKU' },
@@ -13,7 +9,7 @@ export const COT_CHAT_LUONG = [
   { khoa: 'rows_product_unmapped', nhan: 'Chưa có mã SP', nhanDai: 'Không tìm được mã sản phẩm', goiY: 'Dòng không tìm được mã sản phẩm' },
 ];
 
-/** Ô số của bộ đếm chất lượng: > 0 tô vàng (dòng cần xem lại), bằng 0 để mờ. */
+/** Bộ đếm > 0 tô vàng (dòng cần xem lại), bằng 0 để mờ. */
 export function OBoDem({ giaTri }) {
   const canXem = giaTri > 0;
   return (

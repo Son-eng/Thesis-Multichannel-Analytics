@@ -1,14 +1,11 @@
-// MỘT cửa duy nhất gọi API. Trang và hook KHÔNG BAO GIỜ gọi fetch trực tiếp.
-// Cờ VITE_USE_MOCK chọn nguồn dữ liệu: bật -> src/api/mock/, tắt -> fetch tới VITE_API_BASE_URL.
-// Nhờ vậy khi backend xong, chỉ cần tắt cờ, không phải sửa trang nào (SPEC §14 điểm 4).
-// Ngoại lệ: nhóm endpoint backend chưa có luôn đi vào mock, khai báo ở cheDo.js.
+// Một cửa duy nhất gọi API; trang và hook không gọi fetch trực tiếp.
+// VITE_USE_MOCK chọn nguồn dữ liệu: bật thì dùng src/api/mock/, tắt thì gọi backend.
 
 import { luonGiaLap } from './cheDo.js';
 
 const KHOA_TOKEN = 'dak_token';
 export const SU_KIEN_HET_PHIEN = 'dak-het-phien';
 
-/** Lỗi API thống nhất: status HTTP và `detail` đúng dạng FastAPI (SPEC §12.1.0). */
 export class LoiApi extends Error {
   constructor(status, detail) {
     super(typeof detail === 'string' ? detail : (detail && detail.message) || 'Lỗi không xác định');
@@ -18,7 +15,7 @@ export class LoiApi extends Error {
   }
 }
 
-/** Đọc token từ localStorage. Bọc try/catch vì trình duyệt có thể chặn localStorage. */
+/** Bọc try/catch vì trình duyệt có thể chặn localStorage. */
 export function layToken() {
   try {
     return window.localStorage.getItem(KHOA_TOKEN);
@@ -31,7 +28,7 @@ export function datToken(token) {
   try {
     window.localStorage.setItem(KHOA_TOKEN, token);
   } catch (loi) {
-    // Không lưu được thì phiên chỉ sống đến khi tải lại trang; không phải lỗi nghiêm trọng.
+    // Không lưu được thì phiên chỉ sống đến khi tải lại trang.
   }
 }
 
@@ -39,14 +36,10 @@ export function xoaToken() {
   try {
     window.localStorage.removeItem(KHOA_TOKEN);
   } catch (loi) {
-    // Như trên.
   }
 }
 
-/**
- * Mock được bật trừ khi VITE_USE_MOCK được đặt rõ là "false".
- * Lưu ý: ngay cả khi tắt, các nhóm khai báo trong `cheDo.js` (hiện rỗng) vẫn đi vào mock.
- */
+/** Mock bật trừ khi VITE_USE_MOCK được đặt rõ là "false". */
 export function dungMock() {
   return import.meta.env.VITE_USE_MOCK !== 'false';
 }
@@ -63,11 +56,7 @@ function dungChuoiTruyVan(thamSo) {
   return s ? `?${s}` : '';
 }
 
-/**
- * Gom mọi dạng lỗi về một hàm đọc: {code, message, extra}.
- * Vì sao cần: lỗi có thể là {"detail": "chuỗi"}, {"detail": {code, message, ...}}, hoặc mảng 422 của FastAPI;
- * giao diện chỉ cần một chỗ để lấy thông báo.
- */
+/** Gom mọi dạng lỗi (detail chuỗi, detail object, mảng 422) về {code, message, extra}. */
 export function docLoi(loi) {
   if (!loi) {
     return { code: 'unknown', message: 'Lỗi không xác định', extra: {} };
@@ -145,14 +134,6 @@ async function goiHttp(phuongThuc, duongDan, thamSo) {
   return noiDung;
 }
 
-/**
- * Gọi một endpoint.
- * @param {'GET'|'POST'|'PATCH'|'DELETE'} phuongThuc
- * @param {string} duongDan ví dụ "/api/shopee/kpi"
- * @param {object|FormData} [thamSo] GET/DELETE: tham số truy vấn; POST/PATCH: nội dung gửi lên
- * @returns {Promise<object|null>} JSON theo hợp đồng SPEC §12.1, hoặc null với phản hồi 204
- * @throws {LoiApi}
- */
 export async function goiApi(phuongThuc, duongDan, thamSo) {
   try {
     if (dungMock() || luonGiaLap(duongDan)) {
@@ -160,7 +141,7 @@ export async function goiApi(phuongThuc, duongDan, thamSo) {
     }
     return await goiHttp(phuongThuc, duongDan, thamSo);
   } catch (loi) {
-    // Hết phiên: báo cho AuthContext đưa người dùng về trang đăng nhập (trừ chính lời gọi đăng nhập).
+    // Hết phiên thì báo AuthContext đưa về trang đăng nhập, trừ chính lời gọi đăng nhập.
     if (loi instanceof LoiApi && loi.status === 401 && duongDan !== '/api/auth/login') {
       xoaToken();
       window.dispatchEvent(new Event(SU_KIEN_HET_PHIEN));

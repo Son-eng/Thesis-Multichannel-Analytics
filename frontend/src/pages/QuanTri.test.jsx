@@ -5,8 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import App from '../App.jsx';
 import { xuLyMock, datCauHinhMock } from '../api/mock/handlers.js';
 
-// Bốn màn hình quản trị và đăng nhập (lượt 2D). Chạy trong ứng dụng đầy đủ để kiểm cả phân quyền.
-
 const ADMIN = 'mock-token-admin.vh';
 
 function mo(duongDan, token = ADMIN) {
@@ -30,10 +28,10 @@ describe('Đồng bộ dữ liệu', () => {
     expect(c.textContent).toContain('Đồng bộ thành công gần nhất');
     expect(c.textContent).toContain('16:40, 23/08');
     expect(c.textContent).toContain('Quyền truy cập còn hạn đến');
-    expect(c.textContent).toContain('28/08/2026'); // refresh_expires_at
+    expect(c.textContent).toContain('28/08/2026');
     const a = screen.getByTestId('shop-Shop A');
     expect(a.textContent).toContain('Đang hoạt động');
-    expect(a.textContent).toContain('30/08/2026'); // refresh_expires_at null -> hiện access_expires_at
+    expect(a.textContent).toContain('30/08/2026'); // refresh_expires_at null thì hiện access_expires_at
   });
 
   it('không có chỗ nào hiện giá trị token', async () => {
@@ -69,9 +67,7 @@ describe('Đồng bộ dữ liệu', () => {
     datCauHinhMock({ thoiGianDongBo: 60000 });
     mo('/admin/sync');
     const nut = await screen.findByRole('button', { name: 'Đồng bộ TikTok Shop' });
-    // Nút bị khóa cho tới khi trạng thái đồng bộ tải xong.
     await waitFor(() => expect(nut).toBeEnabled());
-    // Có lượt khác bắt đầu sau khi trang tải trạng thái: bấm nút sẽ nhận 409.
     await xuLyMock('POST', '/api/sync/tiktok', {}, { token: ADMIN });
     await userEvent.click(nut);
     expect(await screen.findByRole('alert')).toHaveTextContent('TikTok Shop đang có lượt đồng bộ chạy');
@@ -81,7 +77,7 @@ describe('Đồng bộ dữ liệu', () => {
     mo('/admin/sync');
     const khoi = await screen.findByLabelText('Lịch sử đưa dữ liệu vào');
     await waitFor(() => expect(khoi.textContent).toContain('137 lượt · Trang 1 / 7'));
-    expect(within(khoi).getAllByRole('row')).toHaveLength(21); // 1 dòng tiêu đề + 20 dòng
+    expect(within(khoi).getAllByRole('row')).toHaveLength(21);
     expect(khoi.textContent).toContain('Tự động');
     await userEvent.click(within(khoi).getByRole('button', { name: 'Trang sau' }));
     await waitFor(() => expect(khoi.textContent).toContain('Trang 2 / 7'));
@@ -93,13 +89,11 @@ describe('Đồng bộ dữ liệu', () => {
     for (const t of ['SKU dự phòng', 'Thiếu SKU', 'Trạng thái lạ', 'Tỉnh chưa chuẩn hóa', 'Chưa có mã SP']) {
       expect(await within(khoi).findByRole('columnheader', { name: t })).toBeInTheDocument();
     }
-    // Lọc nguồn "Tệp thủ công" để thấy lượt nạp tệp mẫu Shopee (6 / 19 là số thật, SPEC §3.3).
     await userEvent.selectOptions(within(khoi).getByRole('combobox', { name: 'Nguồn' }), 'file_manual');
     await waitFor(() => expect(within(khoi).getAllByRole('row').length).toBeLessThan(10));
     const o19 = within(khoi).getByText('19');
     expect(o19).toHaveAttribute('data-canh-bao', 'true');
     expect(within(khoi).getByText('6')).toHaveAttribute('data-canh-bao', 'true');
-    // Số bằng 0 không tô vàng.
     expect(khoi.querySelectorAll('[data-canh-bao="false"]').length).toBeGreaterThan(0);
   });
 
@@ -120,7 +114,7 @@ describe('Upload tệp dữ liệu', () => {
     const nut = await screen.findByRole('button', { name: /Nạp tệp/ });
     expect(nut).toBeDisabled();
     await userEvent.upload(screen.getByLabelText(/bấm để chọn/), tepCsv('don-hang.csv'));
-    expect(nut).toBeDisabled(); // có tệp nhưng chưa chọn gian hàng
+    expect(nut).toBeDisabled();
     const chon = await screen.findByRole('combobox', { name: 'Gian hàng' });
     await waitFor(() => expect(within(chon).getByRole('option', { name: 'Shop C' })).toBeInTheDocument());
     await userEvent.selectOptions(chon, 'Shop C');
@@ -258,9 +252,7 @@ describe('Người dùng', () => {
     await userEvent.click(nutXoa);
     const hop = await screen.findByRole('dialog');
     await waitFor(() => expect(hop.contains(document.activeElement)).toBe(true));
-    // Nút xác nhận của hộp Xóa là nút nguy hiểm (danger).
     expect(within(hop).getByRole('button', { name: 'Xóa tài khoản' }).className).toContain('ant-btn-dangerous');
-    // user-event không điền keyCode cho Esc còn rc-dialog đọc keyCode; trình duyệt thật luôn có keyCode 27.
     fireEvent.keyDown(document.activeElement, { key: 'Escape', code: 'Escape', keyCode: 27 });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(document.activeElement).toBe(nutXoa));

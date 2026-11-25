@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Tải dữ liệu cho MỘT khối của trang, tự giữ trạng thái đang tải / lỗi / dữ liệu.
- *
- * Mỗi khối gọi hook riêng nên một khối lỗi không làm hỏng khối khác.
- * Khi đổi tham số, dữ liệu CŨ được giữ cho tới khi dữ liệu mới về: số chạy từ giá trị cũ sang giá trị mới
- * thay vì chạy lại từ đầu (yêu cầu chuyển động khi đổi kỳ). Khung xám chỉ hiện ở lần tải đầu tiên.
- *
- * @param {() => Promise<object>|null} hamTai hàm gọi API; trả null (hoặc không gọi) khi chưa đủ điều kiện tải
- * @param {any[]} phuThuoc danh sách phụ thuộc: đổi thì tải lại
- * @returns {{duLieu: object|null, loi: object|null, dangTai: boolean, thuLai: () => void}}
- */
+/** Mỗi khối gọi hook riêng để một khối lỗi không làm hỏng khối khác; dữ liệu cũ giữ tới khi dữ liệu mới về. */
 export function useTaiDuLieu(hamTai, phuThuoc) {
   const [trangThai, setTrangThai] = useState({ duLieu: null, loi: null, dangTai: true });
   const [lanThu, setLanThu] = useState(0);

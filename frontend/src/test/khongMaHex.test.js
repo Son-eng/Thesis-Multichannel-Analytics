@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Mọi màu phải khai báo trong src/theme/tokens.js. Test này quét src/ (trừ src/theme/) và báo lỗi
-// nếu thấy mã màu hex (#RGB, #RRGGBB, #RRGGBBAA) ở bất kỳ file nào, kể cả file test.
+// Mọi màu phải khai báo trong src/theme/tokens.js; test này quét src/ để chặn mã hex ở chỗ khác.
 
 const thuMucSrc = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAU_HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-zA-Z])/g;
@@ -38,7 +37,6 @@ describe('không có mã màu hex ngoài src/theme/', () => {
   });
 
   it('bộ quét thật sự bắt được mã hex (không quét hụt)', () => {
-    // Dựng chuỗi mã màu tại chỗ để chính file này không chứa mã hex nguyên văn.
     const mau = '#' + 'ABCDEF';
     expect(('color: ' + mau + ';').match(MAU_HEX)).toHaveLength(1);
     expect(('x ' + mau).match(MAU_HEX)).toHaveLength(1);

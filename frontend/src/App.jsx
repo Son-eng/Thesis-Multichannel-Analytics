@@ -12,7 +12,7 @@ import SyncStatus from './pages/SyncStatus.jsx';
 import Upload from './pages/Upload.jsx';
 import Users from './pages/Users.jsx';
 
-/** Chưa đăng nhập thì về /login (nhớ trang đang định vào để quay lại sau khi đăng nhập). */
+/** Chưa đăng nhập thì về /login, nhớ trang đang định vào để quay lại sau. */
 export function CanDangNhap() {
   const { nguoiDung, dangTai } = useAuth();
   const viTri = useLocation();
@@ -25,7 +25,6 @@ export function CanDangNhap() {
   return <AppLayout />;
 }
 
-/** Route quản trị: người dùng thường bị chuyển về dashboard (SPEC §11). */
 export function CanQuyenAdmin() {
   const { laAdmin } = useAuth();
   if (!laAdmin) {
@@ -34,17 +33,16 @@ export function CanQuyenAdmin() {
   return <Outlet />;
 }
 
-/** /dashboard/:platform chỉ nhận shopee | tiktok; giá trị khác chuyển về /dashboard/shopee. */
 export function TuyenDashboard() {
   const { platform } = useParams();
   if (platform !== 'shopee' && platform !== 'tiktok') {
     return <Navigate to="/dashboard/shopee" replace />;
   }
-  // key theo sàn: đổi sàn thì dựng lại trang, chạy lại toàn bộ trình tự chuyển động.
+  // key theo sàn: đổi sàn thì dựng lại trang và chạy lại chuyển động.
   return <Dashboard key={platform} />;
 }
 
-/** Danh sách route của ứng dụng. Tách khỏi App để test bọc MemoryRouter riêng. */
+/** Tách khỏi App để test bọc MemoryRouter riêng. */
 export function TuyenUngDung() {
   return (
     <Routes>
@@ -64,7 +62,6 @@ export function TuyenUngDung() {
   );
 }
 
-/** Gốc ứng dụng: theme Ant Design từ tokens, CSS toàn cục, phiên đăng nhập, router. */
 export default function App() {
   return (
     <ConfigProvider locale={viVN} theme={layAntdTheme()}>

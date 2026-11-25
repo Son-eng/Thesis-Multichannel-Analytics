@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { chuyenDongDangTat, thoiLuong } from '../theme/motion.js';
 
-/**
- * Hàm làm mượt: chạy nhanh lúc đầu rồi chậm dần về cuối (giống thiết kế: 1 - 2^(-10p)).
- * @param {number} p tiến độ 0..1
- */
+/** Chạy nhanh lúc đầu rồi chậm dần: 1 - 2^(-10p). */
 export function lamMuot(p) {
   if (p >= 1) {
     return 1;
@@ -12,18 +9,7 @@ export function lamMuot(p) {
   return 1 - Math.pow(2, -10 * p);
 }
 
-/**
- * Hook đếm số: trả về giá trị đang hiển thị, chạy từ giá trị hiện tại đến `dich`.
- *
- * - Lần đầu: chạy từ `batDauTu` (mặc định 0) đến `dich` (thiết kế: số chạy từ 0 trong ~1,2 giây).
- * - Khi `dich` đổi (đổi kỳ): chạy từ giá trị đang hiện sang giá trị mới, KHÔNG chạy lại từ 0.
- * - `dich` là null (không có dữ liệu): trả null ngay, không đếm. Quy tắc 1: null không bao giờ thành 0.
- * - Chuyển động tắt (cờ, hoặc hệ điều hành bật giảm chuyển động): trả ngay giá trị cuối.
- *
- * @param {number|null} dich giá trị cần đạt
- * @param {{batDauTu?: number, tat?: boolean}} [tuyChon] `tat` ép tắt chuyển động (dùng trong test)
- * @returns {number|null}
- */
+/** Đổi kỳ thì chạy từ giá trị đang hiện sang giá trị mới; dich là null thì trả null, không bao giờ thành 0. */
 export function useDemSo(dich, tuyChon = {}) {
   const { batDauTu = 0, tat = false } = tuyChon;
   const tatChuyenDong = tat || chuyenDongDangTat();
@@ -64,7 +50,7 @@ export function useDemSo(dich, tuyChon = {}) {
         khung.current = null;
       }
     };
-    // batDauTu và tatChuyenDong cố tình không nằm trong danh sách: chỉ chạy lại khi `dich` đổi.
+    // Chỉ chạy lại khi dich đổi.
   }, [dich]);
 
   return giaTri;

@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { TOOLTIP_DOANH_THU, tieuDeDoanhThu, chuKyDemRaSoSanh, dongChatLuongDuLieu, dongKyChuaDuNgay, cauKhongSoCaKy } from './vanBanDashboard.js';
 
-// Quy tắc hiển thị 7, 8, 10 (lượt 2B).
-
 describe('Quy tắc 7: kỳ chưa đủ ngày', () => {
   it('tiêu đề khối doanh thu ghi "tính đến DD/MM"', () => {
     expect(tieuDeDoanhThu(false, '2026-08-16')).toBe('Doanh thu tính đến 16/08');
@@ -11,7 +9,6 @@ describe('Quy tắc 7: kỳ chưa đủ ngày', () => {
 
   it('dòng so sánh ghi khoảng ngày kỳ trước lấy nguyên từ API', () => {
     expect(chuKyDemRaSoSanh({ period: '2026-07', date_from: '2026-07-01', date_to: '2026-07-16' })).toBe('so với 01/07 – 16/07');
-    // Mức ngày: một ngày duy nhất, không ghi "22/08 – 22/08".
     expect(chuKyDemRaSoSanh({ period: '2026-08-22', date_from: '2026-08-22', date_to: '2026-08-22' })).toBe('so với 22/08');
     expect(chuKyDemRaSoSanh(null)).toBe('Không đủ dữ liệu để so sánh');
   });

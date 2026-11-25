@@ -4,14 +4,6 @@ import { mau, tranhDangNhap, canhBao, coChu } from '../theme/tokens.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { docLoi } from '../api/client.js';
 
-/**
- * Trang Đăng nhập phong cách Neumorphism / Glassmorphism nổi (Glasses).
- * - 2 ô nhập liệu dạng viên thuốc nổi 3D (glassmorphic shadow/border) kèm biểu tượng người dùng và ổ khóa.
- * - Hàng tùy chọn: Ô tick Remember Me bo góc và liên kết "Forgot Password?".
- * - Bấm "Forgot Password?" hiển thị popup giữa màn hình với icon mặt buồn to và dòng:
- *   "Liên hệ với quản lý để lấy lại mật khẩu nhé".
- * - Nút Login dạng pill viền tròn kèm huy hiệu mũi tên sang phải.
- */
 export default function Login() {
   const { nguoiDung, dangNhap } = useAuth();
   const [tenDangNhap, setTenDangNhap] = useState('');
@@ -45,7 +37,6 @@ export default function Login() {
 
   return (
     <main className="dang-nhap-wrapper">
-      {/* Các mảng màu nền trừu tượng phía sau thẻ chính */}
       <div
         aria-hidden="true"
         style={{
@@ -92,9 +83,8 @@ export default function Login() {
         }}
       />
 
-      {/* Thẻ đăng nhập chính viền xanh bo góc */}
       <div className="dang-nhap-the">
-        {/* CỘT TRÁI: FORM ĐĂNG NHẬP */}
+        {/* Cột trái: biểu mẫu đăng nhập */}
         <div
           style={{
             padding: '44px 40px 36px',
@@ -106,7 +96,6 @@ export default function Login() {
             background: tranhDangNhap.nenThe,
           }}
         >
-          {/* Nhãn thương hiệu góc trên */}
           <div>
             <div
               style={{
@@ -121,7 +110,6 @@ export default function Login() {
             
             </div>
 
-            {/* Tiêu đề & mô tả */}
             <h1
               aria-label="Đăng nhập"
               style={{
@@ -147,7 +135,6 @@ export default function Login() {
               Welcome back!!
             </p>
 
-            {/* Thông báo lỗi nếu đăng nhập sai */}
             {loi ? (
               <div
                 role="alert"
@@ -165,9 +152,7 @@ export default function Login() {
               </div>
             ) : null}
 
-            {/* Biểu mẫu đăng nhập */}
             <form onSubmit={gui}>
-              {/* Ô 1: Username or Email dạng nổi Glassmorphism */}
               <div style={{ marginBottom: 16 }}>
                 <label htmlFor="ten-dang-nhap" className="sr-only">
                   Tên đăng nhập
@@ -190,7 +175,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Ô 2: Password dạng nổi Glassmorphism kèm icon khóa & ẩn/hiện mắt */}
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="mat-khau" className="sr-only">
                   Mật khẩu
@@ -212,7 +196,6 @@ export default function Login() {
                     onChange={(e) => setMatKhau(e.target.value)}
                     style={{ paddingRight: 44 }}
                   />
-                  {/* Nút bật/tắt mắt xem mật khẩu */}
                   <button
                     type="button"
                     onClick={() => setHienMatKhau(!hienMatKhau)}
@@ -246,7 +229,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Hàng tùy chọn: Remember Me (bo góc) & Forgot Password? */}
               <div className="hang-tuy-chon">
                 <label className="checkbox-bo-goc" onClick={() => setGhiNho(!ghiNho)}>
                   <span
@@ -272,7 +254,6 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* Nút bấm Login dạng pill viền tròn kèm mũi tên */}
               <div>
                 <button
                   type="submit"
@@ -292,13 +273,12 @@ export default function Login() {
             </form>
           </div>
 
-          {/* Dòng chú thích nhỏ ở đáy form */}
           <div style={{ marginTop: 24, fontSize: coChu.ratNho, color: tranhDangNhap.chuMo }}>
             
           </div>
         </div>
 
-        {/* CỘT PHẢI: TRANH MINH HỌA DASHBOARD VÀ NHÂN VẬT VECTOR */}
+        {/* Cột phải: tranh minh họa */}
         <div
           className="dang-nhap-tranh-moi"
           style={{
@@ -318,7 +298,6 @@ export default function Login() {
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
           >
-            {/* LỚP 1: CÁC MẢNG MÂY / ĐỒI HỮU CƠ XANH PASTEL PHÍA SAU */}
             <path
               d="M320 320 C240 310 210 240 230 180 C250 120 330 90 410 110 C480 70 570 80 630 130 C690 180 710 260 670 330 C640 380 570 420 480 410 C390 420 340 370 320 320 Z"
               fill={tranhDangNhap.mayA}
@@ -334,47 +313,37 @@ export default function Login() {
               fill={tranhDangNhap.mayC}
               opacity="0.65"
             />
-            {/* Vòm cây/gò đồi nhô lên phía sau màn hình */}
             <ellipse cx="370" cy="240" rx="45" ry="65" fill={tranhDangNhap.mayD} opacity="0.6" />
             <ellipse cx="430" cy="220" rx="35" ry="55" fill={tranhDangNhap.mayC} opacity="0.7" />
 
-            {/* ĐƯỜNG KẺ SÀN / ĐƯỜNG CHÂN TRỜI */}
             <line x1="240" y1="410" x2="710" y2="410" stroke={tranhDangNhap.keSan} strokeWidth="2" strokeLinecap="round" />
 
-            {/* LỚP 2: BÓNG VÀ HỐ CỘT 3D DƯỚI SÀN (GÓC PHẢI DƯỚI) */}
             <ellipse cx="535" cy="445" rx="38" ry="12" fill={tranhDangNhap.ho3D} />
             <ellipse cx="535" cy="445" rx="36" ry="10" fill="none" stroke={tranhDangNhap.ho3DVien} strokeWidth="1.5" />
 
-            {/* 3 CỘT BIỂU ĐỒ 3D ISOMETRIC NHÔ LÊN TỪ HỐ */}
-            {/* Cột 1 (Cao nhất, bên trái) */}
             <g transform="translate(515, 385)">
               <polygon points="0,15 15,22 15,55 0,48" fill={tranhDangNhap.cot3DA} />
               <polygon points="15,22 30,15 30,48 15,55" fill={tranhDangNhap.cot3DB} />
               <polygon points="0,15 15,8 30,15 15,22" fill={tranhDangNhap.cot3DSang} />
             </g>
 
-            {/* Cột 2 (Vừa, ở giữa) */}
             <g transform="translate(532, 400)">
               <polygon points="0,13 14,19 14,45 0,39" fill={tranhDangNhap.cot3DB} />
               <polygon points="14,19 28,13 28,39 14,45" fill={tranhDangNhap.cot3DC} />
               <polygon points="0,13 14,7 28,13 14,19" fill={tranhDangNhap.cot3DA} />
             </g>
 
-            {/* Cột 3 (Thấp nhất, phía trước) */}
             <g transform="translate(524, 420)">
               <polygon points="0,10 12,15 12,28 0,23" fill={tranhDangNhap.cot3DA} />
               <polygon points="12,15 24,10 24,23 12,28" fill={tranhDangNhap.cot3DC} />
               <polygon points="0,10 12,5 24,10 12,15" fill={tranhDangNhap.cot3DSang} />
             </g>
 
-            {/* BÓNG ĐỔ DƯỚI BẢNG DASHBOARD CHÍNH */}
             <rect x="335" y="405" width="280" height="12" rx="6" fill={tranhDangNhap.bongMo} />
 
-            {/* BẢNG DASHBOARD LỚN TRUNG TÂM */}
             <g transform="translate(340, 195)">
               <rect x="0" y="0" width="275" height="210" rx="14" fill={tranhDangNhap.bangNen} stroke={tranhDangNhap.bangVien} strokeWidth="2.5" />
 
-              {/* Thanh điều khiển dọc bên trái bảng (Dock với 5 nút tròn) */}
               <rect x="0" y="0" width="26" height="210" rx="14" fill={tranhDangNhap.bangDock} />
               <rect x="14" y="0" width="12" height="210" fill={tranhDangNhap.bangDock} />
               <circle cx="13" cy="28" r="3.5" fill={tranhDangNhap.bangCham} />
@@ -383,12 +352,10 @@ export default function Login() {
               <circle cx="13" cy="94" r="3.5" fill={tranhDangNhap.bangCham} />
               <circle cx="13" cy="116" r="3.5" fill={tranhDangNhap.bangCham} />
 
-              {/* Dòng tiêu đề và thanh ngang đầu bảng */}
               <rect x="42" y="20" width="60" height="5" rx="2.5" fill={tranhDangNhap.cotThanhA} />
               <rect x="42" y="30" width="40" height="4" rx="2" fill={tranhDangNhap.cotThanhNhat} />
               <rect x="88" y="30" width="25" height="4" rx="2" fill={tranhDangNhap.cotThanhB} />
 
-              {/* Khối biểu đồ ngang bên trái bảng */}
               <g transform="translate(42, 54)">
                 <circle cx="4" cy="5" r="2.5" fill={tranhDangNhap.bangCham} />
                 <circle cx="14" cy="5" r="2.5" fill={tranhDangNhap.bangCham} />
@@ -402,14 +369,12 @@ export default function Login() {
                 <rect x="0" y="32" width="24" height="8" rx="4" fill={tranhDangNhap.cotThanhB} />
               </g>
 
-              {/* BIỂU ĐỒ TRÒN LỚN (PIE CHART) Ở GIỮA BẢNG */}
               <g transform="translate(162, 85)">
                 <path d="M 0 0 L 0 -44 A 44 44 0 0 0 0 44 Z" fill={tranhDangNhap.pieVua} />
                 <path d="M 0 0 L 0 -44 A 44 44 0 0 1 44 0 Z" fill={tranhDangNhap.pieNhat} />
                 <path d="M 3 3 L 44 3 A 44 44 0 0 1 3 44 Z" fill={tranhDangNhap.pieDam} />
               </g>
 
-              {/* Danh sách chỉ số bên phải biểu đồ tròn */}
               <g transform="translate(220, 60)">
                 <rect x="0" y="0" width="6" height="6" rx="1.5" fill={tranhDangNhap.pieVua} />
                 <rect x="10" y="1" width="30" height="4" rx="2" fill={tranhDangNhap.cotThanhNhat} />
@@ -421,7 +386,6 @@ export default function Login() {
                 <rect x="10" y="29" width="28" height="4" rx="2" fill={tranhDangNhap.cotThanhNhat} />
               </g>
 
-              {/* 3 THẺ TỔNG KẾT NHỎ DƯỚI ĐÁY BẢNG */}
               <g transform="translate(42, 160)">
                 <rect x="0" y="0" width="62" height="26" rx="5" fill={tranhDangNhap.theMini} stroke={tranhDangNhap.theMiniVien} strokeWidth="1" />
                 <circle cx="12" cy="13" r="5" fill={tranhDangNhap.cotThanhB} opacity="0.6" />
@@ -437,7 +401,6 @@ export default function Login() {
               </g>
             </g>
 
-            {/* NHÂN VẬT NỮ (BÊN TRÁI BẢNG) ĐANG CẦM BẢNG BIỂU ĐỒ CỘT */}
             <g transform="translate(295, 305)">
               <ellipse cx="20" cy="118" rx="16" ry="4" fill={tranhDangNhap.bongMo} />
 
@@ -455,7 +418,6 @@ export default function Login() {
               <path d="M 8 28 L -15 48 L -12 55 L 8 36 Z" fill={tranhDangNhap.aoQuanDam} />
               <path d="M 28 28 L -2 52 L 2 58 L 28 36 Z" fill={tranhDangNhap.aoQuan} />
 
-              {/* BẢNG BIỂU ĐỒ CỘT CẦM TAY */}
               <g transform="translate(-48, 44)">
                 <rect x="0" y="0" width="46" height="52" rx="4" fill={tranhDangNhap.bangNen} stroke={tranhDangNhap.bangVien} strokeWidth="1.5" />
                 <circle cx="7" cy="8" r="1.5" fill={tranhDangNhap.bangCham} />
@@ -470,7 +432,6 @@ export default function Login() {
               </g>
             </g>
 
-            {/* NHÂN VẬT NAM (BÊN PHẢI BẢNG) ĐANG ĐỠ THẺ KẾ BÊN */}
             <g transform="translate(635, 310)">
               <ellipse cx="14" cy="120" rx="16" ry="4" fill={tranhDangNhap.bongMo} />
 
@@ -494,7 +455,6 @@ export default function Login() {
               </g>
             </g>
 
-            {/* ĐỒNG XU BIỂU ĐỒ TRÒN 3D LƠ LỬNG TRÊN CAO (GÓC TRÁI TRÊN) */}
             <g transform="translate(200, 75) rotate(-18)">
               <ellipse cx="25" cy="62" rx="22" ry="7" fill={tranhDangNhap.bongMo} />
               <path d="M 2 24 C 2 34 48 34 48 24 L 48 36 C 48 46 2 46 2 36 Z" fill={tranhDangNhap.dongXuCanh} />
@@ -503,7 +463,6 @@ export default function Login() {
               <path d="M 25 24 L 46 26 A 23 11 0 0 1 25 35 Z" fill={tranhDangNhap.cot3DA} />
             </g>
 
-            {/* QUẢ CẦU 3D LƠ LỬNG (GÓC PHẢI TRÊN) */}
             <g transform="translate(630, 150)">
               <circle cx="10" cy="10" r="10" fill={tranhDangNhap.cot3DA} />
               <circle cx="8" cy="7" r="8" fill={tranhDangNhap.cot3DSang} opacity="0.4" />
@@ -513,7 +472,7 @@ export default function Login() {
         </div>
       </div>
 
-      {/* POPUP QUÊN MẬT KHẨU Ở GIỮA MÀN HÌNH VỚI ICON MẶT BUỒN TO */}
+      {/* Hộp thoại quên mật khẩu */}
       {moPopupQuenMk ? (
         <div
           className="popup-quen-mk-overlay"
@@ -525,24 +484,17 @@ export default function Login() {
             className="popup-quen-mk-the"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Icon mặt buồn to ở giữa theo đúng yêu cầu */}
             <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'center' }}>
               <svg width="84" height="84" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                {/* Khuôn mặt tròn vàng cam */}
                 <circle cx="42" cy="42" r="38" fill={tranhDangNhap.matBuonVang} stroke={tranhDangNhap.matBuonVien} strokeWidth="3" />
-                {/* Vệt sáng trên trán */}
                 <circle cx="30" cy="24" r="6" fill={mau.nenThe} opacity="0.35" />
-                {/* Hai mắt buồn cụp */}
                 <ellipse cx="28" cy="36" rx="4" ry="5.5" fill={tranhDangNhap.matBuonMat} />
                 <ellipse cx="56" cy="36" rx="4" ry="5.5" fill={tranhDangNhap.matBuonMat} />
-                {/* Giọt nước mắt màu xanh biển */}
                 <path d="M63 42 C63 46 60 48 57 48 C54 48 51 46 51 42 C51 38 57 32 57 32 C57 32 63 38 63 42 Z" fill={tranhDangNhap.matBuonNuocMat} />
-                {/* Miệng mếu buồn cong xuống */}
                 <path d="M 28 58 C 34 50 50 50 56 58" stroke={tranhDangNhap.matBuonMat} strokeWidth="3.5" strokeLinecap="round" fill="none" />
               </svg>
             </div>
 
-            {/* Dòng chữ yêu cầu: "Liên hệ với quản lý để lấy lại mật khẩu nhé" */}
             <h3 style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 700, color: tranhDangNhap.chuTieuDe }}>
               Quên mật khẩu?
             </h3>
@@ -550,7 +502,6 @@ export default function Login() {
               Liên hệ với quản lý để lấy lại mật khẩu nhé
             </p>
 
-            {/* Nút bấm đóng popup */}
             <button
               type="button"
               className="popup-nut-dong"
