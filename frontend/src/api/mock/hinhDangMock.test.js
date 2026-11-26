@@ -13,7 +13,7 @@ function duyet(giaTri, kiemTra, duongDan = '$') {
 }
 
 describe('compare', () => {
-  it('chỉ có hai khóa sàn, KHÔNG có khóa total (SPEC §12)', async () => {
+  it('chỉ có hai khóa sàn, KHÔNG có khóa total', async () => {
     const kq = await xuLyMock('GET', '/api/compare/platforms', { granularity: 'month', period: '2026-08' });
     expect(Object.keys(kq)).not.toContain('total');
     expect(kq.shopee).toBeDefined();
@@ -46,7 +46,7 @@ describe('compare', () => {
     });
   });
 
-  it('B3, M22, M23 chỉ có ở TikTok (SPEC §12)', async () => {
+  it('B3, M22, M23 chỉ có ở TikTok', async () => {
     const kq = await xuLyMock('GET', '/api/compare/platforms', { granularity: 'month', period: '2026-08' });
     const maShopee = kq.shopee.by_product.map((m) => m.product_code);
     const maTiktok = kq.tiktok.by_product.map((m) => m.product_code);
@@ -81,7 +81,7 @@ describe('by-hour', () => {
   });
 });
 
-describe('mọi object có pct_change đều có previous_zero (SPEC §12.1.0.2)', () => {
+describe('mọi object có pct_change đều có previous_zero', () => {
   it('quét kpi, top-products, alerts, compare ở nhiều kỳ và mức', async () => {
     const lanGoi = [];
     SAN.forEach((san) => {
@@ -162,7 +162,7 @@ describe('các trạng thái của kpi', () => {
     expect(k.previous).toEqual({ period: '2026-06', date_from: '2026-06-01', date_to: '2026-06-30' });
   });
 
-  it('mức ngày không cắt cùng số ngày (SPEC §9.3a) và daily là null', async () => {
+  it('mức ngày không cắt cùng số ngày và daily là null', async () => {
     const k = await xuLyMock('GET', '/api/tiktok/kpi', { granularity: 'day', period: '2026-08-23' });
     expect(k.previous).toEqual({ period: '2026-08-22', date_from: '2026-08-22', date_to: '2026-08-22' });
     expect(k.daily).toBeNull();

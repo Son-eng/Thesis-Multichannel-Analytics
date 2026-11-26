@@ -1,7 +1,7 @@
 """gop orders_shopee va orders_tiktok thanh mot bang orders
 
 Chốt 08/11/2026 theo yêu cầu GVHD: một bảng `orders` có cột `platform` thay cho hai bảng riêng từng sàn
-(SPEC §3). Sinh bằng `alembic revision --autogenerate` rồi đọc lại đối chiếu SPEC; phần downgrade được dọn
+Sinh bằng `alembic revision --autogenerate` rồi đọc lại đối chiếu; phần downgrade được dọn
 lại cho đọc được (CHECK viết lại dạng `IN (...)`, bỏ tham số thừa) và tạo lại ĐÚNG hai bảng của migration trước.
 
 KHÔNG chuyển dữ liệu cũ: dữ liệu nạp lại được từ CSV (`python -m app.etl.nap_file ...`), nên upgrade xóa hai

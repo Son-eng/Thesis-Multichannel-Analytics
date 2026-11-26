@@ -2,7 +2,7 @@
 # backend/requirements.txt.
 #
 # Mock không dùng gói nào ngoài các gói đã ghim trong backend; httpx2 thêm
-# cho cả hai ngày 03/11/2026 để test tầng HTTP bằng TestClient (SPEC §13).
+# cho cả hai ngày 03/11/2026 để test tầng HTTP bằng TestClient.
 #
 # Vì sao có file riêng: mock dùng chung .venv của backend, nên cài từ file
 # này hay file của backend đều ra cùng một môi trường. File này chỉ để đọc

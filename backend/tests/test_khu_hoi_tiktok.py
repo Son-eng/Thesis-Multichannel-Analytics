@@ -27,7 +27,7 @@ NGOAI_LE = {
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status (đã duyệt 04/11)",
     "data_source": "theo định nghĩa: 'file' / 'api' (đã duyệt 04/11)",
     # is_affiliate và variation không còn là ngoại lệ.
-    "returned_quantity": "file điền Sku Quantity of return cả cho đơn hủy; API không có nguồn → 0 (§3.2, §21.2)",
+    "returned_quantity": "file điền Sku Quantity of return cả cho đơn hủy; API không có nguồn → 0",
 }
 
 DOANH_THU_TONG = 7538502584

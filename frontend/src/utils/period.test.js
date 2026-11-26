@@ -40,7 +40,7 @@ describe('mã kỳ', () => {
   });
 });
 
-describe('kỳ đủ ngày dùng MAX(order_date) của dữ liệu, không dùng ngày hôm nay (SPEC §9.2)', () => {
+describe('kỳ đủ ngày dùng MAX(order_date) của dữ liệu, không dùng ngày hôm nay', () => {
   it('tháng 8 chưa đủ khi dữ liệu đến 16/08', () => {
     expect(kyDayDu('month', '2026-08', '2026-08-16')).toBe(false);
     expect(kyDayDu('month', '2026-07', '2026-08-16')).toBe(true);

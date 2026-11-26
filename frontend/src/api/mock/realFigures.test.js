@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as that from './realFigures.js';
 import { xuLyMock } from './handlers.js';
 
-describe('realFigures.js khớp SPEC', () => {
-  it('§17.2: tổng doanh thu, số đơn, AOV của hai sàn', () => {
+describe('realFigures.js khớp số liệu chuẩn', () => {
+  it('tổng doanh thu, số đơn, AOV của hai sàn', () => {
     expect(that.TONG_TOAN_BO.shopee.revenue).toBe(1908961059);
     expect(that.TONG_TOAN_BO.shopee.order_count).toBe(1165);
     expect(that.TONG_TOAN_BO.shopee.order_count_all).toBe(1761);
@@ -14,7 +14,7 @@ describe('realFigures.js khớp SPEC', () => {
     expect(that.TONG_TOAN_BO.tiktok.aov).toBe(1446652);
   });
 
-  it('§17.3: doanh thu từng tháng', () => {
+  it('doanh thu từng tháng', () => {
     expect(that.DOANH_THU_THANG.shopee).toEqual({ '2026-07': 1068925905, '2026-08': 840035154 });
     expect(that.DOANH_THU_THANG.tiktok['2026-01']).toBe(963328583);
     expect(that.DOANH_THU_THANG.tiktok['2026-02']).toBe(1056998596);
@@ -26,14 +26,14 @@ describe('realFigures.js khớp SPEC', () => {
     expect(that.DOANH_THU_THANG.tiktok['2026-08']).toBe(863491460);
   });
 
-  it('tổng doanh thu các tháng bằng tổng toàn bộ (§17.2 = Σ §17.3)', () => {
+  it('tổng doanh thu các tháng bằng tổng toàn bộ', () => {
     ['shopee', 'tiktok'].forEach((san) => {
       const tong = Object.values(that.DOANH_THU_THANG[san]).reduce((a, b) => a + b, 0);
       expect(tong).toBe(that.TONG_TOAN_BO[san].revenue);
     });
   });
 
-  it('§9.4: kỳ trước đã cắt cùng số ngày và pct_change đúng (Shopee +34,6; TikTok +49,0)', () => {
+  it('kỳ trước đã cắt cùng số ngày và pct_change đúng (Shopee +34,6; TikTok +49,0)', () => {
     expect(that.KY_TRUOC_DA_CAT.shopee.revenue).toBe(624277755);
     expect(that.KY_TRUOC_DA_CAT.shopee.pct_change).toBe(34.6);
     expect(that.KY_TRUOC_DA_CAT.shopee.date_to).toBe('2026-07-16');
@@ -44,7 +44,7 @@ describe('realFigures.js khớp SPEC', () => {
     expect(that.SO_VOI_NGUYEN_THANG.tiktok.pct_change_if_used).toBe(6.0);
   });
 
-  it('§9.1: cảnh báo tháng 4 TikTok −30,5% và T5, T6', () => {
+  it('cảnh báo tháng 4 TikTok −30,5% và T5, T6', () => {
     expect(that.CANH_BAO_THANG_4_TIKTOK).toMatchObject({
       period: '2026-04',
       revenue: 1014538449,
@@ -55,7 +55,7 @@ describe('realFigures.js khớp SPEC', () => {
     expect(that.NGUONG_CANH_BAO_PCT).toBe(-30.0);
   });
 
-  it('§10: TikTok tháng 7 trong ví dụ prompt LLM', () => {
+  it('TikTok tháng 7 trong ví dụ prompt LLM', () => {
     const t = that.TIKTOK_THANG_7;
     expect(t.revenue).toBe(814595996);
     expect(t.revenue_previous).toBe(566274001);
@@ -72,7 +72,7 @@ describe('realFigures.js khớp SPEC', () => {
     ]);
   });
 
-  it('§17.1: khoảng dữ liệu, 10 mã Shopee và 13 mã TikTok', () => {
+  it('khoảng dữ liệu, 10 mã Shopee và 13 mã TikTok', () => {
     expect(that.KHOANG_DU_LIEU.shopee).toEqual({ min: '2026-07-01', max: '2026-08-16' });
     expect(that.KHOANG_DU_LIEU.tiktok).toEqual({ min: '2026-01-01', max: '2026-08-23' });
     expect(that.MA_SAN_PHAM.shopee).toHaveLength(10);
@@ -80,7 +80,7 @@ describe('realFigures.js khớp SPEC', () => {
     expect(that.GIAN_HANG).toEqual({ shopee: ['Shop C'], tiktok: ['Shop A', 'Shop B'] });
   });
 
-  it('§3.3: năm bộ đếm chất lượng khi nạp tệp mẫu', () => {
+  it('năm bộ đếm chất lượng khi nạp tệp mẫu', () => {
     expect(that.CHAT_LUONG_TEP_MAU.shopee).toEqual({
       rows_sku_fallback: 6,
       rows_sku_unknown: 0,
@@ -93,7 +93,7 @@ describe('realFigures.js khớp SPEC', () => {
 });
 
 describe('mock tái hiện đúng số thật qua API', () => {
-  it('Shopee 2026-08: doanh thu, kỳ trước đã cắt, +34,6%, cả tháng trước −21,4% (§9.4)', async () => {
+  it('Shopee 2026-08: doanh thu, kỳ trước đã cắt, +34,6%, cả tháng trước −21,4%', async () => {
     const k = await xuLyMock('GET', '/api/shopee/kpi', { granularity: 'month', period: '2026-08' });
     expect(k.metrics.revenue.value).toBe(840035154);
     expect(k.metrics.revenue.previous).toBe(624277755);
@@ -104,7 +104,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     expect(k.period_complete).toBe(false);
   });
 
-  it('TikTok 2026-08: +49,0% và cả tháng trước +6,0% (§9.4)', async () => {
+  it('TikTok 2026-08: +49,0% và cả tháng trước +6,0%', async () => {
     const k = await xuLyMock('GET', '/api/tiktok/kpi', { granularity: 'month', period: '2026-08' });
     expect(k.metrics.revenue.value).toBe(863491460);
     expect(k.metrics.revenue.previous).toBe(579379192);
@@ -113,7 +113,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     expect(k.previous_full.pct_change_if_used).toBe(6.0);
   });
 
-  it('TikTok 2026-07: 510 đơn, 513 sản phẩm, AOV 1.597.247, +43,9% (§10)', async () => {
+  it('TikTok 2026-07: 510 đơn, 513 sản phẩm, AOV 1.597.247, +43,9%', async () => {
     const k = await xuLyMock('GET', '/api/tiktok/kpi', { granularity: 'month', period: '2026-07' });
     expect(k.metrics.revenue.value).toBe(814595996);
     expect(k.metrics.revenue.pct_change).toBe(43.9);
@@ -124,7 +124,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     expect(k.previous_full).toBeNull();
   });
 
-  it('TikTok 2026-07 top-products: doanh thu và pct_change của 5 mã đầu (§10)', async () => {
+  it('TikTok 2026-07 top-products: doanh thu và pct_change của 5 mã đầu', async () => {
     const t = await xuLyMock('GET', '/api/tiktok/top-products', { granularity: 'month', period: '2026-07', limit: 5 });
     expect(t.items.map((m) => [m.product_code, m.revenue, m.pct_change])).toEqual([
       ['M15', 328663138, 26.8],
@@ -135,7 +135,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     ]);
   });
 
-  it('TikTok 2026-04: −30,5% và alert.triggered (§9.1)', async () => {
+  it('TikTok 2026-04: −30,5% và alert.triggered', async () => {
     const k = await xuLyMock('GET', '/api/tiktok/kpi', { granularity: 'month', period: '2026-04' });
     expect(k.metrics.revenue.value).toBe(1014538449);
     expect(k.metrics.revenue.previous).toBe(1459153482);
@@ -144,7 +144,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     expect(k.alert.threshold_pct).toBe(-30.0);
   });
 
-  it('alerts tháng: TikTok đúng 1 phần tử 2026-04, Shopee 0 phần tử (§17.3)', async () => {
+  it('alerts tháng: TikTok đúng 1 phần tử 2026-04, Shopee 0 phần tử', async () => {
     const t = await xuLyMock('GET', '/api/tiktok/alerts', { granularity: 'month' });
     expect(t.items).toHaveLength(1);
     expect(t.items[0]).toMatchObject({
@@ -159,7 +159,7 @@ describe('mock tái hiện đúng số thật qua API', () => {
     expect(s.items).toHaveLength(0);
   });
 
-  it('tổng doanh thu các tháng trong revenue-trend bằng tổng toàn bộ (§17.2)', async () => {
+  it('tổng doanh thu các tháng trong revenue-trend bằng tổng toàn bộ', async () => {
     const s = await xuLyMock('GET', '/api/shopee/revenue-trend', { granularity: 'month' });
     expect(s.items.reduce((a, m) => a + m.revenue, 0)).toBe(1908961059);
     const t = await xuLyMock('GET', '/api/tiktok/revenue-trend', { granularity: 'month' });

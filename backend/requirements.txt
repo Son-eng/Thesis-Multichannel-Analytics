@@ -26,7 +26,7 @@
 # --- Web framework ---
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
-python-multipart==0.0.32      # cần cho upload file qua form (SPEC §12)
+python-multipart==0.0.32      # cần cho upload file qua form
 
 # --- Cơ sở dữ liệu ---
 sqlalchemy==2.0.52
@@ -45,14 +45,14 @@ psycopg[binary]==3.3.5
 # pandas 2.2 (không phải 3.x). Khác biệt quan trọng cần biết:
 # pandas 3.x đổi kiểu chuỗi mặc định và GIỮ NaN qua .astype(str),
 # còn pandas 2.x biến NaN thành chuỗi "nan". Bẫy này có thật với
-# 6 dòng SKU rỗng của Shopee - xem SPEC §5.1 CẢNH BÁO 2.
+# 6 dòng SKU rỗng của Shopee.
 pandas==2.2.3
 
 # numpy là thư viện pandas dựa vào, trước đây KHÔNG ghi ở đây nên pip tự
 # kéo bản mới nhất lúc cài. Ghim đúng bản đang chạy trong .venv (sinh viên
 # chốt 12/10/2026) vì:
 #   - pandas 2.2.3 ra đời trước numpy 2.5; với bản này pandas đã sinh
-#     DeprecationWarning (gặp ở bước 3, xem TRACKLOG). Cài lại vài tháng
+#     DeprecationWarning. Cài lại vài tháng
 #     sau, pip có thể kéo numpy mới hơn nữa và cảnh báo thành lỗi thật.
 #   - Toàn bộ test đã chạy và pass với đúng bản này.
 numpy==2.5.3
@@ -65,15 +65,15 @@ pytest==9.1.1
 
 # Thư viện HTTP mà TestClient của FastAPI dùng để gọi app ngay trong test,
 # đi qua đủ tầng HTTP (query, header, mã HTTP) mà không cần bật server.
-# Thêm ngày 03/11/2026 (bước 8 C-c, cho test của mock_platform; backend dùng
-# từ bước 11–14 để test router).
+# Thêm ngày 03/11/2026 (cho test của mock_platform; backend dùng
+# để test router).
 # Dùng httpx2 chứ KHÔNG dùng httpx: starlette 1.6.0 (đi kèm fastapi 0.141.1)
 # tìm httpx2 trước, và khi chỉ có httpx thì báo "Using `httpx` with
 # `starlette.testclient` is deprecated; install `httpx2` instead".
 httpx2==2.16.0
 
-# --- Đăng nhập và xuất báo cáo (chỉ dẫn 017, 07/11/2026) ---
-bcrypt==5.0.0                 # băm mật khẩu (SPEC §11)
-PyJWT==2.15.1                 # ký và kiểm token đăng nhập (SPEC §11)
-openpyxl==3.1.5               # xuất báo cáo Excel (UC13, SPEC §12.1.4.4); kéo theo et_xmlfile==2.0.0
+# --- Đăng nhập và xuất báo cáo ---
+bcrypt==5.0.0                 # băm mật khẩu
+PyJWT==2.15.1                 # ký và kiểm token đăng nhập
+openpyxl==3.1.5               # xuất báo cáo Excel (UC13); kéo theo et_xmlfile==2.0.0
 et_xmlfile==2.0.0

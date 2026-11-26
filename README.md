@@ -94,7 +94,7 @@ Với máy chủ giả lập (bước 3), trang ủy quyền là trang giả do 
 
 ## 3. Kiểm nhanh số liệu
 
-Trên dữ liệu mẫu, các số sau phải khớp (đã chốt ở `docs/SPEC.md` §17):
+Trên dữ liệu mẫu, các số sau phải khớp:
 
 - Tổng doanh thu: Shopee **1.908.961.059**, TikTok Shop **7.538.502.584**.
 - Dashboard Shopee, tháng 8/2026 (kỳ chưa đủ ngày, đến 16/08): **840.035.154**, tăng **34,6%** so với 01–16/07 (624.277.755).
@@ -134,7 +134,6 @@ Backend có test chậm (đánh dấu `cham`, kéo toàn bộ dữ liệu qua m�
 | `docker-compose.yml` | Chạy PostgreSQL 16.4 |
 | `data/samples/` | Hai tệp CSV **đã ẩn danh** (`shopee_orders_anonymized.csv`, `tiktok_orders_anonymized.csv`): nạp dữ liệu mẫu và làm đáp án cho test |
 | `data/inbox/`, `data/processed/`, `data/failed/` | Thư mục "thả tệp vào là tự nạp" (mỗi nơi có thư mục con `shopee/`, `tiktok/`; riêng Shopee thêm một ngăn cho mỗi gian hàng, tự tạo); trong git chỉ có tệp giữ chỗ `.gitkeep` |
-| `docs/` | Tài liệu: xem `docs/README.md` (`SPEC.md` đặc tả, `QUY_TRINH.md` tiến độ, `TRACKLOG.md` nhật ký cũ đã đóng băng, `tracklog/` nhật ký mới) |
 | `README.md` | Tệp này |
 
 ### Ba thư mục `scripts` — KHÔNG phải một phần của luồng chạy hệ thống
@@ -159,15 +158,7 @@ Hệ thống chạy bình thường mà không cần bất kỳ tệp nào dư�
 | `backend/.env`, `mock_platform/.env`, `frontend/.env` | Cấu hình riêng của máy (có khóa, mật khẩu); chỉ nộp các tệp `.env.example` |
 | `data/samples/Shopee Tracking_Order.csv`, `data/samples/TikTok Tracking_Order.csv` | CSV **gốc có dữ liệu khách hàng thật** |
 | `scripts/ten_that.local.json` | Bảng tên thật, chỉ có trên máy sinh viên |
-| `prompts/` | Chỉ dẫn và báo cáo trao đổi với chat chính (ngoài git); không phải mã nguồn |
 
-## 6. Tài liệu
+## 6. Phạm vi và hạn chế
 
-- `docs/README.md` — chỉ đường: tệp nào trong `docs/` là gì, tệp nào đã đóng băng.
-- `docs/SPEC.md` — đặc tả đầy đủ: công thức doanh thu (§7), cảnh báo (§9), hợp đồng JSON của mọi endpoint (§12.1), máy chủ giả lập (§19), số liệu chuẩn để kiểm (§17).
-- `docs/QUY_TRINH.md` — các bước đã làm và kết quả kiểm chứng.
-- `docs/tracklog/` — nhật ký chi tiết từng bước.
-
-## 7. Phạm vi và hạn chế
-
-Không làm trong bản này: xuất PDF (nút hiện "Chưa hỗ trợ trong bản demo") và ủy quyền lại token khi hết hạn. Sàn thật chưa được kiểm thử (chỉ máy chủ giả lập); Shopee thật cần thêm ứng dụng AMS riêng để lấy cờ affiliate. Chi tiết ở `docs/SPEC.md` §16.
+Không làm trong bản này: xuất PDF (nút hiện "Chưa hỗ trợ trong bản demo") và ủy quyền lại token khi hết hạn. Sàn thật chưa được kiểm thử (chỉ máy chủ giả lập); Shopee thật cần thêm ứng dụng AMS riêng để lấy cờ affiliate.

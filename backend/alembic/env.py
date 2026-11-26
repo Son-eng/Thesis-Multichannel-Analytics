@@ -1,4 +1,4 @@
-"""Cấu hình Alembic chạy migration (SPEC §3, bước 6).
+"""Cấu hình Alembic chạy migration.
 
 Luồng: Alembic gọi file này mỗi lần chạy lệnh (`upgrade`, `downgrade`,
 `revision --autogenerate`). File này cho Alembic biết 2 thứ:

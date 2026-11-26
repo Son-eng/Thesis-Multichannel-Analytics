@@ -23,7 +23,7 @@ Sao `.env.example` thành `.env.local`.
 
 | Biến | Ý nghĩa |
 |---|---|
-| `VITE_USE_MOCK=true` | Mọi lời gọi API đi vào `src/api/mock/`, trả JSON giả đúng hợp đồng `docs/SPEC.md §12.1`. Không cần backend, Docker hay CSDL. |
+| `VITE_USE_MOCK=true` | Mọi lời gọi API đi vào `src/api/mock/`, trả JSON giả đúng hợp đồng API. Không cần backend, Docker hay CSDL. |
 | `VITE_USE_MOCK=false` | Gọi backend thật tại `VITE_API_BASE_URL` (mặc định `http://localhost:8000`). Không phải sửa trang nào. |
 
 Không đặt biến thì mock được bật.
@@ -43,7 +43,7 @@ Không đặt biến thì mock được bật.
 3. `npm run dev`.
 
 **Nhóm endpoint vẫn được giả lập** khi `VITE_USE_MOCK=false`: `auth` (`/api/auth/*`), `users` (`/api/users*`), `insights` (`/api/insights/generate`), `export` (`/api/export/*`).
-Lý do: backend chưa có các nhóm này và theo hợp đồng `docs/SPEC.md §12.1` mục 5 chúng ghi là "Mock khi demo"; nếu tắt mock hoàn toàn thì đăng nhập sẽ hỏng.
+Lý do: backend chưa có các nhóm này và theo hợp đồng API chúng ghi là "Mock khi demo"; nếu tắt mock hoàn toàn thì đăng nhập sẽ hỏng.
 Danh sách nằm ở **một chỗ**: `src/api/cheDo.js` (`NHOM_LUON_GIA_LAP`). Backend làm xong nhóm nào thì xóa nhóm đó khỏi danh sách, không phải sửa trang.
 Các nhóm còn lại (`/api/shopee/*`, `/api/tiktok/*`, `/api/compare/*`, `/api/sync/*`, `/api/upload/*`, ...) gọi thẳng backend.
 
@@ -52,7 +52,7 @@ Các nhóm còn lại (`/api/shopee/*`, `/api/tiktok/*`, `/api/compare/*`, `/api
 ```
 src/
   api/          MỘT cửa gọi API (client.js) + mỗi nhóm endpoint một file
-    mock/       realFigures.js = số thật có nguồn SPEC; illustrativeFigures.js = số minh họa
+    mock/       realFigures.js = số thật đã kiểm chứng; illustrativeFigures.js = số minh họa
   components/   Card, DeltaBadge, Sidebar, Topbar... ; charts/ chứa biểu đồ (nhận dữ liệu và màu qua props)
   context/      phiên đăng nhập
   hooks/        useDemSo (đếm số), useChuyenDong (trình tự mở trang)

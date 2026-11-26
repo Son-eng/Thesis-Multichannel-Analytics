@@ -21,8 +21,8 @@ DEN_LUC = int(datetime(2026, 10, 1, tzinfo=GIO_VN).timestamp())
 KHOA = ["order_id", "sku"]
 
 NGOAI_LE = {
-    "order_created_at": "§21.5: đường file Shopee chỉ có ngày → NULL; đường API có giờ",
-    "order_status": "§21.5, §6.4: 19 dòng trạng thái rỗng → file 'unknown', API sinh COMPLETED",
+    "order_created_at": "đường file Shopee chỉ có ngày → NULL; đường API có giờ",
+    "order_status": "19 dòng trạng thái rỗng → file 'unknown', API sinh COMPLETED",
     "order_status_raw": "file lưu chữ tiếng Việt, API lưu mã tiếng Anh — kiểm: gom nhóm ra cùng order_status",
     "data_source": "theo định nghĩa: 'file' / 'api'",
 }

@@ -1,6 +1,6 @@
 # Máy chủ giả lập API sàn (`mock_platform/`)
 
-Ứng dụng FastAPI **riêng**, đóng vai Shopee và TikTok Shop ở cổng 8001 (SPEC §19). Dữ liệu sinh từ 2 file CSV ẩn danh trong `data/samples/` lúc khởi động. Backend chỉ nói chuyện với nó qua HTTP, như với sàn thật: đổi sang sàn thật chỉ cần sửa URL và khóa trong `backend/.env`.
+Ứng dụng FastAPI **riêng**, đóng vai Shopee và TikTok Shop ở cổng 8001. Dữ liệu sinh từ 2 file CSV ẩn danh trong `data/samples/` lúc khởi động. Backend chỉ nói chuyện với nó qua HTTP, như với sàn thật: đổi sang sàn thật chỉ cần sửa URL và khóa trong `backend/.env`.
 
 Mọi khóa, token trong `.env.example` đều **giả**.
 
@@ -27,7 +27,7 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*uvicorn*ta
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 ```
 
-- **Không** bật bằng `... &` trong Git Bash: tắt shell không tắt uvicorn, để lại 3 tiến trình mồ côi (gặp ở bước 8 C-c).
+- **Không** bật bằng `... &` trong Git Bash: tắt shell không tắt uvicorn, để lại 3 tiến trình mồ côi.
 - `lam-moi` dùng hết refresh_token Shopee trong `.env` (chỉ dùng 1 lần). Chạy lại trên cùng lượt máy chủ thì Shopee báo `error_auth` — đúng hành vi. Khởi động lại máy chủ để có lại token.
 - Đổi biến môi trường cho một lượt chạy: đặt `$env:MOCK_FAULT_RATE = "0.3"` trước khi bật. Biến môi trường thắng giá trị trong `.env`.
 
@@ -37,14 +37,14 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*uvicorn*ta
 ..\backend\.venv\Scripts\python.exe -m pytest      # không cần Docker
 ```
 
-Không thêm `-W error::DeprecationWarning`: `pytest.ini` đã biến DeprecationWarning thành lỗi, kèm một ngoại lệ cho cảnh báo nằm trong chính starlette (QUY_TRINH §4.4).
+Không thêm `-W error::DeprecationWarning`: `pytest.ini` đã biến DeprecationWarning thành lỗi, kèm một ngoại lệ cho cảnh báo nằm trong chính starlette.
 
 ## Biến `.env`
 
 | Biến | Ý nghĩa |
 |---|---|
-| `SHOPEE_*`, `TIKTOK_*` | Khóa app và token ban đầu (giả). Backend dùng **cùng tên biến, cùng giá trị** (SPEC §20.4) |
-| `MOCK_ESCROW_MODE` | `all` (mặc định): escrow cho mọi đơn, số liệu khớp §17.2. `completed_only`: đơn khác COMPLETED bị báo lỗi → kiểm nhánh NMV tạm tính của backend |
+| `SHOPEE_*`, `TIKTOK_*` | Khóa app và token ban đầu (giả). Backend dùng **cùng tên biến, cùng giá trị** |
+| `MOCK_ESCROW_MODE` | `all` (mặc định): escrow cho mọi đơn, số liệu khớp số liệu chuẩn. `completed_only`: đơn khác COMPLETED bị báo lỗi → kiểm nhánh NMV tạm tính của backend |
 | `MOCK_FAULT_RATE` | Tỷ lệ 0–1 yêu cầu bị trả lỗi quá tải: Shopee **HTTP 429** + `error_rate_limit`, TikTok HTTP 200 + `code 36009002`. 0 = tắt. Dùng để kiểm cơ chế thử lại |
 | `MOCK_FAULT_SEED` | Số nguyên cố định chuỗi lỗi (tái lập được). Bỏ trống = ngẫu nhiên |
 | `MOCK_SHOPEE_ACCESS_TTL_SECONDS`, `MOCK_TIKTOK_ACCESS_TTL_SECONDS` | Hạn sống access_token (giây). Mặc định như sàn thật (4 giờ / 7 ngày). Đặt `5` để thấy token hết hạn sau 5 giây |
@@ -53,8 +53,8 @@ Không thêm `-W error::DeprecationWarning`: `pytest.ini` đã biến Deprecatio
 
 | File | Việc |
 |---|---|
-| `data_builder.py` | CSV ẩn danh → dữ liệu khuôn API trong bộ nhớ (§19.4) |
-| `signature.py` | Chữ ký HMAC-SHA256 của 2 sàn, kiểm timestamp ±5 phút (§19.3) |
+| `data_builder.py` | CSV ẩn danh → dữ liệu khuôn API trong bộ nhớ |
+| `signature.py` | Chữ ký HMAC-SHA256 của 2 sàn, kiểm timestamp ±5 phút |
 | `tokens.py` | Bảng token: hạn sống, làm mới, refresh Shopee dùng 1 lần |
 | `gay_loi.py` | Lỗi quá tải có chủ đích (`MOCK_FAULT_RATE`) |
 | `shopee_routes.py` | `get_order_list`, `get_order_detail`, `get_escrow_detail_batch`, `auth/access_token/get` |
@@ -64,18 +64,18 @@ Không thêm `-W error::DeprecationWarning`: `pytest.ini` đã biến Deprecatio
 
 ## Giả định của bản giả lập (khác biệt có thể có với sàn thật)
 
-Tài liệu đã lưu không mô tả những điểm dưới đây; bản giả lập tự chọn. Khóa luận phải nêu rõ. Chi tiết và lý do: **SPEC §16 mục 5–9**.
+Tài liệu đã lưu không mô tả những điểm dưới đây; bản giả lập tự chọn. Khóa luận phải nêu rõ.
 
-| Điểm | Bản giả lập chọn | SPEC |
-|---|---|---|
-| Finance với đơn chưa COMPLETED | `code 0`, `sku_transactions = []` | §16 mục 5 |
-| Lớp bọc của escrow lô; đơn không có escrow | `[{escrow_detail}]`; đơn lỗi `{order_sn, fail_error: "mock_escrow_not_available"}` + `warning` | §16 mục 6 |
-| Mã lỗi xác thực / tham số TikTok | Mã quy ước `9990001`–`9990006` (bảng ở §19.2) | §16 mục 7 |
-| Khuôn `token/refresh` TikTok | Theo SDK mã nguồn mở EcomPHP; không trả trường hạn sống | §16 mục 7, §19.2 |
-| Shopee: refresh_token đã dùng | `error_auth` | §16 mục 7 |
-| Mã HTTP | Lỗi trả HTTP 200 + mã trong body; riêng Shopee quá tải trả HTTP 429 | §16 mục 8, 9 |
-| Cửa sổ thời gian | Shopee `[time_from, time_to]` cả hai đầu; TikTok `[_ge, _lt)` theo tài liệu | §16 mục 8, §20.2 |
-| Trường mặc định `get_order_detail`; vị trí trường làm mới token Shopee | 4 trường mặc định; trường đặt trong `response` | §16 mục 8 |
-| `next_page_token` trang cuối TikTok; Finance mã đơn lạ | `""`; rỗng | §16 mục 9 |
+| Điểm | Bản giả lập chọn |
+|---|---|
+| Finance với đơn chưa COMPLETED | `code 0`, `sku_transactions = []` |
+| Lớp bọc của escrow lô; đơn không có escrow | `[{escrow_detail}]`; đơn lỗi `{order_sn, fail_error: "mock_escrow_not_available"}` + `warning` |
+| Mã lỗi xác thực / tham số TikTok | Mã quy ước `9990001`–`9990006` |
+| Khuôn `token/refresh` TikTok | Theo SDK mã nguồn mở EcomPHP; không trả trường hạn sống |
+| Shopee: refresh_token đã dùng | `error_auth` |
+| Mã HTTP | Lỗi trả HTTP 200 + mã trong body; riêng Shopee quá tải trả HTTP 429 |
+| Cửa sổ thời gian | Shopee `[time_from, time_to]` cả hai đầu; TikTok `[_ge, _lt)` theo tài liệu |
+| Trường mặc định `get_order_detail`; vị trí trường làm mới token Shopee | 4 trường mặc định; trường đặt trong `response` |
+| `next_page_token` trang cuối TikTok; Finance mã đơn lạ | `""`; rỗng |
 
-Ngoài ra máy chủ giả lập **không** tái hiện được giới hạn tần suất thật, độ trễ thật, hay lỗi nằm ngoài tài liệu (§19.1).
+Ngoài ra máy chủ giả lập **không** tái hiện được giới hạn tần suất thật, độ trễ thật, hay lỗi nằm ngoài tài liệu.

@@ -1,4 +1,4 @@
-"""Điểm khởi động backend FastAPI (SPEC §13, §20.4).
+"""Điểm khởi động backend FastAPI.
 
 Chạy (từ backend/, đã có .env và Docker PostgreSQL):
     .venv\\Scripts\\python -m uvicorn app.main:app --port 8000
@@ -7,7 +7,7 @@ Lúc khởi động (lifespan):
   1. dọn các lượt đồng bộ 'running' còn sót (máy chủ tắt giữa lượt); tạo admin đầu tiên nếu bảng users trống;
   2. nạp sẵn token ban đầu từ .env vào platform_tokens (shop nào chưa có);
   3. bật lịch đồng bộ nền (SYNC_SCHEDULER_ENABLED);
-  4. bật quét thư mục data/inbox (WATCHER_ENABLED, §2.4).
+  4. bật quét thư mục data/inbox (WATCHER_ENABLED).
 Lúc tắt: đặt cờ dừng, đợi vòng lặp lịch kết thúc.
 """
 # Khởi tạo thư viện và module
