@@ -11,6 +11,7 @@ import { taiBaoCaoExcel } from '../api/export.js';
 import Card from '../components/Card.jsx';
 import PageTitle from '../components/PageTitle.jsx';
 import ChipChon from '../components/ChipChon.jsx';
+import ChipNgay from '../components/ChipNgay.jsx';
 import Icon from '../components/Icon.jsx';
 import { KhungXam } from '../components/KhoiDuLieu.jsx';
 import CacTheChiSo from '../components/dashboard/CacTheChiSo.jsx';
@@ -135,7 +136,11 @@ export default function Dashboard() {
         dongPhu={`${dongGianHang(loc)} · Dữ liệu ${dinhDangNgay(loc.data_min_date)} – ${dinhDangNgay(loc.data_max_date)}`}
         benPhai={
           <>
-            <ChipChon nhan="Kỳ" bieuTuong="calendar" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} luaChon={luaChonKy} />
+            {muc === 'day' ? (
+              <ChipNgay nhan="Kỳ" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} ngayMin={loc.data_min_date} ngayMax={loc.data_max_date} />
+            ) : (
+              <ChipChon nhan="Kỳ" bieuTuong="calendar" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} luaChon={luaChonKy} />
+            )}
             <ChipChon nhan="Mức thời gian" giaTri={muc} khiDoi={(v) => capNhat({ muc: v === 'month' ? '' : v, ky: '' })} luaChon={luaChonMuc} />
             <ChipChon nhan="Gian hàng" bieuTuong="filter" giaTri={shop} khiDoi={(v) => capNhat({ shop: v })} luaChon={luaChonShop} />
             <ChipChon nhan="Mã sản phẩm" bieuTuong="box" giaTri={ma} khiDoi={(v) => capNhat({ ma: v })} luaChon={luaChonMa} />

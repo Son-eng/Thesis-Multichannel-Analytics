@@ -12,6 +12,13 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
 .so { font-variant-numeric: tabular-nums; }
 .chip { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid ${mau.vienChip}; border-radius: ${boGoc.nut}px; background: ${mau.nenThe}; font-size: 13px; color: ${mau.chuPhu}; cursor: pointer; }
 .chip:hover { border-color: ${mau.vienChipHover}; }
+/* Ô chọn ngày dạng lịch (ChipNgay): ô nhập của Ant Design hòa vào khung chip. */
+.chip-ngay { padding-right: 9px; }
+.chip-ngay .ant-picker { padding: 0; height: 100%; box-shadow: none; }
+.chip-ngay .ant-picker-input > input { width: 84px; font-size: 13px; font-weight: 500; color: ${mau.chuChinh}; cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip-ngay .ant-picker-suffix { margin-left: 6px; color: ${mau.chuPhu}; }
+.lich-chon-ngay .ant-picker-panel-container { border: 1px solid ${mau.vienThe}; border-radius: ${boGoc.oTrangThai}px; box-shadow: ${bong.danhSachXo}; }
+.lich-chon-ngay .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner { font-weight: 600; }
 .chip select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; padding: 0 18px 0 0; font-size: 13px; font-weight: 500; color: ${mau.chuChinh}; cursor: pointer; }
 .chip select:focus-visible { outline: none; }
 .chip:focus-within { outline: 2px solid ${chuDao.chinh}; outline-offset: 2px; }

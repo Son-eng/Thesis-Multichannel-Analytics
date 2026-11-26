@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useParams, Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
-import viVN from 'antd/locale/vi_VN';
+import viVN from 'antd/es/locale/vi_VN';
 import { layAntdTheme } from './theme/antdTheme.js';
 import { cssToanCuc } from './theme/globalStyles.js';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';

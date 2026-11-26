@@ -96,7 +96,7 @@ def doi_trang_thai_shopee(trang_thai_csv):
     if trang_thai_csv.startswith(TIEN_TO_DA_NHAN_HANG):
         return "COMPLETED"
     if trang_thai_csv not in TRANG_THAI_SHOPEE:
-        raise ValueError(f"Trạng thái Shopee chưa có trong bảng đổi ngược §6.4: {trang_thai_csv!r}")
+        raise ValueError(f"Trạng thái Shopee chưa có trong bảng đổi ngược: {trang_thai_csv!r}")
     return TRANG_THAI_SHOPEE[trang_thai_csv]
 
 
@@ -171,7 +171,7 @@ def dung_du_lieu_shopee(duong_dan=FILE_SHOPEE):
 
 def doi_trang_thai_tiktok(trang_thai_csv):
     if trang_thai_csv not in TRANG_THAI_TIKTOK:
-        raise ValueError(f"Trạng thái TikTok chưa có trong bảng đổi ngược §6.4: {trang_thai_csv!r}")
+        raise ValueError(f"Trạng thái TikTok chưa có trong bảng đổi ngược: {trang_thai_csv!r}")
     return TRANG_THAI_TIKTOK[trang_thai_csv]
 
 

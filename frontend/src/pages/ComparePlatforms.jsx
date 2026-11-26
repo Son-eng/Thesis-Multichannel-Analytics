@@ -10,6 +10,7 @@ import { docLoi } from '../api/client.js';
 import Card from '../components/Card.jsx';
 import PageTitle from '../components/PageTitle.jsx';
 import ChipChon from '../components/ChipChon.jsx';
+import ChipNgay from '../components/ChipNgay.jsx';
 import Icon from '../components/Icon.jsx';
 import { KhungXam } from '../components/KhoiDuLieu.jsx';
 import TieuDeKhoi from '../components/dashboard/TieuDeKhoi.jsx';
@@ -80,7 +81,11 @@ export default function ComparePlatforms() {
       benPhai={
         coLoc ? (
           <>
-            <ChipChon nhan="Kỳ" bieuTuong="calendar" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} luaChon={danhSachKy(muc, ngayMin, ngayMax).map((k) => ({ value: k.key, label: k.label }))} />
+            {muc === 'day' ? (
+              <ChipNgay nhan="Kỳ" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} ngayMin={ngayMin} ngayMax={ngayMax} />
+            ) : (
+              <ChipChon nhan="Kỳ" bieuTuong="calendar" giaTri={ky} khiDoi={(v) => capNhat({ ky: v })} luaChon={danhSachKy(muc, ngayMin, ngayMax).map((k) => ({ value: k.key, label: k.label }))} />
+            )}
             <ChipChon nhan="Mức thời gian" giaTri={muc} khiDoi={(v) => capNhat({ muc: v === 'month' ? '' : v, ky: '' })} luaChon={MUC_THOI_GIAN.map((m) => ({ value: m, label: NHAN_MUC[m] }))} />
           </>
         ) : null
